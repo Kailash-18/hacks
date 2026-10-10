@@ -1,0 +1,107 @@
+{
+  "image": "landing.png",
+  "width": 1280,
+  "height": 800,
+  "elements": [
+    {
+      "id": "navbar",
+      "type": "navbar",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1.0,
+        "height": 0.08
+      }
+    },
+    {
+      "id": "logo",
+      "type": "logo",
+      "bbox": {
+        "x": 0.0375,
+        "y": 0.0231,
+        "width": 0.0563,
+        "height": 0.0325
+      }
+    },
+    {
+      "id": "sign-in",
+      "type": "button",
+      "bbox": {
+        "x": 0.8994,
+        "y": 0.0181,
+        "width": 0.0631,
+        "height": 0.0425
+      }
+    },
+    {
+      "id": "hero-section",
+      "type": "section",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.08,
+        "width": 1.0,
+        "height": 0.525
+      }
+    },
+    {
+      "id": "hero-heading",
+      "type": "heading",
+      "bbox": {
+        "x": 0.0375,
+        "y": 0.17,
+        "width": 0.4375,
+        "height": 0.1322
+      }
+    },
+    {
+      "id": "hero-cta",
+      "type": "button",
+      "bbox": {
+        "x": 0.0375,
+        "y": 0.4297,
+        "width": 0.1301,
+        "height": 0.06
+      }
+    },
+    {
+      "id": "hero-image",
+      "type": "image",
+      "bbox": {
+        "x": 0.5125,
+        "y": 0.17,
+        "width": 0.4375,
+        "height": 0.375
+      }
+    },
+    {
+      "id": "card-alerts",
+      "type": "card",
+      "bbox": {
+        "x": 0.0375,
+        "y": 0.605,
+        "width": 0.2917,
+        "height": 0.2125
+      }
+    },
+    {
+      "id": "card-reports",
+      "type": "card",
+      "bbox": {
+        "x": 0.3542,
+        "y": 0.605,
+        "width": 0.2917,
+        "height": 0.2125
+      }
+    },
+    {
+      "id": "card-dashboards",
+      "type": "card",
+      "bbox": {
+        "x": 0.6708,
+        "y": 0.605,
+        "width": 0.2917,
+        "height": 0.2125
+      }
+    }
+  ]
+}

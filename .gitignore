@@ -1,11 +1,22 @@
-AGENT_SAMVIT.md
-API_CONTRACT.md
-MASTER_PROJECT_BRIEF.md
+# Private planning briefs (root only; docs/API_CONTRACT.md is shared and committed)
+/AGENT_*.md
+/MASTER_PROJECT_BRIEF.md
+/API_CONTRACT.md
+
+# Secrets
 .env
-**/.env
-.venv/
+.env.*
+!.env.example
+
+# Python
 __pycache__/
+*.pyc
 .pytest_cache/
+.venv/
+
+# Local caches, test data, eval output
 apps/api/.cache/
-node_modules/
 apps/viewer/testdata/
+apps/api/out/
+node_modules/
+*.bundle
