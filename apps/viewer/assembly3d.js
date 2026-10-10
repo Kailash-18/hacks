@@ -725,6 +725,10 @@ export class AssemblyView {
       const move = (from, to, pick) => { from.sort(pick); to.push(from.shift()); };
       while (left.length - right.length > 1) move(left, right, (a, b) => b.ax - a.ax);
       while (right.length - left.length > 1) move(right, left, (a, b) => a.ax - b.ax);
+      // columns hug the model (a short gap from its outermost anchor) instead of the screen edges, so leader lines stay short
+      const GUTTER = 56, minAx = Math.min(...items.map((i) => i.ax)), maxAx = Math.max(...items.map((i) => i.ax));
+      const maxLwL = Math.max(0, ...left.map((i) => i.lw)), maxLwR = Math.max(0, ...right.map((i) => i.lw));
+      const colRightL = Math.max(SIDE + maxLwL, minAx - GUTTER), colLeftR = Math.min(w - SIDE - maxLwR, maxAx + GUTTER);
       for (const [col, side] of [[left, "L"], [right, "R"]]) {
         const row = (i) => Math.round(i.ay / 14); // same row: the lower label goes to the part farther away, so lines never cross
         col.sort((a, b) => row(a) - row(b) || (side === "L" ? a.ax - b.ax : b.ax - a.ax));
@@ -733,7 +737,7 @@ export class AssemblyView {
         let limit = h - BOTTOM; // bottom-up: pull back inside the free area if the column overflows
         for (let k = col.length - 1; k >= 0; k--) { col[k].y = Math.max(TOP, Math.min(col[k].y, limit - col[k].lh)); limit = col[k].y - GAP; }
         for (const i of col) {
-          i.x = side === "L" ? SIDE : w - SIDE - i.lw;
+          i.x = side === "L" ? colRightL - i.lw : colLeftR;
           i.e.style.transform = `translate(${Math.round(i.x)}px, ${Math.round(i.y)}px)`;
           const sx = side === "L" ? i.x + i.lw : i.x, sy = i.y + i.lh / 2, ex = sx + (side === "L" ? ELBOW : -ELBOW);
           let g = this._leaderEls.get(i.p.id);
