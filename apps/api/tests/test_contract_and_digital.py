@@ -224,3 +224,15 @@ def test_chat_rejects_unknown_selection():
 def test_chat_empty_answer_admits_insufficient_evidence():
     resp = answer_question(_digital(), ChatRequest(question="Who built this?"), FakeClient("{}"))
     assert "not contain enough evidence" in resp.answer
+
+
+@pytest.mark.parametrize("q", ["What happens if I click Log in?", "Where does tapping this take me?"])
+def test_chat_behaviour_caveat_for_interaction_questions(q):
+    resp = answer_question(_digital(), ChatRequest(question=q), FakeClient(json.dumps(CHAT_FIXTURE)))
+    assert DIGITAL_BEHAVIOUR_LIMITATION in resp.limitations
+
+
+def test_chat_no_behaviour_caveat_for_layout_questions():
+    resp = answer_question(_digital(), ChatRequest(question="How many feature cards are there?"),
+                           FakeClient(json.dumps(dict(CHAT_FIXTURE, limitations=[]))))
+    assert DIGITAL_BEHAVIOUR_LIMITATION not in resp.limitations

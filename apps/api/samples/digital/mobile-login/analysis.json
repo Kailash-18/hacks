@@ -1,0 +1,313 @@
+{
+  "analysisId": "digital-69f51b932963735d",
+  "domain": "digital",
+  "title": "Login screen",
+  "source": {
+    "kind": "image",
+    "filename": "mobile_login.png"
+  },
+  "assetId": null,
+  "components": [
+    {
+      "id": "back-btn",
+      "label": "Back button",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Green chevron arrow pointing left"
+      ],
+      "bbox": {
+        "x": 0.062,
+        "y": 0.066,
+        "width": 0.021,
+        "height": 0.014
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "app-logo",
+      "label": "Fernleaf Logo",
+      "type": "logo",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Green rounded square icon"
+      ],
+      "bbox": {
+        "x": 0.407,
+        "y": 0.128,
+        "width": 0.185,
+        "height": 0.086
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "heading-welcome",
+      "label": "Welcome back",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text 'Welcome back'"
+      ],
+      "bbox": {
+        "x": 0.269,
+        "y": 0.242,
+        "width": 0.461,
+        "height": 0.026
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "subheading-text",
+      "label": "Log in to continue to Fernleaf",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text 'Log in to continue to Fernleaf'"
+      ],
+      "bbox": {
+        "x": 0.25,
+        "y": 0.284,
+        "width": 0.499,
+        "height": 0.017
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "email-label",
+      "label": "Email",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text 'Email'"
+      ],
+      "bbox": {
+        "x": 0.062,
+        "y": 0.344,
+        "width": 0.089,
+        "height": 0.015
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "email-input",
+      "label": "Email input field",
+      "type": "input",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Placeholder 'you@example.com' inside rounded input box"
+      ],
+      "bbox": {
+        "x": 0.062,
+        "y": 0.368,
+        "width": 0.875,
+        "height": 0.059
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "password-label",
+      "label": "Password",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text 'Password'"
+      ],
+      "bbox": {
+        "x": 0.062,
+        "y": 0.45,
+        "width": 0.157,
+        "height": 0.015
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "password-input",
+      "label": "Password input field",
+      "type": "input",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Masked dots inside rounded input box"
+      ],
+      "bbox": {
+        "x": 0.062,
+        "y": 0.474,
+        "width": 0.875,
+        "height": 0.059
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "forgot-password-link",
+      "label": "Forgot password?",
+      "type": "link",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Green link text 'Forgot password?'"
+      ],
+      "bbox": {
+        "x": 0.652,
+        "y": 0.55,
+        "width": 0.286,
+        "height": 0.017
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "login-button",
+      "label": "Log in",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Green solid button with text 'Log in'"
+      ],
+      "bbox": {
+        "x": 0.062,
+        "y": 0.597,
+        "width": 0.875,
+        "height": 0.062
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "or-divider",
+      "label": "or",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text 'or'"
+      ],
+      "bbox": {
+        "x": 0.486,
+        "y": 0.69,
+        "width": 0.028,
+        "height": 0.013
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "google-login-button",
+      "label": "Continue with Google",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Outlined rounded button with text 'Continue with Google'"
+      ],
+      "bbox": {
+        "x": 0.062,
+        "y": 0.733,
+        "width": 0.875,
+        "height": 0.06
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "signup-prompt",
+      "label": "New here? Create an account",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Footer text 'New here? Create an account'"
+      ],
+      "bbox": {
+        "x": 0.253,
+        "y": 0.936,
+        "width": 0.494,
+        "height": 0.017
+      },
+      "modelNodeId": null,
+      "transform": null
+    }
+  ],
+  "relationships": [
+    {
+      "id": "email-label--label_for--email-input",
+      "from": "email-label",
+      "to": "email-input",
+      "type": "label_for",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Email label positioned directly above email input"
+      ]
+    },
+    {
+      "id": "password-label--label_for--password-input",
+      "from": "password-label",
+      "to": "password-input",
+      "type": "label_for",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Password label positioned directly above password input"
+      ]
+    },
+    {
+      "id": "password-input--adjacent_to--forgot-password-link",
+      "from": "password-input",
+      "to": "forgot-password-link",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Forgot password link right-aligned directly below password input"
+      ]
+    },
+    {
+      "id": "login-button--adjacent_to--or-divider",
+      "from": "login-button",
+      "to": "or-divider",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "'or' divider placed below Log in button"
+      ]
+    },
+    {
+      "id": "or-divider--adjacent_to--google-login-button",
+      "from": "or-divider",
+      "to": "google-login-button",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Google login button directly below 'or' divider"
+      ]
+    }
+  ],
+  "summary": "The screen displays a login interface for Fernleaf with options to sign in via email/password or Continue with Google. It includes a back navigation button at the top and a prompt to create an account at the bottom.",
+  "limitations": [
+    "A single screenshot shows layout and visible text only; it does not reveal event handlers, API calls, data sources or where any control navigates.",
+    "Bounding boxes are model estimates and may be offset slightly from the true element edges.",
+    "confidence is null because the model does not produce calibrated probabilities."
+  ],
+  "provider": {
+    "name": "gemini",
+    "model": "gemini-3.8-flash"
+  }
+}

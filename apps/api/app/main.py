@@ -1,7 +1,7 @@
-"""FastAPI app for the Physical Lab prototype.
+"""Visual Reverse Engineering API: Physical Lab (Samvit) + Digital Lab and chat (Krishna).
 
-Krishna owns the final API; these routes follow API_CONTRACT.md so they can be
-merged into his app (or his app can call ``analyze_physical_image`` directly).
+Run from apps/api:  uvicorn app.main:app --reload --port 8000
+Contract and endpoints: docs/API_CONTRACT.md. All errors: {"error": {"code", "message"}}.
 """
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -36,7 +37,13 @@ _load_env(API_DIR / ".env")
 from .schemas import SystemAnalysis, WhatIfRequest  # noqa: E402
 from .services.component_graph import what_if  # noqa: E402
 from .services.physical_analysis import MAX_VIEWS, PIPELINE_VERSION, PROMPT, AnalysisError, analyze_physical_images  # noqa: E402
-from .services.vision_client import GeminiVisionClient, ProviderError  # noqa: E402
+from .services.vision_client import ProviderError  # noqa: E402
+from .contract import SystemAnalysis as ContractAnalysis  # noqa: E402
+from .errors import register_error_handlers  # noqa: E402
+from .routes_digital import SAMPLES as DIGITAL_SAMPLES  # noqa: E402
+from .routes_digital import router as digital_router  # noqa: E402
+from .services.vision_provider import make_shared_client, provider_status, set_shared_client  # noqa: E402
+from .store import store as shared_store  # noqa: E402
 
 MAX_BYTES = 8 * 1024 * 1024
 from .services.assembly import PROMPT as ASSEMBLY_PROMPT  # noqa: E402
@@ -47,7 +54,7 @@ CACHE_DIR = API_DIR / ".cache"
 SAMPLES_DIR = API_DIR / "samples"
 VIEWER_DIR = API_DIR.parent / "viewer"
 
-app = FastAPI(title="Visual Reverse Engineering — Physical Lab", version="0.1.0")
+app = FastAPI(title="Visual Reverse Engineering API", version="0.2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",")],
@@ -65,17 +72,11 @@ async def _no_stale_viewer(request, call_next):
 
 def _make_vision():
     """VISION_PROVIDER: auto (Gemini, then local LM Studio when Gemini is out of quota), gemini, or lmstudio."""
-    from .services.lmstudio_client import FallbackVisionClient, LMStudioVisionClient
-    mode = os.getenv("VISION_PROVIDER", "auto").lower()
-    if mode == "lmstudio":
-        return LMStudioVisionClient()
-    if mode == "gemini":
-        return GeminiVisionClient()
-    providers = [GeminiVisionClient()] if os.getenv("GEMINI_API_KEY") else []
-    return FallbackVisionClient(providers + [LMStudioVisionClient()])
+    return make_shared_client()
 
 
 vision = _make_vision()
+set_shared_client(vision)  # Digital Lab and chat use the same client (one quota tracker)
 _store: "OrderedDict[str, SystemAnalysis]" = OrderedDict()  # recent analyses for what-if
 
 
@@ -84,23 +85,50 @@ def _remember(a: SystemAnalysis) -> None:
     _store.move_to_end(a.analysis_id)
     while len(_store) > 50:
         _store.popitem(last=False)
+    try:  # also make it available to /api/analysis/{id} and chat (shared store, memory only)
+        shared_store.put(ContractAnalysis.model_validate(a.dump()), persist=False)
+    except ValueError:
+        pass  # chat is optional for physical; never fail the analysis over it
+
+
+_PROVIDER_CODES = {429: "provider_rate_limited", 503: "provider_unavailable", 504: "provider_timeout"}
+_HTTP_CODES = {400: "bad_request", 404: "not_found", 405: "method_not_allowed", 413: "file_too_large",
+               415: "unsupported_media_type", 422: "invalid_request"}
+
+
+def _err(status: int, code: str, message: str) -> JSONResponse:
+    return JSONResponse({"error": {"code": code, "message": message}}, status_code=status)
 
 
 @app.exception_handler(ProviderError)
 async def _provider_error(_, exc: ProviderError):
-    return JSONResponse({"error": str(exc)}, status_code=exc.status)
+    return _err(exc.status, _PROVIDER_CODES.get(exc.status, "provider_error"), str(exc))
 
 
 @app.exception_handler(AnalysisError)
 async def _analysis_error(_, exc: AnalysisError):
-    return JSONResponse({"error": str(exc)}, status_code=exc.status)
+    return _err(exc.status, "analysis_failed", str(exc))
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _http_error(_, exc: StarletteHTTPException):
+    msg = exc.detail if isinstance(exc.detail, str) else "Request failed."
+    return _err(exc.status_code, _HTTP_CODES.get(exc.status_code, f"http_{exc.status_code}"), msg)
+
+
+register_error_handlers(app)  # ApiError + request validation -> same {"error": {code, message}} shape
+app.include_router(digital_router)  # /api/digital/*, /api/analysis/{id}, /api/analysis/{id}/chat
 
 
 @app.get("/api/health")
 def health():
     return {"status": "ok", "pipeline": PIPELINE_VERSION,
+            "labs": ["physical", "digital"],
             "provider": {"name": vision.name, "model": vision.model},
-            "providers": [{"name": p.name, "model": p.model} for p in getattr(vision, "providers", [vision])]}
+            "providers": [{"name": p.name, "model": p.model} for p in getattr(vision, "providers", [vision])],
+            "geminiKeyConfigured": provider_status()["geminiKeyConfigured"],
+            "fixtureMode": provider_status()["fixtureMode"],
+            "digitalSamples": len(DIGITAL_SAMPLES)}
 
 
 @app.get("/api/assets")

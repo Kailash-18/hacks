@@ -6,6 +6,20 @@ from typing import Any, Mapping
 
 Box = Mapping[str, float]
 
+# Labels that describe the same thing at different granularity count as agreeing.
+TYPE_GROUPS = [
+    {"section", "hero", "banner", "container"},
+    {"text", "paragraph"},
+    {"image", "logo", "icon"},
+    {"menu", "navbar", "toolbar"},
+]
+
+
+def types_agree(a: str | None, b: str | None) -> bool:
+    if not a or not b:
+        return False
+    return a == b or any(a in g and b in g for g in TYPE_GROUPS)
+
 
 def iou(a: Box, b: Box) -> float:
     ix = max(0.0, min(a["x"] + a["width"], b["x"] + b["width"]) - max(a["x"], b["x"]))
@@ -19,7 +33,8 @@ def match_ground_truth(gt: list[dict[str, Any]], pred: list[dict[str, Any]], thr
     """Greedy one-to-one matching by IoU (highest first).
 
     gt items: {"id", "type", "bbox"}; pred items: components from the API (bbox may be null).
-    Returns per-element matches plus recall@threshold, mean IoU of matches and type agreement.
+    Returns per-element matches plus recall@threshold, mean IoU of matches and type agreement
+    (TYPE_GROUPS counts e.g. 'hero' vs 'section' as agreeing).
     """
     pairs = []
     for gi, g in enumerate(gt):
@@ -42,7 +57,7 @@ def match_ground_truth(gt: list[dict[str, Any]], pred: list[dict[str, Any]], thr
         pi, score = matches.get(gi, (None, 0.0))
         p = pred[pi] if pi is not None else None
         hit = score >= threshold
-        same_type = bool(p and p.get("type") == g.get("type"))
+        same_type = bool(p and types_agree(p.get("type"), g.get("type")))
         if hit:
             hits += 1
             ious.append(score)

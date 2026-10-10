@@ -579,9 +579,10 @@ async function shrink(file, max = 1600) { // client-side downscale keeps uploads
   return new Promise((res) => c.toBlob(res, "image/jpeg", 0.9));
 }
 
-function errText(data, status) { // FastAPI may send {detail: [...]} objects; always show readable text
+function errText(data, status) { // API errors are {error: {code, message}}; older/FastAPI shapes still handled
   const d = data && (data.error || data.detail);
   if (typeof d === "string") return d;
+  if (d && typeof d.message === "string") return d.message;
   if (Array.isArray(d)) return d.map((x) => x.msg || JSON.stringify(x)).join("; ");
   return `Request failed (${status})`;
 }
@@ -641,7 +642,7 @@ $("samples").addEventListener("change", async (e) => {
   try {
     steps(1);
     const r = await fetch(API + "/api/physical/samples/" + encodeURIComponent(id)); const d = await r.json();
-    if (!r.ok) throw new Error(d.detail || "Sample failed to load");
+    if (!r.ok) throw new Error(errText(d, r.status));
     await build(d, { sample: true });
   } catch (err) { $("loading").hidden = true; showError(err.message); }
 });
