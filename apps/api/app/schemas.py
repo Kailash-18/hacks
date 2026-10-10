@@ -41,6 +41,10 @@ class Component(_Model):
     bbox: Optional[BBox] = None
     model_node_id: Optional[str] = Field(default=None, alias="modelNodeId")
     transform: Optional[Transform] = None
+    # optional system knowledge (AI estimate): what the part does / what breaks without it / 0-1 importance
+    function: str = ""
+    if_removed: str = Field(default="", alias="ifRemoved")
+    importance: Optional[float] = Field(default=None, ge=0, le=1)
 
 
 class Relationship(_Model):

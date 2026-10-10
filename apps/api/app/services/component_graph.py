@@ -19,6 +19,15 @@ PROPAGATING_TYPES = {"powers", "drives", "controls", "supports", "transmits", "f
 NON_PROPAGATING_TYPES = {"connected_to", "contains", "attached_to", "adjacent_to", "covers"}
 ALLOWED_TYPES = PROPAGATING_TYPES | NON_PROPAGATING_TYPES
 
+# What the last link in a chain means for the affected part.
+IMPACT = {
+    "powers": ("loses power", "fails"), "feeds": ("loses its supply", "fails"),
+    "controls": ("loses its control signal", "fails"), "depends_on": ("stops working", "fails"),
+    "drives": ("stops moving", "fails"), "transmits": ("stops receiving motion", "fails"),
+    "supports": ("comes loose", "loose"), "mounts": ("falls off its mount", "loose"),
+}
+CRITICAL_TYPES = {"power_source", "controller"}
+
 METHOD = "graph-based what-if (dependency traversal over AI-extracted relationships; not a physics simulation)"
 
 
@@ -65,26 +74,39 @@ def what_if(
     for edges in out.values():
         edges.sort(key=lambda e: (e.to, e.id))  # determinism
 
+    # BFS with state: a removed or failed part passes failure along every dependency edge; a part that
+    # only comes loose passes on only structural effects (what is mounted on it comes loose too).
+    structural = {"supports", "mounts"}
     parent: dict[str, tuple[str, Relationship]] = {}
     depth = {removed_id: 0}
+    state = {removed_id: "fails"}
     queue = deque([removed_id])
     order: list[str] = []
     while queue:
         node = queue.popleft()
         for e in out.get(node, []):
-            if e.to in depth:
+            if state[node] == "loose" and e.type not in structural:
                 continue
+            new = "loose" if e.type in structural else "fails"
+            if e.to == removed_id:
+                continue
+            if e.to in state and not (state[e.to] == "loose" and new == "fails"):
+                continue
+            if e.to not in state:
+                order.append(e.to)
             depth[e.to] = depth[node] + 1
             parent[e.to] = (node, e)
-            order.append(e.to)
+            state[e.to] = new
             queue.append(e.to)
+    first = {c: i for i, c in enumerate(order)}
+    order.sort(key=lambda c: (depth[c], first[c]))
 
     affected = []
     for cid in order:
         path_ids = [cid]
         via: list[Relationship] = []
         cur = cid
-        while cur != removed_id:
+        while cur != removed_id and len(path_ids) <= len(components):  # guard: never loop
             prev, edge = parent[cur]
             via.append(edge)
             path_ids.append(prev)
@@ -95,7 +117,12 @@ def what_if(
         for edge, nid in zip(via, path_ids[1:]):
             chain += f" --{edge.type}--> {by_id[nid].label}"
         uncertain = any(e.status != "observed" for e in via)
+        impact, severity = IMPACT.get(via[-1].type, ("is affected", "fails"))
+        severity = state[cid]
         affected.append({
+            "impact": impact,
+            "severity": severity,
+            "why": via[-1].evidence[0] if via[-1].evidence else "",
             "componentId": cid,
             "label": by_id[cid].label,
             "hops": depth[cid],
@@ -112,8 +139,26 @@ def what_if(
                    + ("Some links are inferred, so treat these as hypotheses." if any(a["uncertain"] for a in affected) else ""))
     else:
         summary = f"No dependency edges lead out of {label}, so the graph predicts no downstream effect."
+    # System health: share of importance that keeps working (parts that only come loose count half).
+    weight = {c.id: (c.importance if getattr(c, "importance", None) is not None else 0.5) for c in components}
+    total = sum(weight.values()) or 1.0
+    lost = weight[removed_id] + sum(weight[a["componentId"]] * (1.0 if a["severity"] == "fails" else 0.5) for a in affected)
+    health = max(0, min(100, round(100 * (1 - lost / total))))
+    fails = sum(a["severity"] == "fails" for a in affected)
+    critical = by_id[removed_id].type in CRITICAL_TYPES or (weight[removed_id] >= 0.85)
+    if (critical and fails) or health < 35:
+        verdict = "dead"
+    elif affected or weight[removed_id] >= 0.3:
+        verdict = "degraded"
+    else:
+        verdict = "works"
+    if verdict == "dead":  # the main function is gone: what is left working is only passive structure
+        health = min(health, 10)
     return {
         "removedComponentId": removed_id,
+        "consequence": getattr(by_id[removed_id], "if_removed", "") or "",
+        "health": health,
+        "verdict": verdict,
         "affected": affected,
         "unaffectedComponentIds": unaffected,
         "summary": summary.strip(),

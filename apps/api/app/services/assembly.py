@@ -20,6 +20,7 @@ log = logging.getLogger("uvicorn.error")
 SHAPES = ("box", "rounded_box", "cylinder", "disc", "sphere", "ellipsoid", "dome", "capsule", "cone", "torus", "plate")
 DETAIL_SHAPES = SHAPES + ("cross", "slots")
 MAX_DETAILS = 40
+MAX_EXTRA = 6
 MATERIALS = ("plastic", "glossy_plastic", "rubber", "metal", "aluminum", "glass", "pcb", "fabric", "screen")
 
 PROMPT = """You are a mechanical design assistant building a simplified 3D CAD-style model of the object in
@@ -31,9 +32,17 @@ Return ONLY one JSON object:
   "units": "mm",
   "overall_size": [width_x, height_y, depth_z],
   "parts": [
-    {{"id": "<one of the ids above>", "shape": "<shape>", "size": [x, y, z], "position": [x, y, z],
+    {{"id": "<one of the ids above, or an extra_parts id>", "shape": "<shape>", "size": [x, y, z], "position": [x, y, z],
       "rotation": [rx, ry, rz], "color": "#rrggbb", "material": "<material>",
-      "explode_dir": [dx, dy, dz], "explode_dist": 1.0}}
+      "explode_dir": [dx, dy, dz], "explode_dist": 1.0,
+      "function": "what it does, max 12 words", "if_removed": "what stops working without it, max 14 words",
+      "importance": 0.0}}
+  ],
+  "extra_parts": [
+    {{"id": "snake_case_id", "label": "Part name", "type": "<part type>", "reason": "why this object has it"}}
+  ],
+  "relationships": [
+    {{"from": "<id>", "to": "<id>", "type": "<relationship type>", "why": "short reason, max 12 words"}}
   ],
   "details": [
     {{"parent": "<one of the ids above>", "shape": "<detail shape>", "size": [x, y, z], "position": [x, y, z],
@@ -77,6 +86,16 @@ Rules:
   ("cross"), keys, feet, seams. Detail shapes: the part shapes plus "cross" and "slots". Each detail
   belongs to "parent" (it moves with that part when exploded); its position is absolute (same frame as
   parts) and must sit ON the parent's outer surface, slightly proud of it (0.3-1 mm), never floating.
+- "extra_parts": up to {max_extra} important INTERNAL parts this kind of object (or this exact product) really
+  has that are missing from the list (e.g. optical sensor, microswitches, battery contacts, motor, PCB, antenna).
+  Never duplicate a listed part. Give each one a "parts" entry too (geometry inside the housing). [] if none.
+- "relationships": the real system wiring between ALL parts (listed + extra), like an engineer's block diagram.
+  Types: {rel_types}. Direction: "from" -> "to" means "to" depends on "from".
+  Cover every chain: power (battery powers board, board powers sensor/LEDs/motor), control and signals
+  (button/switch controls board input -> use "controls" from the input part to the board; board controls
+  outputs), motion (motor drives gear, wheel drives encoder), structure (housing supports/mounts the parts
+  it holds; base supports board). EVERY part appears in at least one relationship. 8-30 relationships.
+- importance: 0-1, how much the object's main function depends on the part (battery/main board ~1, logo ~0.05).
 - Keep it compact. No prose.
 """
 
@@ -206,7 +225,9 @@ def build_assembly(analysis: SystemAnalysis, jpegs: list[bytes], vision_client: 
     comps = analysis.components
     listing = "\n".join(f'- id "{c.id}": {c.label} ({c.type}; {"visible" if c.status == "observed" else "inferred, not visible"})'
                         for c in comps)
-    prompt = PROMPT.format(parts=listing, materials=", ".join(MATERIALS)) + product_context(product)
+    from .component_graph import ALLOWED_TYPES
+    prompt = PROMPT.format(parts=listing, materials=", ".join(MATERIALS), max_extra=MAX_EXTRA,
+                           rel_types=", ".join(sorted(ALLOWED_TYPES))) + product_context(product)
     key = hashlib.sha256(b"".join(hashlib.sha256(j).digest() for j in jpegs) + prompt.encode()
                          + vision_client.model.encode()).hexdigest()
     cached = cache_dir / f"asm-{key}.json" if cache_dir else None
@@ -227,4 +248,85 @@ def build_assembly(analysis: SystemAnalysis, jpegs: list[bytes], vision_client: 
         if cached:
             cache_dir.mkdir(parents=True, exist_ok=True)
             cached.write_text(json.dumps(raw), encoding="utf-8")
-    return parse_assembly(raw, {c.id for c in comps}, {c.id: c.type for c in comps})
+    extra = parse_extra_parts(raw, {c.id for c in comps})
+    ids = {c.id for c in comps} | {c.id for c in extra}
+    asm = parse_assembly(raw, ids, {c.id: c.type for c in comps + extra})
+    if asm is None:
+        return None
+    placed = {p.component_id for p in asm.parts}
+    extra = [c for c in extra if c.id in placed]  # an extra part without geometry is dropped
+    apply_system(analysis, raw, extra, asm)
+    return asm
+
+
+def _txt(v, n=120) -> str:
+    return "" if v is None else re.sub(r"\s+", " ", str(v)).strip()[:n]
+
+
+def parse_extra_parts(raw: dict, existing: set[str]) -> list:
+    """Internal parts the 3D step adds from its knowledge of the object (inferred, never seen)."""
+    from ..schemas import Component
+    from .physical_analysis import PART_TYPES
+    out, labels = [], set()
+    for e in raw.get("extra_parts", []) if isinstance(raw.get("extra_parts"), list) else []:
+        if not isinstance(e, dict) or len(out) >= MAX_EXTRA:
+            continue
+        cid = re.sub(r"[^a-z0-9_]+", "_", _txt(e.get("id"), 40).lower()).strip("_")
+        label = _txt(e.get("label"), 60)
+        if not cid or not label or cid in existing or label.lower() in labels:
+            continue
+        labels.add(label.lower())
+        typ = _txt(e.get("type"), 30).lower()
+        reason = _txt(e.get("reason"), 200) or "Typical internal part of this kind of object."
+        out.append(Component(id=cid, label=label, type=typ if typ in PART_TYPES else "unknown", status="inferred",
+                             evidence=[f"Not visible: {reason}"]))
+    return out
+
+
+def apply_system(analysis: SystemAnalysis, raw: dict, extra: list, asm: Assembly) -> None:
+    """Merge the 3D step's system knowledge into the analysis: extra internal parts, part functions,
+    and a complete relationship graph (the photo-only graph is usually sparse)."""
+    from ..schemas import Relationship
+    from .component_graph import ALLOWED_TYPES, validate_relationships
+    analysis.components.extend(extra)
+    if analysis.scene is not None:
+        analysis.scene.ghost_component_ids.extend(c.id for c in extra)
+    by_id = {c.id: c for c in analysis.components}
+    for p in raw.get("parts", []) if isinstance(raw.get("parts"), list) else []:
+        c = by_id.get(str(p.get("id", ""))) if isinstance(p, dict) else None
+        if c is None:
+            continue
+        c.function = _txt(p.get("function"), 100) or c.function
+        c.if_removed = _txt(p.get("if_removed"), 120) or c.if_removed
+        if p.get("importance") is not None:
+            c.importance = _num(p.get("importance"), 0.5, 0.0, 1.0)
+
+    observed_pairs = {frozenset((r.from_, r.to)) for r in analysis.relationships if r.status == "observed"}
+    sys_rels, pairs = [], set()
+    for r in raw.get("relationships", []) if isinstance(raw.get("relationships"), list) else []:
+        if not isinstance(r, dict):
+            continue
+        a, b = str(r.get("from", "")), str(r.get("to", ""))
+        if a not in by_id or b not in by_id or a == b or frozenset((a, b)) in pairs:
+            continue
+        rtype = _txt(r.get("type"), 30).lower()
+        rtype = rtype if rtype in ALLOWED_TYPES else "connected_to"
+        pairs.add(frozenset((a, b)))
+        why = _txt(r.get("why") or r.get("evidence"), 160)
+        sys_rels.append(Relationship(**{
+            "id": f"{a}--{rtype}--{b}", "from": a, "to": b, "type": rtype,
+            "status": "observed" if frozenset((a, b)) in observed_pairs else "inferred",
+            "evidence": [why or "System model inference (typical design of this object)."]}))
+    merged = sys_rels + [r for r in analysis.relationships if frozenset((r.from_, r.to)) not in pairs]
+
+    # nothing may float: a part with no link at all is held by the main housing
+    linked = {x for r in merged for x in (r.from_, r.to)}
+    vol = {p.component_id: p.size[0] * p.size[1] * p.size[2] for p in asm.parts}
+    housing = max((cid for cid in vol if by_id[cid].type in ("cover", "structure")), key=vol.get, default=None) \
+        or max(vol, key=vol.get, default=None)
+    for c in analysis.components:
+        if c.id not in linked and housing and c.id != housing:
+            merged.append(Relationship(**{"id": f"{housing}--supports--{c.id}", "from": housing, "to": c.id,
+                                          "type": "supports", "status": "inferred",
+                                          "evidence": ["Assumed: held in place by the main housing."]}))
+    analysis.relationships, _ = validate_relationships(analysis.components, merged)

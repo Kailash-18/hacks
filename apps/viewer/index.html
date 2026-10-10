@@ -40,9 +40,22 @@
       <label class="btn primary big" for="file">Choose photos</label>
     </div>
     <div id="loading" class="loading" hidden>
-      <div class="spinner"></div>
-      <ol id="steps"></ol>
+      <div class="scan">
+        <div class="scan-photo" id="scanPhoto">
+          <img id="scanImg" alt="" />
+          <i class="br tl"></i><i class="br tr"></i><i class="br bl"></i><i class="br brr"></i>
+          <div class="scan-grid"></div><div class="scan-line"></div><div id="scanDots" class="scan-dots"></div>
+        </div>
+        <div class="scan-side">
+          <div class="scan-title">SCANNING<span id="scanTime" class="scan-time">0.0 s</span></div>
+          <ol id="steps"></ol>
+          <div class="tiny muted" id="scanNote">Free-tier AI: usually 60–120 s. Photos already seen load instantly.</div>
+        </div>
+      </div>
     </div>
+    <div id="reveal" class="reveal" hidden></div>
+    <div id="impact" class="impact" hidden></div>
+    <div id="flash" class="flash"></div>
     <div id="viewTabs" class="tabs" hidden></div>
     <div id="error" class="toast" hidden></div>
     <div id="hover" class="hover" hidden></div>
@@ -53,6 +66,7 @@
       </label>
       <label class="check"><input id="isolate" type="checkbox" /> Isolate selected</label>
       <label class="check"><input id="spin" type="checkbox" /> Spin</label>
+      <label class="check xray"><input id="xray" type="checkbox" /> X-ray wiring</label>
       <button id="resetView" class="btn small">Reset view</button>
       <button id="resetParts" class="btn small" hidden>Reset parts</button>
       <span class="hint" id="handsHint">Drag a part to pull it out · Shift+drag to turn · Double-click to focus</span>
@@ -76,6 +90,8 @@
     <div class="block" id="detail" hidden>
       <div class="block-head"><h3 id="dLabel"></h3><span id="dStatus" class="chip"></span></div>
       <div class="kv"><span>Type</span><b id="dType"></b></div>
+      <p id="dFunction" class="dfun" hidden></p>
+      <p id="dIfRemoved" class="dif" hidden></p>
       <ul id="dEvidence" class="evidence"></ul>
       <h4>Connections</h4>
       <ul id="dRels" class="rels"></ul>
@@ -88,9 +104,13 @@
     </div>
 
     <div class="block">
-      <h3>Relationship graph</h3>
-      <svg id="graph" viewBox="0 0 320 240" role="img" aria-label="Component relationship graph"></svg>
-      <p class="tiny muted">Solid = seen in photo · dashed = inferred. Arrow points to the part that depends on the other.</p>
+      <div class="block-head"><h3>System graph</h3><span id="graphStats" class="legend"></span></div>
+      <svg id="graph" viewBox="0 0 340 300" role="img" aria-label="Component relationship graph"></svg>
+      <div class="glegend">
+        <span><i style="background:#ffb020"></i>power</span><span><i style="background:#36d6ff"></i>control</span>
+        <span><i style="background:#ff5fd2"></i>motion</span><span><i style="background:#8fa3bf"></i>structure</span>
+      </div>
+      <p class="tiny muted">Arrow points to the part that depends on the other · dashed = inferred · bigger node = more important. Click a node to inspect it.</p>
     </div>
 
     <details class="block">

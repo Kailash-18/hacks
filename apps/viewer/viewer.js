@@ -59,10 +59,22 @@ const compById = (id) => A.components.find((c) => c.id === id);
 function showError(msg) { const t = $("error"); t.textContent = msg; t.hidden = false; clearTimeout(showError.t); showError.t = setTimeout(() => (t.hidden = true), 7000); }
 
 const STEP_NAMES = ["Uploading photo", "AI finding parts & cutting them out", "Building 3D layers", "Estimating depth in your browser"];
-function steps(active) {
+let scanTimer = null;
+function steps(active, through = active, names = STEP_NAMES) { // steps active..through run at once (one server request)
   const ol = $("steps"); ol.innerHTML = "";
-  STEP_NAMES.forEach((n, i) => ol.append(el("li", i < active ? "done" : i === active ? "active" : "", n)));
-  $("loading").hidden = active >= STEP_NAMES.length;
+  names.forEach((n, i) => ol.append(el("li", i < active ? "done" : i <= through ? "active" : "", n)));
+  const done = active >= names.length;
+  $("loading").hidden = done;
+  if (done) { clearInterval(scanTimer); scanTimer = null; }
+}
+function startScan(file) { // photo with a sweeping laser while the AI works
+  const img = $("scanImg");
+  if (file) { if (img.dataset.url) URL.revokeObjectURL(img.dataset.url); img.dataset.url = img.src = URL.createObjectURL(file); }
+  $("scanPhoto").hidden = !file;
+  const dots = $("scanDots"); dots.innerHTML = "";
+  for (let i = 0; i < 26; i++) { const d = el("i"); d.style.left = 8 + Math.random() * 84 + "%"; d.style.top = 8 + Math.random() * 84 + "%"; d.style.animationDelay = Math.random() * 3 + "s"; dots.append(d); }
+  const t0 = performance.now(); clearInterval(scanTimer);
+  scanTimer = setInterval(() => ($("scanTime").textContent = ((performance.now() - t0) / 1000).toFixed(1) + " s"), 100);
 }
 
 function sampleImg(data, w, h, u, v) { // nearest sample of a 0..1 map
@@ -154,20 +166,28 @@ async function build(analysis, { sample = false } = {}) {
   if (!A.scene) { showError("This analysis has no physical scene data."); return; }
   renderPanel();
   $("explode").value = 0;
-  if (A.scene.assembly && A.scene.assembly.parts.length) {
-    asm.build(A.scene.assembly, A.components, viewsOf(A));
-    show3D();
-  } else await showView(0);
-  $("empty").hidden = true; $("controls").hidden = false; $("panel").hidden = false; $("loading").hidden = true;
-  introExplode();
-  if (mode === "3d") setTimeout(() => { if (!drag) { controls.autoRotate = true; $("spin").checked = true; } }, 1700); // slow turntable until the user grabs it
+  restoreWhatIf(true);
+  $("xray").checked = false; asm.setXray(false);
+  const has3D = A.scene.assembly && A.scene.assembly.parts.length;
+  if (has3D) asm.build(A.scene.assembly, A.components, viewsOf(A), A.relationships);
+  $("empty").hidden = true; $("controls").hidden = false; $("panel").hidden = false; steps(STEP_NAMES.length);
+  if (has3D) show3D({ intro: true });
+  else { await showView(0); introExplode(); }
 }
 
-function show3D() {
+function show3D({ intro = false } = {}) {
   mode = "3d";
   root.visible = false; asm.setActive(true);
   asm.setExplode(parseFloat($("explode").value));
   asm.frame(); renderTabs(); paint();
+  if (intro) { // hologram materialises, locks together with a shockwave, then flies apart
+    controls.enabled = false; controls.autoRotate = false; $("spin").checked = false;
+    asm.cameraSweep(3000);
+    asm.materialize(2300, () => {
+      controls.enabled = true; showReveal(); introExplode(0.65, 1700);
+      setTimeout(() => { if (!drag && mode === "3d") { controls.autoRotate = true; $("spin").checked = true; } }, 2000);
+    });
+  }
   $("depthBadge").textContent = "3D model: AI-estimated shapes (approximate)";
   $("handsHint").hidden = false; $("resetParts").hidden = !asm.anyMoved();
   $("forward").disabled = $("backward").disabled = true;
@@ -438,6 +458,7 @@ function paint() {
   }
 }
 $("isolate").addEventListener("change", paint);
+$("xray").addEventListener("change", (e) => { if (mode !== "3d") { e.target.checked = false; return; } asm.setXray(e.target.checked); });
 $("resetView").addEventListener("click", () => { if (mode === "3d" && $("isolate").checked) { $("isolate").checked = false; paint(); } frame(); });
 
 // ---------------------------------------------------------------- panel
@@ -528,6 +549,8 @@ function renderDetail() {
   $("dLabel").textContent = c.label;
   const st = $("dStatus"); st.className = `chip ${c.status}`; st.textContent = c.status === "observed" ? "seen in photo" : c.status;
   $("dType").textContent = c.type;
+  $("dFunction").hidden = !c.function; $("dFunction").textContent = c.function ? "Does: " + c.function : "";
+  $("dIfRemoved").hidden = !c.ifRemoved; $("dIfRemoved").textContent = c.ifRemoved ? "Without it: " + c.ifRemoved : "";
   $("dEvidence").innerHTML = ""; c.evidence.forEach((e) => $("dEvidence").append(el("li", "", e)));
   const rl = $("dRels"); rl.innerHTML = "";
   const rels = A.relationships.filter((r) => r.from === c.id || r.to === c.id);
@@ -564,16 +587,32 @@ function nudge(dir) {
 $("forward").onclick = () => nudge(1);
 $("backward").onclick = () => nudge(-1);
 
+let lastWhatIf = null, whatIfTimers = [];
+function restoreWhatIf(instant = false) {
+  whatIfTimers.forEach(clearTimeout); whatIfTimers = [];
+  const was = removed; removed = null; affected = new Set(); lastWhatIf = null;
+  asm.stopWhatIf(instant); $("impact").hidden = true; $("whatifOut").hidden = true;
+  if (A && was) { applyExplode(); renderParts(); renderDetail(); renderGraph(); paint(); }
+}
+
 $("whatif").onclick = async () => {
+  if (removed === selected) return restoreWhatIf();
+  if (removed) restoreWhatIf(true);
   const out = $("whatifOut");
-  if (removed === selected) { removed = null; affected = new Set(); out.hidden = true; applyExplode(); renderParts(); renderDetail(); renderGraph(); paint(); return; }
   try {
     const r = await fetch(API + "/api/physical/whatif", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ analysisId: A.analysisId, removedComponentId: selected,
                              components: A.components, relationships: A.relationships }) });
     const res = await r.json();
     if (!r.ok) throw new Error(errText(res, r.status));
-    removed = selected; affected = new Set(res.affected.map((a) => a.componentId));
+    removed = selected; affected = new Set(); lastWhatIf = res;
+    const delay = (h) => (mode === "3d" ? asm.whatIfDelay(h) : 350 * h);
+    if (mode === "3d") { asm.playWhatIf(res); flashStage(); }
+    showImpact(res, delay);
+    for (const a of res.affected) whatIfTimers.push(setTimeout(() => {
+      if (lastWhatIf !== res) return;
+      affected.add(a.componentId); renderParts(); renderGraph(); if (mode !== "3d") paint();
+    }, delay(a.hops)));
     out.innerHTML = ""; out.append(el("div", "", res.summary));
     res.affected.forEach((a) => out.append(el("code", "", a.explanation + (a.uncertain ? "  (inferred link)" : ""))));
     out.append(el("div", "method", res.method)); out.hidden = false;
@@ -581,34 +620,143 @@ $("whatif").onclick = async () => {
   } catch (e) { showError(e.message); }
 };
 
+function flashStage() { const f = $("flash"); f.classList.remove("on"); void f.offsetWidth; f.classList.add("on"); }
+
+const VERDICT = { dead: ["DEVICE DEAD", "It stops working without this part."], degraded: ["DEGRADED", "Parts of it stop working or come loose."],
+  works: ["STILL WORKS", "Nothing important depends on this part."] };
+function showImpact(res, delay) {
+  const box = $("impact"); box.innerHTML = ""; box.className = "impact"; box.hidden = false;
+  const comp = compById(res.removedComponentId);
+  const R = 34, C = 2 * Math.PI * R;
+  const head = el("div", "ih"); head.append(el("span", "", "SYSTEM IMPACT"), el("span", "imethod", "graph what-if · not physics"));
+  const ring = el("div", "iring");
+  ring.innerHTML = `<svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="${R}" class="trk"/><circle cx="40" cy="40" r="${R}" class="bar" stroke-dasharray="${C}" stroke-dashoffset="0"/></svg><div class="ipct"><b>100</b><span>% working</span></div>`;
+  const verdict = el("div", "iv", "TRACING FAILURES…");
+  const top = el("div", "itop"); const tv = el("div", "itv"); tv.append(verdict, el("div", "irem", `Removed: ${comp.label}`));
+  if (res.consequence) tv.append(el("div", "icons", res.consequence));
+  top.append(ring, tv);
+  const list = el("ol", "il");
+  const btn = el("button", "btn small", "↺ Put it back"); btn.onclick = () => restoreWhatIf();
+  box.append(head, top, list, btn);
+  const end = Math.max(600, ...res.affected.map((a) => delay(a.hops))) + 500, t0 = performance.now();
+  const bar = ring.querySelector(".bar"), num = ring.querySelector("b");
+  const tick = () => { // health drains in step with the cascade
+    if (lastWhatIf !== res) return;
+    const k = Math.min(1, (performance.now() - t0) / end), h = Math.round(100 - (100 - res.health) * (1 - Math.pow(1 - k, 2)));
+    num.textContent = h; bar.style.strokeDashoffset = C * (1 - h / 100);
+    bar.style.stroke = h > 66 ? "var(--ok)" : h > 33 ? "var(--warn)" : "var(--danger)";
+    if (k < 1) requestAnimationFrame(tick);
+    else { const [v, sub] = VERDICT[res.verdict] || VERDICT.degraded; verdict.textContent = v; box.classList.add("v-" + res.verdict, "stamped"); verdict.title = sub; }
+  };
+  requestAnimationFrame(tick);
+  if (!res.affected.length) list.append(el("li", "none", "No other part depends on it."));
+  for (const a of res.affected) whatIfTimers.push(setTimeout(() => {
+    if (lastWhatIf !== res) return;
+    const li = el("li", a.severity || "fails");
+    li.append(el("b", "", a.label), el("span", "", " " + (a.impact || "is affected")));
+    if (a.why) li.append(el("small", "", a.why + (a.uncertain ? " (inferred)" : "")));
+    li.onclick = () => select(a.componentId);
+    list.append(li);
+  }, delay(a.hops)));
+}
+
+// ---------------------------------------------------------------- reveal banner
+function showReveal() {
+  const box = $("reveal"), pr = A.scene.product;
+  const hiddenN = (A.scene.ghostComponentIds || []).length, seen = A.components.length - hiddenN;
+  const name = pr && (pr.model ? [pr.brand && !pr.model.toLowerCase().startsWith(pr.brand.toLowerCase()) ? pr.brand : "", pr.model].join(" ").trim() : pr.brand);
+  box.innerHTML = "";
+  box.append(el("div", "rk", isSample ? "SAMPLE · SCAN REPLAY" : "SCAN COMPLETE"), el("div", "rt", A.title ? A.title[0].toUpperCase() + A.title.slice(1) : "Object"));
+  if (name) box.append(el("div", "rs", name + (pr.confidence != null ? ` · ${Math.round(pr.confidence * 100)}% match` : "")));
+  const stats = el("div", "rc");
+  [[seen, "parts seen"], [hiddenN, "inside (inferred)"], [A.relationships.length, "links"], [(A.scene.assembly?.details || []).length, "details"]].forEach(([n, l]) => {
+    const c = el("div", "rstat"); const b = el("b", "", "0"); c.append(b, el("span", "", l)); stats.append(c);
+    const t0 = performance.now(); const up = () => { const k = Math.min(1, (performance.now() - t0) / 900); b.textContent = Math.round(n * k); if (k < 1) requestAnimationFrame(up); }; up();
+  });
+  box.append(stats);
+  box.hidden = false; box.classList.remove("out"); void box.offsetWidth; box.classList.add("in");
+  clearTimeout(showReveal.t); showReveal.t = setTimeout(() => { box.classList.add("out"); setTimeout(() => (box.hidden = true), 700); }, 5200);
+}
+$("reveal").addEventListener("click", () => { $("reveal").classList.add("out"); setTimeout(() => ($("reveal").hidden = true), 700); });
+
+const EDGE_COL = { powers: "#ffb020", feeds: "#ffb020", controls: "#36d6ff", depends_on: "#9b8cff", drives: "#ff5fd2", transmits: "#ff5fd2",
+  supports: "#8fa3bf", mounts: "#8fa3bf" };
+const GW = 340, GH = 300;
+let graphLayout = { id: null, pos: {} };
+function layoutGraph() { // small deterministic force layout: linked parts cluster, everything stays readable
+  const cs = A.components, n = cs.length, pos = {};
+  cs.forEach((c, i) => { const a = (i / n) * Math.PI * 2; pos[c.id] = { x: GW / 2 + 110 * Math.cos(a), y: GH / 2 + 100 * Math.sin(a) }; });
+  const edges = A.relationships.filter((r) => pos[r.from] && pos[r.to]);
+  const k = Math.sqrt((GW * GH) / Math.max(1, n)) * 0.62;
+  for (let it = 0; it < 320; it++) {
+    const temp = 14 * (1 - it / 320) + 0.6, disp = {};
+    for (const c of cs) disp[c.id] = { x: 0, y: 0 };
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      const a = pos[cs[i].id], b = pos[cs[j].id]; let dx = a.x - b.x, dy = a.y - b.y; const d = Math.max(1, Math.hypot(dx, dy));
+      const f = (k * k) / d; dx /= d; dy /= d;
+      disp[cs[i].id].x += dx * f; disp[cs[i].id].y += dy * f; disp[cs[j].id].x -= dx * f; disp[cs[j].id].y -= dy * f;
+    }
+    for (const e of edges) {
+      const a = pos[e.from], b = pos[e.to]; let dx = a.x - b.x, dy = a.y - b.y; const d = Math.max(1, Math.hypot(dx, dy));
+      const f = (d * d) / k; dx /= d; dy /= d;
+      disp[e.from].x -= dx * f; disp[e.from].y -= dy * f; disp[e.to].x += dx * f; disp[e.to].y += dy * f;
+    }
+    for (const c of cs) {
+      const p = pos[c.id], d = disp[c.id]; d.x += (GW / 2 - p.x) * 0.9; d.y += (GH / 2 - p.y) * 0.9;
+      const m = Math.max(1, Math.hypot(d.x, d.y));
+      p.x = Math.min(GW - 34, Math.max(34, p.x + (d.x / m) * Math.min(m, temp)));
+      p.y = Math.min(GH - 22, Math.max(18, p.y + (d.y / m) * Math.min(m, temp)));
+    }
+  }
+  graphLayout = { id: A.analysisId + ":" + n + ":" + edges.length, pos };
+}
+
 function renderGraph() {
   const svg = $("graph"); svg.innerHTML = "";
-  const NS = "http://www.w3.org/2000/svg", cs = A.components, n = cs.length;
-  const pos = {}; const cx = 160, cy = 120, R = n > 1 ? 88 : 0;
-  cs.forEach((c, i) => { const a = (i / n) * Math.PI * 2 - Math.PI / 2; pos[c.id] = [cx + R * Math.cos(a), cy + R * Math.sin(a)]; });
-  const defs = document.createElementNS(NS, "defs");
-  defs.innerHTML = `<marker id="arr" viewBox="0 0 10 10" refX="16" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10z" fill="#8b93a1"/></marker>`;
-  svg.append(defs);
-  for (const r of A.relationships) {
-    const [x1, y1] = pos[r.from], [x2, y2] = pos[r.to];
-    const ln = document.createElementNS(NS, "line");
-    Object.entries({ x1, y1, x2, y2, stroke: (affected.has(r.to) && (r.from === removed || affected.has(r.from))) ? "#ff6b5b" : "#5b6472", "stroke-width": 1.3, "marker-end": "url(#arr)" })
-      .forEach(([k, v]) => ln.setAttribute(k, v));
-    if (r.status !== "observed") ln.setAttribute("stroke-dasharray", "4 3");
-    const t = document.createElementNS(NS, "title"); t.textContent = `${r.type}: ${r.evidence.join(" · ")}`; ln.append(t);
-    svg.append(ln);
+  const NS = "http://www.w3.org/2000/svg", cs = A.components;
+  if (graphLayout.id !== A.analysisId + ":" + cs.length + ":" + A.relationships.length) layoutGraph();
+  const pos = graphLayout.pos;
+  $("graphStats").textContent = `${cs.length} parts · ${A.relationships.length} links`;
+  const mk = (tag, attrs, parent = svg) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); parent.append(e); return e; };
+  const defs = mk("defs", {});
+  const colors = new Set([...Object.values(EDGE_COL), "#5b6472", "#ff4a3a"]);
+  for (const c of colors) {
+    const m = mk("marker", { id: "arr" + c.slice(1), viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 5, markerHeight: 5, orient: "auto-start-reverse" }, defs);
+    mk("path", { d: "M0,0L10,5L0,10z", fill: c }, m);
   }
-  const colors = { observed: "#3ccf8e", inferred: "#f2b84b", estimated: "#4f8cff", unknown: "#8b93a1" };
+  const rad = (c) => 5 + (c.importance ?? 0.45) * 7;
+  const hot = (r) => affected.has(r.to) && (r.from === removed || affected.has(r.from));
+  const touch = (r) => selected && (r.from === selected || r.to === selected);
+  const eg = mk("g", {});
+  for (const r of A.relationships) {
+    const a = pos[r.from], b = pos[r.to]; if (!a || !b) continue;
+    const ca = compById(r.from), cb = compById(r.to);
+    const dx = b.x - a.x, dy = b.y - a.y, d = Math.max(1, Math.hypot(dx, dy));
+    const ra = rad(ca) + 2, rb = rad(cb) + 4;
+    const x1 = a.x + (dx / d) * ra, y1 = a.y + (dy / d) * ra, x2 = b.x - (dx / d) * rb, y2 = b.y - (dy / d) * rb;
+    const mx = (x1 + x2) / 2 - (dy / d) * d * 0.12, my = (y1 + y2) / 2 + (dx / d) * d * 0.12; // gentle curve
+    const col = hot(r) ? "#ff4a3a" : EDGE_COL[r.type] || "#5b6472";
+    const dim = selected && !touch(r) && !hot(r);
+    const path = mk("path", { d: `M${x1},${y1} Q${mx},${my} ${x2},${y2}`, fill: "none", stroke: col, "stroke-width": hot(r) ? 2.2 : touch(r) ? 1.9 : 1.3,
+      opacity: dim ? 0.18 : 0.9, "marker-end": `url(#arr${col.slice(1)})`, class: "gedge" + (hot(r) ? " hot" : "") }, eg);
+    if (r.status !== "observed" && !hot(r)) path.setAttribute("stroke-dasharray", "4 3");
+    mk("title", {}, path).textContent = `${ca.label} ${r.type.replace(/_/g, " ")} ${cb.label}${r.evidence[0] ? " — " + r.evidence[0] : ""}`;
+  }
+  const colorsN = { observed: "#3ccf8e", inferred: "#f2b84b", estimated: "#4f8cff", unknown: "#8b93a1" };
   for (const c of cs) {
-    const g = document.createElementNS(NS, "g"); g.setAttribute("class", "node"); g.onclick = () => select(c.id);
-    const [x, y] = pos[c.id];
-    const circ = document.createElementNS(NS, "circle");
-    Object.entries({ cx: x, cy: y, r: c.id === selected ? 9 : 7, fill: c.id === removed ? "#333" : affected.has(c.id) ? "#ff6b5b" : colors[c.status],
-      stroke: c.id === selected ? "#fff" : "none", "stroke-width": 2 }).forEach(([k, v]) => circ.setAttribute(k, v));
-    const tx = document.createElementNS(NS, "text");
-    tx.setAttribute("x", x); tx.setAttribute("y", y + (y < cy ? -12 : 18)); tx.setAttribute("text-anchor", "middle");
-    tx.textContent = c.label.length > 16 ? c.label.slice(0, 15) + "…" : c.label;
-    g.append(circ, tx); svg.append(g);
+    const p = pos[c.id]; if (!p) continue;
+    const g = mk("g", { class: "node" + (affected.has(c.id) ? " hit" : "") + (c.id === removed ? " gone" : "") });
+    g.onclick = () => select(c.id);
+    const dim = selected && c.id !== selected && !A.relationships.some((r) => (r.from === selected && r.to === c.id) || (r.to === selected && r.from === c.id));
+    g.setAttribute("opacity", dim ? 0.35 : 1);
+    if (c.id === selected) mk("circle", { cx: p.x, cy: p.y, r: rad(c) + 5, fill: "none", stroke: "#4f8cff", "stroke-width": 2, class: "gsel" }, g);
+    mk("circle", { cx: p.x, cy: p.y, r: rad(c), fill: c.id === removed ? "#2a2d33" : affected.has(c.id) ? "#ff4a3a" : colorsN[c.status],
+      stroke: c.id === removed ? "#ff4a3a" : "rgba(0,0,0,.35)", "stroke-width": c.id === removed ? 2 : 1 }, g);
+    if (c.id === removed) mk("path", { d: `M${p.x - 4},${p.y - 4}L${p.x + 4},${p.y + 4}M${p.x + 4},${p.y - 4}L${p.x - 4},${p.y + 4}`, stroke: "#ff4a3a", "stroke-width": 2 }, g);
+    const below = p.y < GH - 30;
+    const t = mk("text", { x: p.x, y: below ? p.y + rad(c) + 11 : p.y - rad(c) - 5, "text-anchor": "middle", class: "glabel" }, g);
+    t.textContent = c.label.length > 18 ? c.label.slice(0, 17) + "…" : c.label;
+    mk("title", {}, g).textContent = `${c.label} (${c.type}, ${c.status})${c.function ? " — " + c.function : ""}`;
   }
 }
 
@@ -675,12 +823,13 @@ let currentFiles = []; // shrunk blobs of the current object (re-sent on "Add ph
 
 async function analyze(files, { added = null, hint = "" } = {}) {
   try {
-    steps(0);
+    const LIVE = ["Uploading photo", files.length > 1 ? `AI finding parts in ${files.length} photos` : "AI finding parts & tracing outlines",
+      "Identifying the exact model", "Designing 3D parts, internals & wiring", "Building the scene"];
+    steps(0, 0, LIVE); startScan(files[0]);
     const fd = new FormData();
     files.forEach((b, i) => fd.append("images", b, `photo${i + 1}.jpg`));
     if (hint) fd.append("model_hint", hint);
-    STEP_NAMES[1] = files.length > 1 ? `AI finding parts in ${files.length} photos` : "AI finding parts & cutting them out";
-    steps(1);
+    steps(1, 3, LIVE);
     const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 300000);
     let r;
     try { r = await fetch(API + "/api/physical/analyze", { method: "POST", body: fd, signal: ctl.signal }); }
@@ -731,7 +880,7 @@ async function loadSamples() {
 $("samples").addEventListener("change", async (e) => {
   const id = e.target.value; e.target.value = ""; if (!id) return;
   try {
-    steps(1);
+    steps(1); startScan(null);
     const r = await fetch(API + "/api/physical/samples/" + encodeURIComponent(id)); const d = await r.json();
     if (!r.ok) throw new Error(errText(d, r.status));
     await build(d, { sample: true });
@@ -743,4 +892,4 @@ loadSamples();
 $("spin").addEventListener("change", (e) => { controls.autoRotate = e.target.checked; });
 controls.addEventListener("start", () => { if (controls.autoRotate) { controls.autoRotate = false; $("spin").checked = false; } });
 renderer.setAnimationLoop(() => { controls.update(); if (!asm.renderScene()) renderer.render(scene3, camera); asm.render(); });
-window.__vre = { build, get state() { return { mode, parts: mode === "3d" ? asm.parts.length : parts.length, ghosts: ghosts.length, selected, removed, affected: [...affected] }; }, select };
+window.__vre = { build, asm, get state() { return { mode, parts: mode === "3d" ? asm.parts.length : parts.length, ghosts: ghosts.length, selected, removed, affected: [...affected] }; }, select };
