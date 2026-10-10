@@ -283,10 +283,9 @@ $("#openTab").onclick = () => {
 function setTab(t) {
   S.tab = t;
   $$(".tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === t));
-  for (const x of ["code", "guide", "structure", "explode", "backend", "a11y"]) $(`#tab-${x}`).hidden = x !== t;
+  for (const x of ["code", "guide", "structure", "backend", "a11y"]) $(`#tab-${x}`).hidden = x !== t;
   if (t === "code") requestAnimationFrame(fit);
   if (t === "structure") requestAnimationFrame(placeBoxes);
-  if (t === "explode") window.DL3D?.show();
   if (t === "backend") loadBackend();
   if (t === "a11y") loadA11y();
 }
@@ -315,8 +314,9 @@ async function renderStructure() {
   const a = S.analysis; if (!a) return;
   $("#partCount").textContent = `(${a.components.length})`;
   $("#boxes").innerHTML = a.components.filter((c) => c.bbox).map((c) => `<div class="box" data-id="${esc(c.id)}" title="${esc(c.label)} (${esc(c.type)})"></div>`).join("");
-  $$(".box").forEach((b) => (b.onclick = () => select(b.dataset.id)));
+  $$(".box").forEach((b) => { b.onclick = () => select(b.dataset.id); b.onmouseenter = () => hoverBox(b.dataset.id); b.onmouseleave = () => ($("#insHover").hidden = true); });
   placeBoxes();
+  pixelData().catch(() => {}); // warm up the pixel buffer used by Inspect
   try { S.tree = (await api(`/api/digital/${encodeURIComponent(a.analysisId)}/tree`)).tree; }
   catch { S.tree = a.components.map((c) => ({ ...c, children: [] })); }
   const node = (n) => `<li><button data-id="${esc(n.id)}"><span>${esc(n.label)}</span><em>${esc(n.type)}</em></button>${n.children?.length ? `<ul>${n.children.map(node).join("")}</ul>` : ""}</li>`;
@@ -330,6 +330,7 @@ function placeBoxes() {
 }
 function select(id) {
   S.sel = S.sel === id ? null : id;
+  renderInspect();
   $$(".box").forEach((b) => b.classList.toggle("on", b.dataset.id === S.sel));
   $$("#tree button").forEach((b) => b.classList.toggle("on", b.dataset.id === S.sel));
   $(`#tree button[data-id="${CSS.escape(S.sel || "")}"]`)?.scrollIntoView({ block: "nearest" });
@@ -350,7 +351,7 @@ loadExamples();
 
 
 // ---------- shared with digital3d.js ----------
-window.DL = { S, select: (id) => select(id), esc };
+window.DL = { S, select: (id) => select(id), esc };  // used by the console/dev harness
 
 // ---------- accuracy: how closely the rebuilt page matches the screenshot ----------
 // The rebuilt page is rendered in a hidden sandboxed frame, captured with html-to-image inside that frame,
@@ -610,3 +611,254 @@ $("#axFix").onclick = async () => {
   setTab("code");
   await makeCode({ target: S.target, change, baseCode: v.code }, "Accessibility fixes");
 };
+
+
+// ---------- Inspect: dev-mode measurements for any element of the screenshot ----------
+// Everything here is measured from the screenshot's pixels in the browser (no AI call): the AI's box is
+// first snapped to the real edges, then size, spacing, colours, font size, radius and border are read off.
+let PIX = null;
+function pixelData() {
+  if (PIX && PIX.url === S.shot?.url) return Promise.resolve(PIX);
+  return new Promise((ok, bad) => {
+    const i = new Image();
+    i.onload = () => { const c = document.createElement("canvas"); c.width = i.naturalWidth; c.height = i.naturalHeight;
+      const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(i, 0, 0);
+      PIX = { url: i.src, w: c.width, h: c.height, d: g.getImageData(0, 0, c.width, c.height).data }; ok(PIX); };
+    i.onerror = bad; i.src = S.shot.url;
+  });
+}
+const dprOf = (w, h) => (h > w * 1.5 && w >= 1000 ? 3 : w >= 2000 ? 2 : 1);
+const at = (P, x, y) => { x = Math.max(0, Math.min(P.w - 1, x | 0)); y = Math.max(0, Math.min(P.h - 1, y | 0)); const i = (y * P.w + x) * 4; return [P.d[i], P.d[i + 1], P.d[i + 2]]; };
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+const hex = (c) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+
+function stripMean(P, x0, y0, x1, y1) { // mean colour of a thin strip
+  let r = 0, g = 0, b = 0, n = 0;
+  const sx = Math.max(1, ((x1 - x0) / 60) | 0), sy = Math.max(1, ((y1 - y0) / 60) | 0);
+  for (let y = y0; y <= y1; y += sy) for (let x = x0; x <= x1; x += sx) { const c = at(P, x, y); r += c[0]; g += c[1]; b += c[2]; n++; }
+  return [r / n, g / n, b / n];
+}
+function snapBox(P, b) { // move each side of the AI box onto the strongest nearby colour edge
+  let x0 = b.x * P.w, y0 = b.y * P.h, x1 = (b.x + b.width) * P.w, y1 = (b.y + b.height) * P.h;
+  const kx = Math.round((x1 - x0) * 0.06 + 4), ky = Math.round((y1 - y0) * 0.06 + 4);
+  const side = (pos, lo, hi, vertical, k) => {
+    let best = pos, bestD = 22;
+    for (let o = -k; o <= k; o++) {
+      const p = Math.round(pos + o);
+      const a = vertical ? stripMean(P, p - 2, lo, p - 1, hi) : stripMean(P, lo, p - 2, hi, p - 1);
+      const c = vertical ? stripMean(P, p, lo, p + 1, hi) : stripMean(P, lo, p, hi, p + 1);
+      const d = dist(a, c); if (d > bestD) { bestD = d; best = p; }
+    }
+    return best;
+  };
+  const my0 = y0 + (y1 - y0) * 0.25, my1 = y1 - (y1 - y0) * 0.25, mx0 = x0 + (x1 - x0) * 0.25, mx1 = x1 - (x1 - x0) * 0.25;
+  const nx0 = side(x0, my0, my1, true, kx), nx1 = side(x1, my0, my1, true, kx), ny0 = side(y0, mx0, mx1, false, ky), ny1 = side(y1, mx0, mx1, false, ky);
+  return nx1 - nx0 > 3 && ny1 - ny0 > 3 ? { x0: nx0, y0: ny0, x1: nx1, y1: ny1 } : { x0, y0, x1, y1 };
+}
+function colours(P, r) { // background = dominant colour, foreground = strongest "ink" far from it
+  const counts = new Map(), px = [];
+  const step = Math.max(1, Math.sqrt(((r.x1 - r.x0) * (r.y1 - r.y0)) / 9000) | 0);
+  for (let y = r.y0 + 1; y < r.y1 - 1; y += step) for (let x = r.x0 + 1; x < r.x1 - 1; x += step) {
+    const c = at(P, x, y); px.push(c); const k = (c[0] >> 4) * 256 + (c[1] >> 4) * 16 + (c[2] >> 4); counts.set(k, (counts.get(k) || 0) + 1);
+  }
+  if (!px.length) return null;
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  const inBin = px.filter((c) => (c[0] >> 4) * 256 + (c[1] >> 4) * 16 + (c[2] >> 4) === top);
+  const bg = [0, 1, 2].map((i) => inBin.reduce((s, c) => s + c[i], 0) / inBin.length);
+  const ds = px.map((c) => dist(c, bg)), sorted = [...ds].sort((a, b) => a - b), cut = Math.max(40, sorted[(sorted.length * 0.85) | 0] * 0.6);
+  const ink = px.filter((_, i) => ds[i] > cut);
+  let fg = null;
+  if (ink.length > px.length * 0.01) { ink.sort((a, b) => dist(b, bg) - dist(a, bg)); const t = ink.slice(0, Math.max(5, (ink.length * 0.4) | 0));
+    fg = [0, 1, 2].map((i) => t.reduce((s, c) => s + c[i], 0) / t.length); }
+  return { bg, fg, inkShare: ink.length / px.length };
+}
+function textLines(P, r, bg, fg) { // rows that contain text-coloured ink -> lines of text
+  const rows = [], ix = Math.min((r.x1 - r.x0) * 0.12, (r.y1 - r.y0) * 0.6); // skip rounded corners / edges
+  const isInk = (c) => dist(c, bg) > 60 && (!fg || dist(c, fg) < dist(c, bg));
+  const e = r.tight ? 0 : 2;
+  for (let y = r.y0 + e; y < r.y1 - e; y++) { let ink = 0; for (let x = r.x0 + ix; x < r.x1 - ix; x += 2) if (isInk(at(P, x, y))) ink++; rows.push(ink > 1); }
+  const lines = []; let s0 = -1;
+  rows.forEach((on, i) => { if (on && s0 < 0) s0 = i; if (!on && s0 >= 0) { if (i - s0 > 2) lines.push([s0, i]); s0 = -1; } });
+  if (s0 >= 0 && rows.length - s0 > 2) lines.push([s0, rows.length]);
+  return lines;
+}
+function cornerRadius(P, r, bg, outside, border = null) {
+  if (border) { // trace the border line: where the diagonal first meets it is the arc
+    // radii above ~40px are rare: only look that far, so dividers deeper inside are never mistaken for the arc
+    const maxB = Math.min(Math.min(r.x1 - r.x0, r.y1 - r.y0) / 2, 4 + 14);
+    const hitB = (cx, cy, dx, dy) => { for (let k = 0; k < maxB; k++) if (dist(at(P, cx + dx * k, cy + dy * k), border) < 22) return Math.max(0, k - 4); return -1; };
+    const kb = [hitB(r.x0 - 4, r.y0 - 4, 1, 1), hitB(r.x1 + 3, r.y0 - 4, -1, 1), hitB(r.x0 - 4, r.y1 + 3, 1, -1), hitB(r.x1 + 3, r.y1 + 3, -1, -1)].filter((k) => k >= 0).sort((a, b) => a - b);
+    if (kb.length < 2) return null;
+    const kk = kb[(kb.length / 2) | 0], rb = kk * 3.41;
+    if (rb > 1) return rb >= Math.min(r.x1 - r.x0, r.y1 - r.y0) * 0.45 ? "full" : Math.round(rb);
+  }
+  if (!outside || dist(bg, outside) < 14) return null; // same colour as around it: no visible corner
+  const maxK = Math.min(r.x1 - r.x0, r.y1 - r.y0) / 2;
+  // walk the diagonal from just outside each corner until the box's own colour starts
+  const corner = (cx, cy, dx, dy) => { for (let k = 0; k < maxK; k++) if (dist(at(P, cx + dx * k, cy + dy * k), bg) < 20) return Math.max(0, k - 2); return maxK; };
+  const ks = [corner(r.x0 - 2, r.y0 - 2, 1, 1), corner(r.x1 + 1, r.y0 - 2, -1, 1), corner(r.x0 - 2, r.y1 + 1, 1, -1), corner(r.x1 + 1, r.y1 + 1, -1, -1)].sort((a, b) => a - b);
+  const k = (ks[1] + ks[2]) / 2, rad = k <= 0.5 ? 0 : k * 3.41;
+  return rad >= Math.min(r.x1 - r.x0, r.y1 - r.y0) * 0.45 ? "full" : Math.round(rad);
+}
+function borderOf(P, r, bg) { // a thin line around the box that differs from both inside and outside
+  const mid = (r.x0 + r.x1) / 2, out = at(P, mid, r.y0 - 5), inside = at(P, mid, r.y0 + 5);
+  for (let y = r.y0 - 3; y <= r.y0 + 3; y++) {
+    const e = at(P, mid, y), e2 = at(P, mid + (r.x1 - r.x0) * 0.2, y);
+    if (dist(e, inside) > 12 && dist(e, out) > 8 && dist(e, e2) < 10 && dist(inside, bg) < 20) return e;
+  }
+  return null;
+}
+function inkBounds(P, r, bg) { // tight box around everything that is not background inside r
+  let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+  const st = Math.max(1, Math.min(r.x1 - r.x0, r.y1 - r.y0) / 80 | 0);
+  const m = r.tight === false ? 7 : 4; // inside a surface, skip its border and anti-aliased edge
+  for (let y = r.y0 + m; y < r.y1 - m; y += st) for (let x = r.x0 + m; x < r.x1 - m; x += st)
+    if (dist(at(P, x, y), bg) > 40) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  return x1 < 0 ? null : { x0, y0, x1: x1 + 1, y1: y1 + 1 };
+}
+
+// nearest Tailwind colour (v3 palette, common families) for readable class names
+const TW = { white: "#ffffff", black: "#000000",
+  "slate-50": "#f8fafc", "slate-100": "#f1f5f9", "slate-200": "#e2e8f0", "slate-300": "#cbd5e1", "slate-400": "#94a3b8", "slate-500": "#64748b", "slate-600": "#475569", "slate-700": "#334155", "slate-800": "#1e293b", "slate-900": "#0f172a",
+  "gray-50": "#f9fafb", "gray-100": "#f3f4f6", "gray-200": "#e5e7eb", "gray-300": "#d1d5db", "gray-400": "#9ca3af", "gray-500": "#6b7280", "gray-600": "#4b5563", "gray-700": "#374151", "gray-800": "#1f2937", "gray-900": "#111827",
+  "blue-50": "#eff6ff", "blue-100": "#dbeafe", "blue-500": "#3b82f6", "blue-600": "#2563eb", "blue-700": "#1d4ed8",
+  "indigo-50": "#eef2ff", "indigo-100": "#e0e7ff", "indigo-500": "#6366f1", "indigo-600": "#4f46e5", "indigo-700": "#4338ca",
+  "violet-500": "#8b5cf6", "violet-600": "#7c3aed", "purple-600": "#9333ea", "sky-500": "#0ea5e9",
+  "green-50": "#f0fdf4", "green-100": "#dcfce7", "green-500": "#22c55e", "green-600": "#16a34a", "green-700": "#15803d",
+  "emerald-500": "#10b981", "emerald-600": "#059669",
+  "amber-50": "#fffbeb", "amber-100": "#fef3c7", "amber-400": "#fbbf24", "amber-500": "#f59e0b", "amber-600": "#d97706", "amber-700": "#b45309",
+  "red-50": "#fef2f2", "red-100": "#fee2e2", "red-500": "#ef4444", "red-600": "#dc2626", "red-700": "#b91c1c",
+  "orange-500": "#f97316", "pink-500": "#ec4899", "teal-500": "#14b8a6" };
+const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+function twColor(c) {
+  let best = null, bd = 1e9; for (const [n, h] of Object.entries(TW)) { const d = dist(c, hexRgb(h)); if (d < bd) { bd = d; best = n; } }
+  return bd < 14 ? best : `[${hex(c)}]`;
+}
+const FONT = [[12, "text-xs"], [14, "text-sm"], [16, "text-base"], [18, "text-lg"], [20, "text-xl"], [24, "text-2xl"], [30, "text-3xl"], [36, "text-4xl"], [48, "text-5xl"], [60, "text-6xl"]];
+const SPACE = (px) => { const n = Math.round(px / 4); return n <= 0 ? "0" : n <= 12 || n % 2 === 0 ? String(n) : `[${Math.round(px)}px]`; };
+const RAD = (r) => r === "full" ? "rounded-full" : r <= 1 ? "" : r <= 3 ? "rounded-sm" : r <= 5 ? "rounded" : r <= 7 ? "rounded-md" : r <= 10 ? "rounded-lg" : r <= 14 ? "rounded-xl" : r <= 20 ? "rounded-2xl" : `rounded-[${r}px]`;
+
+function boxOfComp(c) { return c?.bbox ? { x0: c.bbox.x * S.shot.w, y0: c.bbox.y * S.shot.h, x1: (c.bbox.x + c.bbox.width) * S.shot.w, y1: (c.bbox.y + c.bbox.height) * S.shot.h } : null; }
+const contains = (o, i) => o.x0 <= i.x0 + 2 && o.y0 <= i.y0 + 2 && o.x1 >= i.x1 - 2 && o.y1 >= i.y1 - 2;
+
+function hoverBox(id) {
+  const c = S.analysis.components.find((x) => x.id === id), b = boxOfComp(c); if (!b) return;
+  const dpr = dprOf(S.shot.w, S.shot.h), h = $("#insHover");
+  h.textContent = `${c.label.slice(0, 40)} · ${Math.round((b.x1 - b.x0) / dpr)}×${Math.round((b.y1 - b.y0) / dpr)}`;
+  Object.assign(h.style, { left: `${(c.bbox.x) * 100}%`, top: `${(c.bbox.y + c.bbox.height) * 100}%` }); h.hidden = false;
+}
+
+function codeFor(c) { // the element in the current rebuilt HTML whose text best matches this part
+  const v = S.versions.html[S.cur.html]; if (!v) return null;
+  const doc = new DOMParser().parseFromString(v.code, "text/html");
+  const norm = (t) => (t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const want = norm(c.label); if (!want) return null;
+  const words = want.split(" ").filter((w) => w.length > 2);
+  let best = null, bestScore = 0;
+  for (const el of doc.body.querySelectorAll("*")) {
+    if (["SCRIPT", "STYLE"].includes(el.tagName)) continue;
+    const t = norm(el.textContent); if (!t) continue;
+    const hits = words.filter((w) => t.includes(w)).length / Math.max(1, words.length);
+    if (hits < 0.6 && !t.includes(want)) continue;
+    const score = (t.includes(want) ? 2 : hits) - Math.min(1, t.length / (want.length * 6 + 40)); // prefer the tightest match
+    if (score > bestScore) { bestScore = score; best = el; }
+  }
+  if (!best) return null;
+  let html = best.outerHTML.replace(/\s+\n/g, "\n");
+  if (html.length > 1600) html = html.slice(0, 1600) + "\n<!-- … -->";
+  return html;
+}
+
+async function renderInspect() {
+  const box = $("#inspect"), rl = $("#redlines"); rl.innerHTML = "";
+  const c = S.analysis?.components.find((x) => x.id === S.sel);
+  if (!c) { box.innerHTML = `<p class="muted">Click an element on the screenshot.</p>`; return; }
+  if (!c.bbox) { box.innerHTML = `<h3>${esc(c.label)}</h3><p class="muted">No position on the screenshot for this part.</p>`; return; }
+  const P = await pixelData(), dpr = dprOf(P.w, P.h);
+  const textual = ["heading", "text", "paragraph", "button", "link", "menu_item", "tab", "badge", "label", "list_item", "breadcrumb"].includes(c.type);
+  const raw = boxOfComp(c), mid = (raw.y0 + raw.y1) / 2;
+  const outside0 = stripMean(P, raw.x0 - 6, mid - 2, raw.x0 - 5, mid + 2), inside0 = colours(P, raw);
+  // a box with its own surface (button, card, input) snaps to its edges; plain text is measured by its letters
+  const surface = inside0 && (dist(inside0.bg, outside0) > 10 || borderOf(P, raw, inside0.bg));
+  let r = surface ? snapBox(P, c.bbox) : raw;
+  if (!surface && inside0) { const ib = inkBounds(P, raw, inside0.bg); if (ib) r = { ...ib, tight: true }; }
+  const W = (r.x1 - r.x0) / dpr, H = (r.y1 - r.y0) / dpr;
+  const col = surface ? colours(P, r) : inside0;
+  const out = stripMean(P, r.x0 - 6, (r.y0 + r.y1) / 2 - 2, r.x0 - 5, (r.y0 + r.y1) / 2 + 2);
+  let font = null, lines = [];
+  if (col && textual) {
+    lines = textLines(P, r, col.bg, col.fg);
+    if (lines.length) { const hs = lines.map(([a, b]) => (b - a) / dpr).sort((a, b) => a - b); const ink = hs[(hs.length / 2) | 0];
+      // ink height vs font size depends on the letters: descenders (g, y) ≈ 0.95, capitals/ascenders ≈ 0.74, x-height ≈ 0.53
+      const t = c.label.replace(/[^A-Za-z0-9]/g, ""), k = /[gjpqy]/.test(t) ? (/[A-Zbdfhklt0-9]/.test(t) ? 0.95 : 0.74) : /[A-Zbdfhklt0-9]/.test(t) ? 0.74 : 0.53;
+      const est = ink / k; font = FONT.reduce((p, q) => (Math.abs(q[0] - est) < Math.abs(p[0] - est) ? q : p)); }
+  }
+  const border = surface && col ? borderOf(P, r, col.bg) : null;
+  const rad = surface && col ? cornerRadius(P, r, col.bg, out, border) : null;
+  // spacing: padding inside the parent, gaps to the nearest neighbours
+  const others = S.analysis.components.filter((x) => x.id !== c.id && x.bbox).map((x) => ({ c: x, b: boxOfComp(x) }));
+  const parent = others.filter((o) => contains(o.b, r) && !contains(r, o.b)).sort((a, b) => (a.b.x1 - a.b.x0) * (a.b.y1 - a.b.y0) - (b.b.x1 - b.b.x0) * (b.b.y1 - b.b.y0))[0];
+  const kids = others.filter((o) => contains(r, o.b) && !contains(o.b, r)).map((o) => o.b);
+  const content = kids.length ? { x0: Math.min(...kids.map((k) => k.x0)), y0: Math.min(...kids.map((k) => k.y0)), x1: Math.max(...kids.map((k) => k.x1)), y1: Math.max(...kids.map((k) => k.y1)) }
+    : surface && col ? inkBounds(P, { ...r, tight: false }, col.bg) : null;  // no child parts: use the text/icons inside it
+  const pad = content && surface ? { t: content.y0 - r.y0, l: content.x0 - r.x0, b: r.y1 - content.y1, r: r.x1 - content.x1 } : null;
+  const sib = (dir) => {
+    let best = null, gap = 1e9;
+    for (const o of others) {
+      if (contains(o.b, r) || contains(r, o.b)) continue;
+      const vOver = Math.min(o.b.y1, r.y1) - Math.max(o.b.y0, r.y0) > 4, hOver = Math.min(o.b.x1, r.x1) - Math.max(o.b.x0, r.x0) > 4;
+      const g = dir === "right" && vOver ? o.b.x0 - r.x1 : dir === "below" && hOver ? o.b.y0 - r.y1 : dir === "left" && vOver ? r.x0 - o.b.x1 : dir === "above" && hOver ? r.y0 - o.b.y1 : -1;
+      if (g >= 0 && g < gap && g / dpr <= 160) { gap = g; best = o; } // only real neighbours, not something across the page
+    }
+    return best ? { o: best, gap } : null;
+  };
+  const near = { right: sib("right"), below: sib("below"), left: sib("left"), above: sib("above") };
+  // redlines (percent of the screenshot)
+  const pct = (v, total) => `${(v / total) * 100}%`;
+  const line = (x0, y0, x1, y1, label, cls = "") => {
+    const horiz = Math.abs(y1 - y0) < 1;
+    rl.insertAdjacentHTML("beforeend", `<div class="rline ${horiz ? "h" : "v"} ${cls}" style="left:${pct(Math.min(x0, x1), P.w)};top:${pct(Math.min(y0, y1), P.h)};${horiz ? `width:${pct(Math.abs(x1 - x0), P.w)}` : `height:${pct(Math.abs(y1 - y0), P.h)}`}"><span>${label}</span></div>`);
+  };
+  rl.insertAdjacentHTML("beforeend", `<div class="rsel" style="left:${pct(r.x0, P.w)};top:${pct(r.y0, P.h)};width:${pct(r.x1 - r.x0, P.w)};height:${pct(r.y1 - r.y0, P.h)}"><span>${Math.round(W)} × ${Math.round(H)}</span></div>`);
+  const cy = (r.y0 + r.y1) / 2, cx = (r.x0 + r.x1) / 2;
+  if (near.right && near.right.gap > 1) line(r.x1, cy, near.right.o.b.x0, cy, Math.round(near.right.gap / dpr));
+  if (near.below && near.below.gap > 1) line(cx, r.y1, cx, near.below.o.b.y0, Math.round(near.below.gap / dpr));
+  if (near.left && near.left.gap > 1) line(near.left.o.b.x1, cy, r.x0, cy, Math.round(near.left.gap / dpr));
+  if (near.above && near.above.gap > 1) line(cx, near.above.o.b.y1, cx, r.y0, Math.round(near.above.gap / dpr));
+  if (pad) {
+    if (pad.l > 1) line(r.x0, cy + 6, r.x0 + pad.l, cy + 6, Math.round(pad.l / dpr), "pad");
+    if (pad.t > 1) line(cx + 6, r.y0, cx + 6, r.y0 + pad.t, Math.round(pad.t / dpr), "pad");
+  }
+  // Tailwind classes from the measurements
+  const tw = [];
+  if (pad) { const px2 = Math.round(Math.max(0, Math.min(pad.l, pad.r)) / dpr), py2 = Math.round(Math.max(0, Math.min(pad.t, pad.b)) / dpr); // left-aligned content: the smaller side is the padding
+    tw.push(px2 === py2 ? `p-${SPACE(px2)}` : `px-${SPACE(px2)} py-${SPACE(py2)}`); }
+  else if (["button", "input", "search", "badge", "avatar", "icon"].includes(c.type)) tw.push(`w-[${Math.round(W)}px] h-[${Math.round(H)}px]`);
+  if (surface && col) tw.push(`bg-${twColor(col.bg)}`);
+  if (col?.fg && textual) tw.push(`text-${twColor(col.fg)}`);
+  if (font) tw.push(font[1]);
+  if (rad && surface) tw.push(RAD(rad));
+  if (border) tw.push(`border border-${twColor(border)}`);
+  const classes = tw.filter(Boolean).join(" ");
+  const code = codeFor(c);
+  const sw = (lbl, cc) => cc ? `<div class="sw-row"><i style="background:${hex(cc)}"></i><span>${lbl}</span><code>${hex(cc)}</code><em>${twColor(cc).replace(/^\[|\]$/g, "")}</em><button class="link cp" data-copy="${hex(cc)}">copy</button></div>` : "";
+  box.innerHTML = `
+    <div class="ins-h"><h3>${esc(c.label)}</h3><span class="kind-t">${esc(c.type)}</span></div>
+    <dl class="ins-dl">
+      <dt>Size</dt><dd>${Math.round(W)} × ${Math.round(H)} px</dd>
+      <dt>Position</dt><dd>x ${Math.round(r.x0 / dpr)}, y ${Math.round(r.y0 / dpr)}</dd>
+      ${pad ? `<dt>Padding</dt><dd>${Math.round(Math.max(0, Math.min(pad.t, pad.b)) / dpr)} px top/bottom · ${Math.round(Math.max(0, Math.min(pad.l, pad.r)) / dpr)} px sides</dd>` : ""}
+      ${["right", "below"].filter((k) => near[k]).map((k) => `<dt>Gap ${k === "right" ? "→" : "↓"}</dt><dd>${Math.round(near[k].gap / dpr)} px <small>(gap-${SPACE(Math.round(near[k].gap / dpr))}) to ${esc(near[k].o.c.label.slice(0, 22))}</small></dd>`).join("")}
+      ${font ? `<dt>Font size</dt><dd>≈ ${font[0]} px <small>(${font[1]}${lines.length > 1 ? `, ${lines.length} lines` : ""})</small></dd>` : ""}
+      ${rad ? `<dt>Corners</dt><dd>${rad === "full" ? "fully rounded" : `≈ ${rad} px radius`}</dd>` : ""}
+    </dl>
+    <div class="ins-sw">${sw("Background", col?.bg)}${textual ? sw("Text", col?.fg) : ""}${sw("Border", border)}</div>
+    <div class="ins-block"><div class="ins-bh"><b>Tailwind</b><button class="link cp" data-copy="${esc(classes)}">copy</button></div><code class="tw">${esc(classes) || "–"}</code></div>
+    <div class="ins-block"><div class="ins-bh"><b>Code for this element</b>${code ? `<button class="link cp" data-copy-code="1">copy</button>` : ""}</div>
+      ${code ? `<pre class="ins-code">${esc(code)}</pre>` : `<p class="muted small">${S.versions.html.length ? "Not found in the rebuilt code." : "Appears once the rebuilt code is ready."}</p>`}</div>
+    <p class="muted small">Measured from the screenshot's pixels (${dpr}× screenshot assumed); ≈ values are estimates.</p>`;
+  $$("#inspect .cp").forEach((b) => (b.onclick = async () => {
+    const t = b.dataset.copyCode ? code : b.dataset.copy;
+    try { await navigator.clipboard.writeText(t); toast("Copied"); } catch { toast("Copy failed"); }
+  }));
+}

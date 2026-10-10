@@ -8,12 +8,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/viewer/build.css" />
-<script type="importmap">
-{ "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-} }
-</script>
 </head>
 <body>
 <header class="bar">
@@ -51,8 +45,7 @@
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="code" aria-selected="true">Rebuilt code</button>
     <button role="tab" data-tab="guide">How to build it</button>
-    <button role="tab" data-tab="structure">Structure</button>
-    <button role="tab" data-tab="explode">3D exploded</button>
+    <button role="tab" data-tab="structure">Inspect</button>
     <button role="tab" data-tab="backend">Backend</button>
     <button role="tab" data-tab="a11y">Accessibility</button>
   </nav>
@@ -117,13 +110,19 @@
     <article id="guide" class="guide"></article>
   </section>
 
-  <!-- structure -->
+  <!-- inspect: dev-mode for a screenshot -->
   <section id="tab-structure" class="tab" hidden>
+    <p class="muted small ins-lede">Click any element to get its measurements, colours, spacing, Tailwind classes and the code for just that piece. Hover to see sizes.</p>
     <div class="struct">
-      <div class="shot"><img id="structImg" alt="Screenshot with detected parts" /><div id="boxes" class="boxes"></div></div>
+      <div class="shot ins-shot" id="insShot">
+        <img id="structImg" alt="Screenshot with detected parts" />
+        <div id="boxes" class="boxes"></div>
+        <div id="redlines" class="redlines"></div>
+        <div id="insHover" class="ins-hover" hidden></div>
+      </div>
       <div class="tree-col">
-        <h3>Parts found <span id="partCount" class="muted"></span></h3>
-        <ul id="tree" class="tree"></ul>
+        <div id="inspect" class="inspect"><p class="muted">Click an element on the screenshot.</p></div>
+        <details class="parts-d"><summary>All parts <span id="partCount" class="muted"></span></summary><ul id="tree" class="tree"></ul></details>
         <form id="askForm" class="ask">
           <label for="ask">Ask about this screen</label>
           <div class="ask-row"><input id="ask" placeholder="What does the search bar do?" autocomplete="off" /><button class="btn">Ask</button></div>
@@ -133,27 +132,6 @@
     </div>
   </section>
 
-  <!-- 3D exploded screen -->
-  <section id="tab-explode" class="tab" hidden>
-    <div class="x3d">
-      <div class="x3d-stage" id="x3dStage">
-        <canvas id="x3d"></canvas>
-        <div class="x3d-hud">
-          <label>Explode <input id="x3dExplode" type="range" min="0" max="1" step="0.01" value="1" /></label>
-          <label><input type="checkbox" id="x3dSpin" checked /> Spin</label>
-          <button class="btn small" id="x3dReplay">Replay</button>
-        </div>
-        <div class="x3d-tip" id="x3dTip" hidden></div>
-        <div class="x3d-legend"><span><i class="lg-c"></i>containers</span><span><i class="lg-i"></i>controls</span><span><i class="lg-t"></i>text</span><span><i class="lg-m"></i>media</span></div>
-      </div>
-      <aside class="x3d-side">
-        <h3>Layers</h3>
-        <p class="muted small">Each level of the component tree is lifted onto its own layer: page → sections → cards → controls. Drag to orbit, click a layer to inspect it.</p>
-        <div id="x3dInfo" class="x3d-info"><p class="muted">Click a layer.</p></div>
-        <ol id="x3dDepths" class="x3d-depths"></ol>
-      </aside>
-    </div>
-  </section>
 
   <!-- back end, reverse-engineered -->
   <section id="tab-backend" class="tab" hidden>
@@ -195,6 +173,5 @@
 
 <div id="toast" class="toast" role="alert" hidden></div>
 <script src="/viewer/build.js"></script>
-<script type="module" src="/viewer/digital3d.js"></script>
 </body>
 </html>
