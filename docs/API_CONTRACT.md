@@ -141,5 +141,25 @@ Vision client interface (shared): `.name`, `.model`, `.generate_json(image_bytes
 - Analysis store is in-memory: lost on restart, not shared across workers. Raw images are never stored.
 - Box coordinates are model estimates. `confidence` is not calibrated, so it is always `null`.
 
+## Run the digital API locally (before Samvit's `main.py` is merged)
+
+```
+cd apps/api
+python -m venv .venv
+.venv\Scripts\activate            # Windows  (macOS/Linux: source .venv/bin/activate)
+pip install -r requirements.txt
+copy .env.example .env            # then put your key in GEMINI_API_KEY  (macOS/Linux: cp)
+uvicorn app.digital_main:app --reload --port 8000
+```
+- Health: http://localhost:8000/api/health. Interactive docs: http://localhost:8000/docs
+- Try it: `curl -F "image=@tests/fixtures/screens/landing.png" http://localhost:8000/api/digital/analyze`
+- Frontend without a key: set `VRE_FIXTURE_MODE=1` (responses are labelled `provider.name="fixture"`).
+
+## Live evaluation (real model calls)
+
+`python scripts/eval_digital.py` sends the 3 team-made mock screens in `tests/fixtures/screens/` to the model and scores the boxes against ground truth captured from the HTML (`*.gt.json`): recall at IoU ≥ 0.5, mean IoU of matched boxes, and type agreement. It writes overlays (green = ground truth, orange = model) and JSON to `apps/api/out/`. It refuses fixture mode. Pass any screenshot path to get an overlay without scoring.
+
+These are 3 synthetic screens, so treat the numbers as a sanity check, not a benchmark. Regenerate screens with `python scripts/render_mock_screens.py` (needs Playwright).
+
 ## Tests
-`cd apps/api && pytest -q`: contract validation, box normalisation, containment geometry, edge-type guards, upload validation, bad/empty model output, provider errors, chat ID filtering, API error shapes. All use recorded/fake model replies; **no live-inference test has been run yet.**
+`cd apps/api && pytest -q`: contract validation, box normalisation, containment geometry, edge-type guards, upload validation, bad/empty model output, provider errors, chat ID filtering, API error shapes, box metrics and the eval script (with a fake model). All use recorded/fake model replies. Live inference is covered only by `scripts/eval_digital.py`.

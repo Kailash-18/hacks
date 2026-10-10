@@ -16,3 +16,6 @@ __pycache__/
 
 # Local transfer files
 *.bundle
+
+# Local eval output
+apps/api/out/

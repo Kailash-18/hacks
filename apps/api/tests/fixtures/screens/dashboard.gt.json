@@ -1,0 +1,97 @@
+{
+  "image": "dashboard.png",
+  "width": 1440,
+  "height": 900,
+  "elements": [
+    {
+      "id": "sidebar",
+      "type": "sidebar",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 0.1611,
+        "height": 1.0
+      }
+    },
+    {
+      "id": "page-title",
+      "type": "heading",
+      "bbox": {
+        "x": 0.1833,
+        "y": 0.0317,
+        "width": 0.0803,
+        "height": 0.0344
+      }
+    },
+    {
+      "id": "search",
+      "type": "search",
+      "bbox": {
+        "x": 0.7167,
+        "y": 0.0267,
+        "width": 0.2222,
+        "height": 0.0444
+      }
+    },
+    {
+      "id": "avatar",
+      "type": "avatar",
+      "bbox": {
+        "x": 0.95,
+        "y": 0.0267,
+        "width": 0.0278,
+        "height": 0.0444
+      }
+    },
+    {
+      "id": "kpi-revenue",
+      "type": "card",
+      "bbox": {
+        "x": 0.1833,
+        "y": 0.0978,
+        "width": 0.2556,
+        "height": 0.1222
+      }
+    },
+    {
+      "id": "kpi-orders",
+      "type": "card",
+      "bbox": {
+        "x": 0.4528,
+        "y": 0.0978,
+        "width": 0.2556,
+        "height": 0.1222
+      }
+    },
+    {
+      "id": "kpi-refunds",
+      "type": "card",
+      "bbox": {
+        "x": 0.7222,
+        "y": 0.0978,
+        "width": 0.2556,
+        "height": 0.1222
+      }
+    },
+    {
+      "id": "sales-chart",
+      "type": "chart",
+      "bbox": {
+        "x": 0.1833,
+        "y": 0.2467,
+        "width": 0.7944,
+        "height": 0.3333
+      }
+    },
+    {
+      "id": "orders-table",
+      "type": "table",
+      "bbox": {
+        "x": 0.1833,
+        "y": 0.6067,
+        "width": 0.7944,
+        "height": 0.1822
+      }
+    }
+  ]
+}
