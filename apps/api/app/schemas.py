@@ -94,6 +94,26 @@ class Product(_Model):
     identified_from: str = Field(default="", alias="identifiedFrom")
 
 
+class AssemblyPart(_Model):
+    """One part as a simple solid (model estimate). mm, x right, y up, z front; origin = object centre."""
+    component_id: str = Field(alias="componentId")
+    shape: str
+    size: list[float]
+    position: list[float]
+    rotation: list[float] = [0, 0, 0]
+    color: str = "#9aa0a6"
+    material: str = "plastic"
+    explode_dir: list[float] = Field(default=[0, 1, 0], alias="explodeDir")
+    explode_dist: float = Field(default=1.0, alias="explodeDist")
+
+
+class Assembly(_Model):
+    kind: Literal["primitive-assembly"] = "primitive-assembly"
+    units: str = "mm"
+    overall_size: list[float] = Field(alias="overallSize")
+    parts: list[AssemblyPart] = []
+
+
 class Scene(_Model):
     kind: Literal["layered-2.5d"] = "layered-2.5d"
     image_width: int = Field(alias="imageWidth")
@@ -105,6 +125,7 @@ class Scene(_Model):
     notes: list[str] = []
     views: list[SceneView] = []  # all photos (top-level plate/layers mirror views[0] for compatibility)
     product: Optional[Product] = None
+    assembly: Optional[Assembly] = None  # simplified 3D model for the 360-degree exploded view
 
 
 class SystemAnalysis(_Model):

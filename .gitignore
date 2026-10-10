@@ -8,3 +8,4 @@ __pycache__/
 .pytest_cache/
 apps/api/.cache/
 node_modules/
+apps/viewer/testdata/

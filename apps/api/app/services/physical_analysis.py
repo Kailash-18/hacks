@@ -94,8 +94,8 @@ Lists:
 
 LIMITATIONS = [
     "Parts and relationships are AI-extracted from photos; verify before relying on them.",
-    "The 3D view is a layered 2.5D exploded diagram built from the photos, not a reconstructed CAD model.",
-    "Depth relief is estimated per pixel from single images and can be wrong.",
+    "The 3D model is a simplified AI estimate built from simple shapes; proportions are approximate, not measured.",
+    "The photo-layer view is a 2.5D cut-out diagram; its depth relief is estimated from single images.",
     "Hidden parts are inferred from typical designs of this kind of object, not observed.",
     "Explode directions are illustrative; they do not show the real assembly order.",
     "Product identification is a model guess from visible logos/text; confirm before relying on it.",
@@ -103,7 +103,7 @@ LIMITATIONS = [
 
 MAX_VIEWS = 4
 LAST_TIMING: dict = {}  # filled per request; exposed as a Server-Timing header for debugging
-PIPELINE_VERSION = "7"  # bump when building logic changes, so saved results are rebuilt (model answers stay cached)
+PIPELINE_VERSION = "8"  # bump when building logic changes, so saved results are rebuilt (model answers stay cached)
 
 
 class AnalysisError(Exception):
@@ -399,7 +399,7 @@ def build_analysis(raw: dict, img: np.ndarray, filename: str, provider: Provider
 
 # ---------------------------------------------------------------- entry points
 
-def _ask_model(image_bytes: bytes, vision_client: VisionClient, cache_dir=None) -> tuple[dict, np.ndarray]:
+def _ask_model(image_bytes: bytes, vision_client: VisionClient, cache_dir=None) -> tuple[dict, np.ndarray, bytes]:
     try:
         img = ops.fit(ops.decode_image(image_bytes))
     except ValueError as exc:
@@ -408,7 +408,7 @@ def _ask_model(image_bytes: bytes, vision_client: VisionClient, cache_dir=None) 
     key = hashlib.sha256(jpeg + vision_client.model.encode() + PROMPT.encode()).hexdigest()
     cached = cache_dir / f"raw-{key}.json" if cache_dir else None
     if cached and cached.exists():
-        return json.loads(cached.read_text(encoding="utf-8")), img
+        return json.loads(cached.read_text(encoding="utf-8")), img, jpeg
     t0 = time.perf_counter()
     log.info("physical: calling %s (%d KB)...", vision_client.model, len(jpeg) // 1024)
     text = vision_client.generate_json(jpeg, "image/jpeg", PROMPT)
@@ -417,7 +417,7 @@ def _ask_model(image_bytes: bytes, vision_client: VisionClient, cache_dir=None) 
     if cached:
         cache_dir.mkdir(parents=True, exist_ok=True)
         cached.write_text(json.dumps(raw), encoding="utf-8")
-    return raw, img
+    return raw, img, jpeg
 
 
 def _merge_groups(raws: list[dict], vision_client) -> list[list[str]]:
@@ -446,16 +446,25 @@ def analyze_physical_images(files: list[tuple[bytes, str]], vision_client: Visio
     with ThreadPoolExecutor(max_workers=len(files)) as pool:
         results = list(pool.map(lambda f: _ask_model(f[0], vision_client, cache_dir), files))
     t1 = time.perf_counter()
-    groups = _merge_groups([r for r, _ in results], vision_client)
+    groups = _merge_groups([r for r, _, _ in results], vision_client)
     t2 = time.perf_counter()
     image_hash = hashlib.sha256(b"".join(hashlib.sha256(b).digest() for b, _ in files)).hexdigest()
-    result = build_analysis_multi([(raw, img, name) for (raw, img), (_, name) in zip(results, files)],
+    result = build_analysis_multi([(raw, img, name) for (raw, img, _), (_, name) in zip(results, files)],
                                   Provider(name=vision_client.name, model=vision_client.model), image_hash, groups)
     t3 = time.perf_counter()
+    try:  # simplified 3D model for the 360-degree exploded view (best-effort; layers still work without it)
+        from .assembly import build_assembly
+        result.scene.assembly = build_assembly(result, [j for _, _, j in results], vision_client, cache_dir)
+        if result.scene.assembly is None:
+            result.scene.notes.append("3D model could not be built; showing photo layers only.")
+    except Exception as exc:
+        log.warning("physical: 3D assembly failed (%s: %s)", type(exc).__name__, exc)
+        result.scene.notes.append(f"3D model could not be built ({type(exc).__name__}: {str(exc)[:160]}); showing photo layers only.")
+    t4 = time.perf_counter()
     LAST_TIMING.clear()
-    LAST_TIMING.update(model=t1 - t0, merge=t2 - t1, build=t3 - t2)
-    log.info("physical: %d photos -> %d parts (%d seen); model %.1f s, merge %.1f s, build %.1f s", len(files),
-             len(result.components), len(result.components) - len(result.scene.ghost_component_ids), t1 - t0, t2 - t1, t3 - t2)
+    LAST_TIMING.update(model=t1 - t0, merge=t2 - t1, build=t3 - t2, assembly=t4 - t3)
+    log.info("physical: %d photos -> %d parts (%d seen); model %.1f s, merge %.1f s, build %.1f s, 3D %.1f s", len(files),
+             len(result.components), len(result.components) - len(result.scene.ghost_component_ids), t1 - t0, t2 - t1, t3 - t2, t4 - t3)
     return result
 
 

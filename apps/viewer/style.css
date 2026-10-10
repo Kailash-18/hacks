@@ -115,3 +115,13 @@ details summary { cursor: pointer; font-weight: 600; color: var(--muted); }
 .tab.add { border-style: dashed; color: var(--accent); }
 .product { margin-top: 10px; padding: 10px; border-radius: 8px; background: var(--surface-2); font-size: 13px; display: grid; gap: 6px; }
 .product a.btn { justify-self: start; text-decoration: none; }
+
+.labels3d { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.lbl { font: 500 11px Inter, sans-serif; color: var(--text); background: color-mix(in srgb, var(--bg) 82%, transparent);
+  border: 1px solid var(--line); padding: 2px 7px; border-radius: 6px; white-space: nowrap; margin-bottom: 4px; }
+.lbl.inferred { color: var(--warn); border-style: dashed; }
+.lbl.sel { border-color: var(--accent); color: #fff; background: var(--accent-2); }
+.lbl.hit { border-color: var(--danger); color: var(--danger); }
+.tab.tab3d.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.lbl.collide { opacity: 0; }
+.lbl { transition: opacity .15s; }

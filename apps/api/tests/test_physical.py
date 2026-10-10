@@ -323,3 +323,57 @@ def test_whatif_without_server_state():
             "relationships": [{"id": "r", "from": "a", "to": "b", "type": "powers"}]}
     r = client.post("/api/physical/whatif", json=body)
     assert r.status_code == 200 and r.json()["affected"][0]["componentId"] == "b"
+
+
+def test_assembly_parse_and_validate():
+    from app.services.assembly import parse_assembly
+    raw = {"overall_size": [60, 40, 110], "parts": [
+        {"id": "shell", "shape": "dome", "size": [60, 30, 110], "position": [0, 10, 0], "color": "#222222",
+         "material": "plastic", "explode_dir": [0, 5, 0], "explode_dist": 1.2},
+        {"id": "pcb", "shape": "weird", "size": [-40, 2, 80], "position": [0, -5, 0], "color": "green",
+         "explode_dir": [0, 0, 0]},
+        {"id": "pcb", "shape": "box", "size": [1, 1, 1], "position": [0, 0, 0]},   # duplicate -> ignored
+        {"id": "ghost", "shape": "box", "size": [1, 1, 1], "position": [0, 0, 0]},  # unknown id -> ignored
+        {"id": "wheel", "shape": "cylinder", "size": [8, "nan", 8], "position": [0, 30, 40], "rotation": [0, 0, 90]},
+    ]}
+    a = parse_assembly(raw, {"shell", "pcb", "wheel"})
+    by = {p.component_id: p for p in a.parts}
+    assert set(by) == {"shell", "pcb", "wheel"}
+    assert by["shell"].explode_dir == [0.0, 1.0, 0.0]
+    assert by["pcb"].shape == "rounded_box" and by["pcb"].size[0] == 40 and by["pcb"].color == "#9aa0a6"
+    assert by["pcb"].explode_dir == [0.0, 1.0, 0.0]  # zero vector -> default up
+    assert by["wheel"].size[1] == 10.0  # NaN -> default
+    assert parse_assembly({"parts": []}, {"a"}) is None
+
+
+def test_pipeline_attaches_assembly(tmp_path):
+    from app.services.physical_analysis import analyze_physical_images
+
+    class WithAsm(MultiFake):
+        def generate_json_images(self, images, prompt):
+            assert 'id "screen"' in prompt
+            return json.dumps({"parts": [
+                {"id": "screen", "shape": "plate", "size": [50, 2, 40], "position": [0, 10, 0]},
+                {"id": "shell", "shape": "rounded_box", "size": [70, 20, 50], "position": [0, 0, 0]}]})
+
+    a = analyze_physical_images([(synthetic_device(), "t.png")], WithAsm(), tmp_path)
+    assert a.scene.assembly and {p.component_id for p in a.scene.assembly.parts} == {"screen", "shell"}
+    assert a.scene.assembly.overall_size[0] == 70
+
+
+def test_daily_quota_switches_model(monkeypatch):
+    from types import SimpleNamespace as NS
+    from app.services.vision_client import GeminiVisionClient
+    calls = []
+
+    def gen(model, contents, config):
+        calls.append(model)
+        if model == "gemini-9-flash":
+            raise Exception("429 RESOURCE_EXHAUSTED quotaId: GenerateRequestsPerDayPerProjectPerModel-FreeTier")
+        return NS(text='{"ok": true}')
+
+    models = [NS(name=f"models/{n}", supported_actions=["generateContent"]) for n in ("gemini-9-flash", "gemini-8-flash", "gemini-9-flash-lite")]
+    vc = GeminiVisionClient(api_key="x", model="gemini-9-flash")
+    vc._client = NS(models=NS(generate_content=gen, list=lambda: models))
+    assert vc.generate_text_json("hi") == '{"ok": true}'
+    assert calls == ["gemini-9-flash", "gemini-8-flash"] and vc.model == "gemini-8-flash"

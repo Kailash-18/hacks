@@ -39,7 +39,9 @@ from .services.physical_analysis import MAX_VIEWS, PIPELINE_VERSION, PROMPT, Ana
 from .services.vision_client import GeminiVisionClient, ProviderError  # noqa: E402
 
 MAX_BYTES = 8 * 1024 * 1024
-PROMPT_VERSION = hashlib.sha256(PROMPT.encode()).hexdigest()[:8] + PIPELINE_VERSION
+from .services.assembly import PROMPT as ASSEMBLY_PROMPT  # noqa: E402
+# saved results are keyed on every prompt + the pipeline version, so changing either rebuilds them
+PROMPT_VERSION = hashlib.sha256((PROMPT + ASSEMBLY_PROMPT).encode()).hexdigest()[:8] + PIPELINE_VERSION
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
 CACHE_DIR = API_DIR / ".cache"
 SAMPLES_DIR = API_DIR / "samples"
@@ -51,6 +53,15 @@ app.add_middleware(
     allow_origins=[o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",")],
     allow_methods=["*"], allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def _no_stale_viewer(request, call_next):
+    """Browsers must revalidate the viewer files, so a code update is never hidden by the cache."""
+    resp = await call_next(request)
+    if request.url.path == "/" or request.url.path.startswith("/viewer/"):
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
 
 vision = GeminiVisionClient()
 _store: "OrderedDict[str, SystemAnalysis]" = OrderedDict()  # recent analyses for what-if

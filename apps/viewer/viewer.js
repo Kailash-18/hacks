@@ -3,6 +3,7 @@
 // blended with a per-part "dome" from the cut-out silhouette. No GPU server needed.
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { AssemblyView } from "./assembly3d.js";
 
 const API = new URLSearchParams(location.search).get("api") || "";
 const TRANSFORMERS_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.1.2";
@@ -31,6 +32,9 @@ scene3.add(new THREE.HemisphereLight(0xffffff, 0x334055, 1.4));
 const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(-4, 6, 10); scene3.add(key);
 const rim = new THREE.DirectionalLight(0x88aaff, 0.6); rim.position.set(6, -2, -6); scene3.add(rim);
 const root = new THREE.Group(); scene3.add(root);
+const asm = new AssemblyView({ scene: scene3, renderer, camera, controls, stage: canvas.parentElement });
+let mode = "layers"; // "3d" = AI-built 3D model, "layers" = photo cut-out layers
+controls.autoRotateSpeed = 1.2;
 
 function resize() {
   const r = canvas.getBoundingClientRect();
@@ -150,17 +154,35 @@ async function build(analysis, { sample = false } = {}) {
   if (!A.scene) { showError("This analysis has no physical scene data."); return; }
   renderPanel();
   $("explode").value = 0;
-  await showView(0);
+  if (A.scene.assembly && A.scene.assembly.parts.length) {
+    asm.build(A.scene.assembly, A.components);
+    show3D();
+  } else await showView(0);
   $("empty").hidden = true; $("controls").hidden = false; $("panel").hidden = false; $("loading").hidden = true;
   introExplode();
+}
+
+function show3D() {
+  mode = "3d";
+  root.visible = false; asm.setActive(true);
+  asm.setExplode(parseFloat($("explode").value));
+  asm.frame(); renderTabs(); paint();
+  $("depthBadge").textContent = "3D model: AI-estimated shapes (approximate)";
+  $("forward").disabled = $("backward").disabled = true;
+  $("loading").hidden = true;
 }
 
 function renderTabs() {
   const box = $("viewTabs"); box.innerHTML = "";
   const vs = viewsOf(A);
+  if (A.scene.assembly && A.scene.assembly.parts.length) {
+    const t = el("button", "tab tab3d" + (mode === "3d" ? " on" : ""), "3D model");
+    t.title = "AI-built 3D model: rotate 360°, explode, click parts"; t.onclick = () => { if (mode !== "3d") show3D(); };
+    box.append(t);
+  }
   vs.forEach((v, i) => {
-    const b = el("button", "tab" + (i === currentView ? " on" : ""), `${i + 1} · ${VIEW_NAMES[v.view] || "Photo"}`);
-    b.title = v.filename || ""; b.onclick = () => { if (i !== currentView) showView(i, { fromTab: true }).then(paint); };
+    const b = el("button", "tab" + (mode === "layers" && i === currentView ? " on" : ""), `Photo ${i + 1} · ${VIEW_NAMES[v.view] || "Photo"}`);
+    b.title = v.filename || ""; b.onclick = () => { if (mode === "3d" || i !== currentView) showView(i, { fromTab: true }).then(paint); };
     box.append(b);
   });
   if (!isSample && vs.length < 4) {
@@ -172,6 +194,9 @@ function renderTabs() {
 
 async function showView(vi, { fromTab = false } = {}) {
   currentView = vi;
+  mode = "layers"; asm.setActive(false); root.visible = true; controls.autoRotate = false; $("spin").checked = false;
+  controls.minAzimuthAngle = -0.75; controls.maxAzimuthAngle = 0.75;          // 2.5D layers only look right from the front
+  controls.minPolarAngle = Math.PI / 2 - 0.6; controls.maxPolarAngle = Math.PI / 2 + 0.6; controls.minDistance = 4; controls.maxDistance = 40;
   if (fromTab) { // only the in-browser steps run when switching photos
     const ol = $("steps"); ol.innerHTML = ""; ol.append(el("li", "active", `Preparing photo ${vi + 1}`));
     $("loading").hidden = false;
@@ -255,6 +280,7 @@ function objFrame() { // object centre + size in world units for the current pho
 }
 
 function frame() { // three-quarter view so the explode depth is visible
+  if (mode === "3d") return asm.frame();
   const o = objFrame();
   const tx = o.cx - (ghosts.length ? o.size * 0.25 : 0), ty = o.cy - o.size * 0.12, tz = o.size * 0.35;
   const dist = o.size * 2.6 + (ghosts.length ? 2.5 : 0) + 2;
@@ -265,6 +291,7 @@ function frame() { // three-quarter view so the explode depth is visible
 
 function applyExplode() {
   const t = parseFloat($("explode").value);
+  if (mode === "3d") return asm.setExplode(t);
   const n = parts.length, o = objFrame();
   const step = (o.size * 1.15) / Math.max(2, n);       // total explode depth ~ object size
   for (const p of parts) {
@@ -335,6 +362,7 @@ function pick(ev) {
   const r = canvas.getBoundingClientRect();
   ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ndc, camera);
+  if (mode === "3d") return asm.pick(ray);
   for (const hit of ray.intersectObjects(root.children, true)) {
     if (!hit.object.visible || !hit.object.parent?.visible) continue;
     const id = hit.object.userData.partId; if (!id) continue;
@@ -364,6 +392,7 @@ canvas.addEventListener("pointermove", (e) => {
 function paint() {
   const iso = $("isolate").checked && selected;
   const related = new Set(selected ? A.relationships.filter((r) => r.from === selected || r.to === selected).flatMap((r) => [r.from, r.to]) : []);
+  if (mode === "3d") return asm.paint({ selected, affected, removed, isolate: $("isolate").checked, related });
   for (const p of parts) {
     const dim = iso && p.id !== selected && !related.has(p.id);
     const glow = p.id === selected ? 0x2a6df4 : affected.has(p.id) ? 0xff5040 : 0x000000;
@@ -439,13 +468,14 @@ function renderDetail() {
     const li = el("li", r.status === "observed" ? "" : "dashed", txt + (r.status === "observed" ? "" : " (inferred)"));
     li.title = r.evidence.join(" · "); li.onclick = () => select(other.id); rl.append(li);
   }
-  const isLayer = parts.some((p) => p.id === c.id);
+  const isLayer = mode === "layers" && parts.some((p) => p.id === c.id);
   $("forward").disabled = $("backward").disabled = !isLayer;
   $("whatif").textContent = removed === c.id ? "Put it back" : "What if I remove it?";
 }
 
 async function select(id) {
-  if (id && !parts.some((p) => p.id === id)) { // part lives in another photo -> switch to it
+  const inScene = mode === "3d" ? asm.parts.some((p) => p.id === id) : parts.some((p) => p.id === id);
+  if (id && !inScene) { // part lives in another photo -> switch to it
     const vi = viewsOf(A).findIndex((v) => v.layers.some((l) => l.componentId === id));
     if (vi >= 0 && vi !== currentView) await showView(vi);
   }
@@ -590,5 +620,7 @@ $("samples").addEventListener("change", async (e) => {
 loadSamples();
 
 // ---------------------------------------------------------------- loop
-renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene3, camera); });
-window.__vre = { build, get state() { return { parts: parts.length, ghosts: ghosts.length, selected, removed, affected: [...affected] }; }, select };
+$("spin").addEventListener("change", (e) => { controls.autoRotate = e.target.checked; });
+controls.addEventListener("start", () => { if (controls.autoRotate) { controls.autoRotate = false; $("spin").checked = false; } });
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene3, camera); asm.render(); });
+window.__vre = { build, get state() { return { mode, parts: mode === "3d" ? asm.parts.length : parts.length, ghosts: ghosts.length, selected, removed, affected: [...affected] }; }, select };
