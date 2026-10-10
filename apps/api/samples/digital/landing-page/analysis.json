@@ -1,0 +1,640 @@
+{
+  "analysisId": "digital-004a284b37004a8e",
+  "domain": "digital",
+  "title": "Lumen Landing Page Hero Section",
+  "source": {
+    "kind": "image",
+    "filename": "landing.png"
+  },
+  "assetId": null,
+  "components": [
+    {
+      "id": "navbar",
+      "label": "Top Navigation Bar",
+      "type": "navbar",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Horizontal navigation row at top of page"
+      ],
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1.0,
+        "height": 0.08
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-logo",
+      "label": "Lumen",
+      "type": "logo",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text: Lumen"
+      ],
+      "bbox": {
+        "x": 0.038,
+        "y": 0.03,
+        "width": 0.055,
+        "height": 0.021
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-link-product",
+      "label": "Product",
+      "type": "link",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text: Product"
+      ],
+      "bbox": {
+        "x": 0.408,
+        "y": 0.032,
+        "width": 0.041,
+        "height": 0.017
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-link-pricing",
+      "label": "Pricing",
+      "type": "link",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text: Pricing"
+      ],
+      "bbox": {
+        "x": 0.474,
+        "y": 0.032,
+        "width": 0.035,
+        "height": 0.018
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-link-docs",
+      "label": "Docs",
+      "type": "link",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text: Docs"
+      ],
+      "bbox": {
+        "x": 0.534,
+        "y": 0.032,
+        "width": 0.027,
+        "height": 0.015
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-link-blog",
+      "label": "Blog",
+      "type": "link",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text: Blog"
+      ],
+      "bbox": {
+        "x": 0.586,
+        "y": 0.032,
+        "width": 0.023,
+        "height": 0.018
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-btn-signin",
+      "label": "Sign in",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text: Sign in inside bordered button"
+      ],
+      "bbox": {
+        "x": 0.899,
+        "y": 0.019,
+        "width": 0.064,
+        "height": 0.042
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "hero-section",
+      "label": "Hero Section",
+      "type": "hero",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Primary headline, supporting copy, CTAs, and large visual area"
+      ],
+      "bbox": {
+        "x": 0.038,
+        "y": 0.17,
+        "width": 0.912,
+        "height": 0.375
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "hero-headline",
+      "label": "Ship analytics your team actually reads",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Prominent bold text at top of hero section"
+      ],
+      "bbox": {
+        "x": 0.038,
+        "y": 0.178,
+        "width": 0.423,
+        "height": 0.125
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "hero-description",
+      "label": "Lumen turns raw product events into weekly reports, alerts and dashboards in minutes.",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Subtext paragraph beneath hero headline"
+      ],
+      "bbox": {
+        "x": 0.038,
+        "y": 0.331,
+        "width": 0.391,
+        "height": 0.056
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "hero-cta-trial",
+      "label": "Start free trial",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Purple filled button with text: Start free trial"
+      ],
+      "bbox": {
+        "x": 0.038,
+        "y": 0.43,
+        "width": 0.13,
+        "height": 0.06
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "hero-cta-demo",
+      "label": "Book a demo \u2192",
+      "type": "link",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text link with arrow next to primary button"
+      ],
+      "bbox": {
+        "x": 0.198,
+        "y": 0.45,
+        "width": 0.092,
+        "height": 0.021
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "hero-media",
+      "label": "Hero Media Placeholder",
+      "type": "container",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Large purple gradient rounded container to the right"
+      ],
+      "bbox": {
+        "x": 0.512,
+        "y": 0.17,
+        "width": 0.438,
+        "height": 0.375
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "card-smart-alerts",
+      "label": "Smart alerts Card",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "White rounded card with border and feature information"
+      ],
+      "bbox": {
+        "x": 0.038,
+        "y": 0.605,
+        "width": 0.291,
+        "height": 0.213
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "card-smart-alerts-title",
+      "label": "Smart alerts",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card header text: Smart alerts"
+      ],
+      "bbox": {
+        "x": 0.058,
+        "y": 0.638,
+        "width": 0.085,
+        "height": 0.02
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "card-smart-alerts-desc",
+      "label": "Get notified when a metric moves more than you expect.",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Description text inside Smart alerts card"
+      ],
+      "bbox": {
+        "x": 0.058,
+        "y": 0.68,
+        "width": 0.251,
+        "height": 0.047
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "card-weekly-reports",
+      "label": "Weekly reports Card",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "White rounded card with border in center column"
+      ],
+      "bbox": {
+        "x": 0.354,
+        "y": 0.605,
+        "width": 0.292,
+        "height": 0.213
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "card-weekly-reports-title",
+      "label": "Weekly reports",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card header text: Weekly reports"
+      ],
+      "bbox": {
+        "x": 0.374,
+        "y": 0.638,
+        "width": 0.106,
+        "height": 0.025
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "card-weekly-reports-desc",
+      "label": "A digest of what changed, delivered every Monday.",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Description text inside Weekly reports card"
+      ],
+      "bbox": {
+        "x": 0.374,
+        "y": 0.68,
+        "width": 0.217,
+        "height": 0.047
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "card-shared-dashboards",
+      "label": "Shared dashboards Card",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "White rounded card with border in right column"
+      ],
+      "bbox": {
+        "x": 0.671,
+        "y": 0.605,
+        "width": 0.291,
+        "height": 0.213
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "card-shared-dashboards-title",
+      "label": "Shared dashboards",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card header text: Shared dashboards"
+      ],
+      "bbox": {
+        "x": 0.69,
+        "y": 0.638,
+        "width": 0.139,
+        "height": 0.02
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "card-shared-dashboards-desc",
+      "label": "One link for the whole team, always up to date.",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Description text inside Shared dashboards card"
+      ],
+      "bbox": {
+        "x": 0.69,
+        "y": 0.68,
+        "width": 0.244,
+        "height": 0.02
+      },
+      "modelNodeId": null,
+      "transform": null
+    }
+  ],
+  "relationships": [
+    {
+      "id": "navbar--contains--nav-logo",
+      "from": "navbar",
+      "to": "nav-logo",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "navbar--contains--nav-link-product",
+      "from": "navbar",
+      "to": "nav-link-product",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "navbar--contains--nav-link-pricing",
+      "from": "navbar",
+      "to": "nav-link-pricing",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "navbar--contains--nav-link-docs",
+      "from": "navbar",
+      "to": "nav-link-docs",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "navbar--contains--nav-link-blog",
+      "from": "navbar",
+      "to": "nav-link-blog",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "navbar--contains--nav-btn-signin",
+      "from": "navbar",
+      "to": "nav-btn-signin",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "hero-section--contains--hero-headline",
+      "from": "hero-section",
+      "to": "hero-headline",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "hero-section--contains--hero-description",
+      "from": "hero-section",
+      "to": "hero-description",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "hero-section--contains--hero-cta-trial",
+      "from": "hero-section",
+      "to": "hero-cta-trial",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "hero-section--contains--hero-cta-demo",
+      "from": "hero-section",
+      "to": "hero-cta-demo",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "hero-section--contains--hero-media",
+      "from": "hero-section",
+      "to": "hero-media",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "card-smart-alerts--contains--card-smart-alerts-title",
+      "from": "card-smart-alerts",
+      "to": "card-smart-alerts-title",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "card-smart-alerts--contains--card-smart-alerts-desc",
+      "from": "card-smart-alerts",
+      "to": "card-smart-alerts-desc",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "card-weekly-reports--contains--card-weekly-reports-title",
+      "from": "card-weekly-reports",
+      "to": "card-weekly-reports-title",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "card-weekly-reports--contains--card-weekly-reports-desc",
+      "from": "card-weekly-reports",
+      "to": "card-weekly-reports-desc",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "card-shared-dashboards--contains--card-shared-dashboards-title",
+      "from": "card-shared-dashboards",
+      "to": "card-shared-dashboards-title",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "card-shared-dashboards--contains--card-shared-dashboards-desc",
+      "from": "card-shared-dashboards",
+      "to": "card-shared-dashboards-desc",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "hero-cta-trial--visually_aligned_with--hero-cta-demo",
+      "from": "hero-cta-trial",
+      "to": "hero-cta-demo",
+      "type": "visually_aligned_with",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Both CTAs are aligned horizontally adjacent to each other"
+      ]
+    },
+    {
+      "id": "card-smart-alerts--visually_aligned_with--card-weekly-reports",
+      "from": "card-smart-alerts",
+      "to": "card-weekly-reports",
+      "type": "visually_aligned_with",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Arranged side-by-side in a 3-column row"
+      ]
+    },
+    {
+      "id": "card-weekly-reports--visually_aligned_with--card-shared-dashboards",
+      "from": "card-weekly-reports",
+      "to": "card-shared-dashboards",
+      "type": "visually_aligned_with",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Arranged side-by-side in a 3-column row"
+      ]
+    }
+  ],
+  "summary": "This is a landing page for Lumen, an analytics product, featuring a navigation header, a hero section with a primary call-to-action alongside a large gradient visual placeholder, and three feature highlight cards below.",
+  "limitations": [
+    "A single screenshot shows layout and visible text only; it does not reveal event handlers, API calls, data sources or where any control navigates.",
+    "Bounding boxes are model estimates and may be offset slightly from the true element edges.",
+    "confidence is null because the model does not produce calibrated probabilities."
+  ],
+  "provider": {
+    "name": "gemini",
+    "model": "gemini-3.8-flash"
+  }
+}

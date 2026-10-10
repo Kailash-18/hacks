@@ -19,7 +19,7 @@ MAX_CONTEXT_COMPONENTS = 80
 
 _BEHAVIOUR_WORDS = re.compile(
     r"\b(api|endpoint|backend|database|server|handler|onclick|event|navigat\w*|redirect\w*|route|"
-    r"submit\w*|request|fetch\w*|call\w*|link\w* to|go(es)? to|opens?)\b",
+    r"submit\w*|request|fetch\w*|call\w*|link\w* to|go(es)? to|opens?|click\w*|tap\w*|press\w*|happens?)\b",
     re.IGNORECASE,
 )
 DIGITAL_BEHAVIOUR_LIMITATION = (

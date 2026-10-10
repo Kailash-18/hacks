@@ -1,0 +1,578 @@
+{
+  "analysisId": "digital-4754ba322bd0489b",
+  "domain": "digital",
+  "title": "Orbit Ops Dashboard Overview",
+  "source": {
+    "kind": "image",
+    "filename": "dashboard.png"
+  },
+  "assetId": null,
+  "components": [
+    {
+      "id": "sidebar-nav",
+      "label": "Left Navigation Sidebar",
+      "type": "sidebar",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Dark vertical panel spanning the entire left side"
+      ],
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 0.161,
+        "height": 1.0
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "sidebar-brand",
+      "label": "Orbit Ops",
+      "type": "logo",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text 'Orbit Ops' in header region of sidebar"
+      ],
+      "bbox": {
+        "x": 0.012,
+        "y": 0.032,
+        "width": 0.064,
+        "height": 0.021
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-item-overview",
+      "label": "Overview",
+      "type": "menu_item",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Highlighted menu item button with text 'Overview'"
+      ],
+      "bbox": {
+        "x": 0.012,
+        "y": 0.09,
+        "width": 0.137,
+        "height": 0.044
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-item-orders",
+      "label": "Orders",
+      "type": "menu_item",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Menu text 'Orders'"
+      ],
+      "bbox": {
+        "x": 0.021,
+        "y": 0.151,
+        "width": 0.032,
+        "height": 0.018
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-item-customers",
+      "label": "Customers",
+      "type": "menu_item",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Menu text 'Customers'"
+      ],
+      "bbox": {
+        "x": 0.021,
+        "y": 0.2,
+        "width": 0.051,
+        "height": 0.017
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-item-inventory",
+      "label": "Inventory",
+      "type": "menu_item",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Menu text 'Inventory'"
+      ],
+      "bbox": {
+        "x": 0.021,
+        "y": 0.247,
+        "width": 0.043,
+        "height": 0.018
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-item-settings",
+      "label": "Settings",
+      "type": "menu_item",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Menu text 'Settings'"
+      ],
+      "bbox": {
+        "x": 0.021,
+        "y": 0.295,
+        "width": 0.038,
+        "height": 0.018
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "page-header-title",
+      "label": "Overview",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Large title text 'Overview' in the main content area"
+      ],
+      "bbox": {
+        "x": 0.183,
+        "y": 0.038,
+        "width": 0.081,
+        "height": 0.022
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "search-input",
+      "label": "Search orders...",
+      "type": "search",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Search box with placeholder text 'Search orders...'"
+      ],
+      "bbox": {
+        "x": 0.717,
+        "y": 0.026,
+        "width": 0.222,
+        "height": 0.045
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "user-avatar",
+      "label": "User Profile Avatar",
+      "type": "avatar",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Circular orange avatar element at top right"
+      ],
+      "bbox": {
+        "x": 0.949,
+        "y": 0.026,
+        "width": 0.029,
+        "height": 0.046
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "kpi-card-revenue",
+      "label": "Revenue Card",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "White rectangular card showing Revenue"
+      ],
+      "bbox": {
+        "x": 0.183,
+        "y": 0.098,
+        "width": 0.256,
+        "height": 0.122
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "kpi-label-revenue",
+      "label": "Revenue",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Label 'Revenue' inside card"
+      ],
+      "bbox": {
+        "x": 0.196,
+        "y": 0.121,
+        "width": 0.04,
+        "height": 0.013
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "kpi-value-revenue",
+      "label": "$48,210",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Metric value '$48,210'"
+      ],
+      "bbox": {
+        "x": 0.196,
+        "y": 0.154,
+        "width": 0.075,
+        "height": 0.03
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "kpi-card-orders",
+      "label": "Orders Card",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "White rectangular card showing Orders"
+      ],
+      "bbox": {
+        "x": 0.453,
+        "y": 0.098,
+        "width": 0.255,
+        "height": 0.122
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "kpi-label-orders",
+      "label": "Orders",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Label 'Orders' inside card"
+      ],
+      "bbox": {
+        "x": 0.465,
+        "y": 0.121,
+        "width": 0.031,
+        "height": 0.013
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "kpi-value-orders",
+      "label": "1,284",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Metric value '1,284'"
+      ],
+      "bbox": {
+        "x": 0.465,
+        "y": 0.154,
+        "width": 0.053,
+        "height": 0.029
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "kpi-card-refund",
+      "label": "Refund Rate Card",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "White rectangular card showing Refund rate"
+      ],
+      "bbox": {
+        "x": 0.722,
+        "y": 0.098,
+        "width": 0.256,
+        "height": 0.122
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "kpi-label-refund",
+      "label": "Refund rate",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Label 'Refund rate' inside card"
+      ],
+      "bbox": {
+        "x": 0.735,
+        "y": 0.121,
+        "width": 0.051,
+        "height": 0.013
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "kpi-value-refund",
+      "label": "2.1%",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Metric value '2.1%'"
+      ],
+      "bbox": {
+        "x": 0.735,
+        "y": 0.154,
+        "width": 0.048,
+        "height": 0.024
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "chart-weekly-sales",
+      "label": "Weekly sales",
+      "type": "chart",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Bar chart card titled 'Weekly sales' containing 7 blue vertical bars"
+      ],
+      "bbox": {
+        "x": 0.183,
+        "y": 0.247,
+        "width": 0.795,
+        "height": 0.333
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "orders-table",
+      "label": "Recent Orders Table",
+      "type": "table",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Tabular view with columns Order, Customer, Status, Total"
+      ],
+      "bbox": {
+        "x": 0.183,
+        "y": 0.606,
+        "width": 0.795,
+        "height": 0.182
+      },
+      "modelNodeId": null,
+      "transform": null
+    }
+  ],
+  "relationships": [
+    {
+      "id": "sidebar-nav--contains--sidebar-brand",
+      "from": "sidebar-nav",
+      "to": "sidebar-brand",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar-nav--contains--nav-item-overview",
+      "from": "sidebar-nav",
+      "to": "nav-item-overview",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar-nav--contains--nav-item-orders",
+      "from": "sidebar-nav",
+      "to": "nav-item-orders",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar-nav--contains--nav-item-customers",
+      "from": "sidebar-nav",
+      "to": "nav-item-customers",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar-nav--contains--nav-item-inventory",
+      "from": "sidebar-nav",
+      "to": "nav-item-inventory",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar-nav--contains--nav-item-settings",
+      "from": "sidebar-nav",
+      "to": "nav-item-settings",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "kpi-card-revenue--contains--kpi-label-revenue",
+      "from": "kpi-card-revenue",
+      "to": "kpi-label-revenue",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "kpi-card-revenue--contains--kpi-value-revenue",
+      "from": "kpi-card-revenue",
+      "to": "kpi-value-revenue",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "kpi-card-orders--contains--kpi-label-orders",
+      "from": "kpi-card-orders",
+      "to": "kpi-label-orders",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "kpi-card-orders--contains--kpi-value-orders",
+      "from": "kpi-card-orders",
+      "to": "kpi-value-orders",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "kpi-card-refund--contains--kpi-label-refund",
+      "from": "kpi-card-refund",
+      "to": "kpi-label-refund",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "kpi-card-refund--contains--kpi-value-refund",
+      "from": "kpi-card-refund",
+      "to": "kpi-value-refund",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "search-input--visually_aligned_with--user-avatar",
+      "from": "search-input",
+      "to": "user-avatar",
+      "type": "visually_aligned_with",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Top bar alignment of search and profile avatar"
+      ]
+    },
+    {
+      "id": "kpi-card-revenue--adjacent_to--kpi-card-orders",
+      "from": "kpi-card-revenue",
+      "to": "kpi-card-orders",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Revenue card is horizontally adjacent to Orders card"
+      ]
+    },
+    {
+      "id": "kpi-card-orders--adjacent_to--kpi-card-refund",
+      "from": "kpi-card-orders",
+      "to": "kpi-card-refund",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Orders card is horizontally adjacent to Refund rate card"
+      ]
+    },
+    {
+      "id": "chart-weekly-sales--adjacent_to--orders-table",
+      "from": "chart-weekly-sales",
+      "to": "orders-table",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Orders table sits vertically below the Weekly sales chart"
+      ]
+    }
+  ],
+  "summary": "This is an e-commerce or operations dashboard overview interface showing key performance indicators (Revenue, Orders, Refund rate), a weekly sales bar chart, and a recent orders summary table. A dark vertical navigation sidebar is positioned on the left side of the screen.",
+  "limitations": [
+    "A single screenshot shows layout and visible text only; it does not reveal event handlers, API calls, data sources or where any control navigates.",
+    "Bounding boxes are model estimates and may be offset slightly from the true element edges.",
+    "confidence is null because the model does not produce calibrated probabilities."
+  ],
+  "provider": {
+    "name": "gemini",
+    "model": "gemini-3.8-flash"
+  }
+}

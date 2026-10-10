@@ -4,6 +4,10 @@
 
 Photograph any object. The **Physical Lab** finds its parts, cuts each one out, estimates depth, and builds an interactive exploded diagram you can rotate, pull apart, inspect part by part, and question with "what if I remove this?".
 
+Screenshot any software interface. The **Digital Lab** turns it into a component tree with boxes on the screenshot, a graph of visual relationships, and answers to questions grounded in what was actually seen.
+
+Both labs produce the same `SystemAnalysis` shape: components, relationships, evidence and an observed / inferred status for every item.
+
 > Built during the Banana Hacks 2026 hacking window. Status: work in progress.
 
 ## How it works (Physical Lab)
@@ -16,6 +20,14 @@ Photograph any object. The **Physical Lab** finds its parts, cuts each one out, 
 
 Everything shown is labelled **seen in photo** or **inferred**. The 3D view is a layered 2.5D exploded diagram, not a CAD reconstruction.
 
+## How it works (Digital Lab)
+
+1. **Vision AI:** one structured call returns visible UI components with boxes (Gemini `box_2d`, converted to 0–1), types, evidence and parent links.
+2. **Validation and geometry checks:** boxes are clamped or dropped; each model-reported parent is checked against box geometry (`observed` if the boxes agree, `inferred` if not); missing parents are derived from geometry (`estimated`).
+3. **Truthfulness guard:** a screenshot cannot show handlers, API calls or navigation, so such relationships are downgraded to `appears_related_to` with a note.
+4. **Grounded chat:** questions are answered only from the extracted graph; cited ids are verified and behaviour questions get an explicit caveat.
+5. **Measured, not claimed:** `scripts/eval_digital.py` scores live output against ground truth from three team-made mock screens (recall at IoU ≥ 0.5, mean IoU, type agreement). On 10 Oct with gemini-3.8-flash: recall 1.0 on all three screens, mean IoU 0.89–0.95. Three synthetic screens are a sanity check, not a benchmark.
+
 ## Run locally
 
 ```bash
@@ -26,7 +38,9 @@ cp .env.example .env                               # add your free key from aist
 uvicorn app.main:app --reload --port 8000
 ```
 
-Open http://localhost:8000 and upload a photo. Tests: `cd apps/api && pytest -q`.
+Open http://localhost:8000 and upload a photo. Tests: `cd apps/api && pytest -q`. Live Digital Lab check (uses your key): `python scripts/eval_digital.py --chat`.
+
+Both labs share one vision client: Gemini first, switching Flash models when a free daily quota runs out, then a local LM Studio model (`VISION_PROVIDER=auto`). Results are cached by image hash, so the same image never costs a second call. Frontend types: `contracts/system-analysis.ts`; full contract: `docs/API_CONTRACT.md`.
 
 ## API
 
@@ -36,10 +50,17 @@ Open http://localhost:8000 and upload a photo. Tests: `cd apps/api && pytest -q`
 | POST | `/api/physical/analyze` | multipart `image` → `SystemAnalysis` (+ `scene` layers) |
 | POST | `/api/physical/whatif` | `{analysisId, removedComponentId}` → affected parts + paths |
 | GET | `/api/physical/samples` | Saved results of earlier real analyses (sample mode) |
+| POST | `/api/digital/analyze` | multipart `image` (screenshot) → `SystemAnalysis` (domain `digital`) |
+| GET | `/api/digital/samples` | Saved real Digital Lab results (+ `/{id}`, `/{id}/image`) |
+| GET | `/api/analysis/{analysisId}` | Any stored analysis (either lab) |
+| POST | `/api/analysis/{analysisId}/chat` | `{question, selectedComponentIds}` → grounded answer with cited ids |
+
+All errors use one shape: `{"error": {"code": "...", "message": "..."}}`.
 
 ## Credits
 
 - Google Gemini API (vision + segmentation), free tier
 - [Depth Anything V2 Small](https://huggingface.co/onnx-community/depth-anything-v2-small) via [transformers.js](https://github.com/huggingface/transformers.js) (Apache-2.0)
-- [three.js](https://threejs.org) (MIT), OpenCV (Apache-2.0), FastAPI (MIT)
+- [three.js](https://threejs.org) (MIT), OpenCV (Apache-2.0), FastAPI (MIT), Pydantic (MIT), Pillow (MIT-CMU)
+- [Playwright](https://playwright.dev) (Apache-2.0) to render the team-made mock UI screens used for evaluation
 - AI tools used in development: Claude (coding assistant), disclosed per event rules.

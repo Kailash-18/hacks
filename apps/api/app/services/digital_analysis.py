@@ -81,6 +81,9 @@ Return ONLY a JSON object with this exact shape:
 
 Rules:
 - box_2d is integers 0-1000 normalised to the image: [ymin, xmin, ymax, xmax], top-left origin. Be precise.
+- Boxes must tightly fit what is visible: for text-only elements (headings, labels, links) fit the
+  text itself, not the empty row around it; for buttons, inputs and cards fit the visible border.
+- If a card or panel exists mainly to hold a chart, table, image or form, give it that type.
 - Include major regions (navbar, sidebar, sections, cards, footer) AND meaningful leaf elements
   (headings, buttons, inputs, images, links). At most %(max)d components. Skip decorative noise.
 - Containment goes ONLY in parentId (do not also emit 'contains' relationships).

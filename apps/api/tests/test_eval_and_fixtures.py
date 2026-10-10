@@ -95,3 +95,79 @@ def test_eval_script_refuses_fixture_mode(monkeypatch):
 
     monkeypatch.setattr(mod, "get_vision_client", lambda: Fixture())
     assert mod.main([]) == 2
+
+
+def test_type_groups_accept_equivalent_labels():
+    from app.services.box_eval import types_agree
+
+    assert types_agree("hero", "section") and types_agree("paragraph", "text")
+    assert not types_agree("button", "text") and not types_agree(None, "text")
+
+
+def test_shared_adapter_routes_text_only_calls_and_maps_errors():
+    """Chat (image None) goes to the shared client's generate_text_json; ProviderError -> VisionProviderError."""
+    import pytest as _pytest
+
+    from app.services.vision_client import ProviderError
+    from app.services.vision_provider import SharedClientAdapter, VisionProviderError
+
+    class Inner:
+        name, model = "google-gemini", "g-1"
+
+        def __init__(self):
+            self.calls = []
+
+        def generate_json(self, b, m, p):
+            self.calls.append(("image", m))
+            return "{}"
+
+        def generate_text_json(self, p):
+            self.calls.append(("text", None))
+            return "{}"
+
+    inner = Inner()
+    ad = SharedClientAdapter(inner)
+    ad.generate_json(b"x", "image/webp", "p")
+    ad.generate_json(None, None, "p")
+    assert inner.calls == [("image", "image/webp"), ("text", None)]
+    assert ad.name == "google-gemini" and ad.last_call["model"] == "g-1"
+
+    for status, code in [(429, "provider_rate_limited"), (503, "provider_unavailable"), (504, "provider_timeout"), (502, "provider_error")]:
+        def boom(*a, _s=status):
+            raise ProviderError("friendly message", _s)
+        inner.generate_text_json = boom
+        with _pytest.raises(VisionProviderError) as ei:
+            ad.generate_json(None, None, "p")
+        assert (ei.value.code, ei.value.http_status, ei.value.message) == (code, status, "friendly message")
+
+
+def test_shared_client_is_reused_and_fixture_mode_wins(monkeypatch):
+    from app.services import vision_provider as vp
+
+    sentinel = type("C", (), {"name": "n", "model": "m"})()
+    vp.set_shared_client(sentinel)
+    a1, a2 = vp.get_vision_client(), vp.get_vision_client()
+    assert a1 is a2 and a1.inner is sentinel
+    monkeypatch.setenv("VRE_FIXTURE_MODE", "1")
+    assert vp.get_vision_client().name == "fixture"
+    vp.set_shared_client(None)
+
+
+def test_eval_chat_flag_asks_one_grounded_question(tmp_path, monkeypatch):
+    spec = importlib.util.spec_from_file_location("eval_digital3", API / "scripts" / "eval_digital.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    class WithChat(PerfectFake):
+        def generate_json(self, image_bytes, mime, prompt):
+            if image_bytes is None:
+                return json.dumps({"answer": "The button.", "referencedComponentIds": ["hero-cta", "made-up"],
+                                   "referencedRelationshipIds": [], "limitations": []})
+            return super().generate_json(image_bytes, mime, prompt)
+
+    monkeypatch.setattr(mod, "get_vision_client", lambda: WithChat())
+    monkeypatch.setattr(mod, "OUT", tmp_path)
+    assert mod.main(["--chat", str(SCREENS / "landing.png")]) == 0
+    row = json.loads((tmp_path / "eval_summary.json").read_text(encoding="utf-8"))["screens"][0]
+    assert row["chat"]["referencedComponentIds"] == ["hero-cta"]  # invented id filtered out
+    assert any("runtime behaviour" in x for x in row["chat"]["limitations"])  # "clicked" -> caveat added
