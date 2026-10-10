@@ -377,3 +377,28 @@ def test_daily_quota_switches_model(monkeypatch):
     vc._client = NS(models=NS(generate_content=gen, list=lambda: models))
     assert vc.generate_text_json("hi") == '{"ok": true}'
     assert calls == ["gemini-9-flash", "gemini-8-flash"] and vc.model == "gemini-8-flash"
+
+
+def test_assembly_parts_fit_inside_shell():
+    from app.services.assembly import parse_assembly
+    raw = {"parts": [
+        {"id": "shell", "shape": "dome", "size": [60, 30, 100], "position": [0, 10, 0]},
+        {"id": "base", "shape": "plate", "size": [60, 6, 100], "position": [0, -8, 0]},
+        {"id": "battery", "shape": "box", "size": [20, 15, 160], "position": [0, 0, 70]},   # too long + sticks out
+    ]}
+    a = parse_assembly(raw, {"shell", "base", "battery"}, {"shell": "cover", "base": "structure", "battery": "power_source"})
+    b = next(p for p in a.parts if p.component_id == "battery")
+    assert b.size[2] <= 100 * 0.92 + 1e-6
+    assert b.position[2] + b.size[2] / 2 <= 50 + 1e-6
+
+
+def test_rotated_part_fits_inside_shell():
+    from app.services.assembly import parse_assembly
+    raw = {"parts": [
+        {"id": "shell", "shape": "dome", "size": [60, 30, 100], "position": [0, 10, 0]},
+        {"id": "button", "shape": "plate", "size": [80, 3, 20], "position": [0, 20, -40], "rotation": [0, 90, 0]},
+    ]}
+    a = parse_assembly(raw, {"shell", "button"}, {"shell": "cover", "button": "actuator"})
+    b = next(p for p in a.parts if p.component_id == "button")
+    # rotated 90 deg about y: its 80 mm length lies along z, so it must end inside z = +/-50
+    assert abs(b.position[2]) + b.size[0] / 2 <= 50 + 1e-6

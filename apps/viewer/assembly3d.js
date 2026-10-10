@@ -56,10 +56,12 @@ export class AssemblyView {
     this.floor.rotation.x = -Math.PI / 2; this.floor.receiveShadow = true; this.root.add(this.floor);
     // labels
     this.labels = new CSS2DRenderer(); this.labels.domElement.className = "labels3d"; stage.append(this.labels.domElement);
+    this.stage = stage;
   }
 
   setActive(on) {
     this.root.visible = on; this.labels.domElement.hidden = !on;
+    this.stage.classList.toggle("studio", on);
     this.scene.environment = on ? this.env : null;
     this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = on ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
@@ -75,23 +77,52 @@ export class AssemblyView {
     const [ox, oy, oz] = assembly.overallSize;
     this.scale = TARGET_SIZE / Math.max(ox, oy, oz, 1);
     const k = this.scale;
+    // curved shells ("dome") that thin parts and base plates should conform to
+    const domes = assembly.parts.filter((a) => a.shape === "dome").map((a) => ({
+      cx: a.position[0] * k, cz: a.position[2] * k, ax: (a.size[0] * k) / 2, az: (a.size[2] * k) / 2,
+      h: a.size[1] * k, baseY: a.position[1] * k - (a.size[1] * k) / 2 }));
+    const domeTop = (d, x, z) => { const q = 1 - ((x - d.cx) / d.ax) ** 2 - ((z - d.cz) / d.az) ** 2; return q > 0 ? d.baseY + d.h * Math.sqrt(q) : null; };
     for (const a of assembly.parts) {
       const c = comp[a.componentId]; if (!c) continue;
       const inferred = c.status !== "observed";
       const size = a.size.map((v) => Math.max(0.02, v * k));
-      const geom = geometryFor(a.shape, size);
+      const pos = a.position.map((v) => v * k);
+      let geom = null, conformed = false;
+      const thin = size[1] < 0.3 * Math.min(size[0], size[2]);
+      const host = a.shape !== "dome" && domes.find((d) => domeTop(d, pos[0], pos[2]) !== null);
+      if (host && thin && pos[1] > host.baseY + host.h * 0.3 && ["plate", "box", "rounded_box"].includes(a.shape)) {
+        // thin part on top of a curved shell (button, badge): bend it onto the shell surface
+        const g = new THREE.PlaneGeometry(size[0], size[2], 24, 24); g.rotateX(-Math.PI / 2);
+        const P = g.attributes.position;
+        for (let i = 0; i < P.count; i++) {
+          let x = pos[0] + P.getX(i), z = pos[2] + P.getZ(i);
+          const r = Math.hypot((x - host.cx) / host.ax, (z - host.cz) / host.az);
+          if (r > 0.97) { x = host.cx + (x - host.cx) * 0.97 / r; z = host.cz + (z - host.cz) * 0.97 / r; }
+          P.setXYZ(i, x - pos[0], domeTop(host, x, z) + Math.max(0.02, size[1] * 0.5) - pos[1], z - pos[2]);
+        }
+        g.computeVertexNormals(); geom = g; conformed = true;
+      } else {
+        const d = domes.find((d) => Math.abs((pos[1] + size[1] / 2) - d.baseY) < d.h * 0.35
+          && size[0] > d.ax * 1.4 && size[2] > d.az * 1.4 && ["plate", "box", "rounded_box"].includes(a.shape));
+        if (d) { // base plate under a curved shell: give it the shell's oval footprint
+          geom = new THREE.CylinderGeometry(0.5, 0.5, 1, 64); geom.scale(d.ax * 2, size[1], d.az * 2);
+          geom.translate(d.cx - pos[0], 0, d.cz - pos[2]); conformed = true;
+        }
+      }
+      geom = geom || geometryFor(a.shape, size);
       const mp = MATERIALS[a.material] || MATERIALS.plastic;
       const mat = new THREE.MeshPhysicalMaterial({ color: new THREE.Color(a.color), envMapIntensity: 1.0, ...mp,
-        side: a.shape === "dome" ? THREE.DoubleSide : THREE.FrontSide });
+        side: a.shape === "dome" || conformed ? THREE.DoubleSide : THREE.FrontSide });
       const mesh = new THREE.Mesh(geom, mat); mesh.castShadow = true; mesh.receiveShadow = true;
       const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geom, 28),
         new THREE.LineBasicMaterial({ color: inferred ? 0xf2b84b : 0x0b0d12, transparent: true, opacity: inferred ? 0.85 : 0.28 }));
       const group = new THREE.Group(); group.add(mesh, edges);
-      group.rotation.set(...a.rotation.map((d) => THREE.MathUtils.degToRad(d)));
+      if (!conformed) group.rotation.set(...a.rotation.map((d) => THREE.MathUtils.degToRad(d)));
       group.traverse((o) => (o.userData.partId = a.componentId));
       const div = document.createElement("div"); div.className = "lbl" + (inferred ? " inferred" : "");
       div.textContent = (inferred ? "? " : "") + c.label;
-      const label = new CSS2DObject(div); label.position.set(0, size[1] / 2 + 0.12, 0); label.center.set(0.5, 1);
+      geom.computeBoundingBox();
+      const label = new CSS2DObject(div); label.position.set(0, geom.boundingBox.max.y + 0.12, 0); label.center.set(0.5, 1);
       group.add(label);
       this.root.add(group);
       this.parts.push({ id: a.componentId, group, mesh, edges, mat, label, inferred,
@@ -130,7 +161,10 @@ export class AssemblyView {
     if (box.isEmpty()) box.set(new THREE.Vector3(-3, -3, -3), new THREE.Vector3(3, 3, 3));
     const ctr = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
     const fit = Math.max(size.x, size.y, size.z);
-    const d = fit / (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) * 0.95 + fit * 0.2;
+    ctr.y -= fit * 0.08; // the control bar covers the bottom of the stage, so sit the model a bit higher
+    const vfov = THREE.MathUtils.degToRad(this.camera.fov);
+    const hfov = 2 * Math.atan(Math.tan(vfov / 2) * this.camera.aspect);
+    const d = (fit / 2) / Math.tan(Math.min(vfov, hfov) / 2) * 1.25 + fit * 0.15; // fits short and narrow windows
     // look across the main explode axis so the gaps between parts are visible
     const axis = [0, 0, 0];
     for (const p of this.parts) { axis[0] += Math.abs(p.dir.x) * p.dist; axis[1] += Math.abs(p.dir.y) * p.dist; axis[2] += Math.abs(p.dir.z) * p.dist; }

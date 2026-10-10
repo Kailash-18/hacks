@@ -127,8 +127,9 @@ async def physical_analyze(request: Request):
     else:
         # run the blocking model calls off the event loop so the server stays responsive
         analysis = await run_in_threadpool(analyze_physical_images, files, vision, CACHE_DIR)
-        CACHE_DIR.mkdir(exist_ok=True)
-        cached.write_text(json.dumps(analysis.dump()), encoding="utf-8")
+        if analysis.scene and analysis.scene.assembly:  # never save a result whose 3D step failed
+            CACHE_DIR.mkdir(exist_ok=True)
+            cached.write_text(json.dumps(analysis.dump()), encoding="utf-8")
     _remember(analysis)
     from .services import physical_analysis as pa
     timing = ", ".join(f"{k};dur={v * 1000:.0f}" for k, v in pa.LAST_TIMING.items()) if not cached_hit else "cache;dur=0"

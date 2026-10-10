@@ -52,8 +52,11 @@ Materials: {materials}.
 Rules:
 - Give EVERY listed id exactly one entry, including inferred internal parts (place them where they
   would really sit inside, sized realistically).
-- Parts must fit together into one coherent object when assembled: shells enclose internals, buttons sit
-  on the shell surface, wheels sit in their slot. Avoid parts floating apart when assembled.
+- Parts must fit together into ONE coherent object when assembled: use one consistent scale for every part;
+  shells/housings enclose all internal parts (internal parts are smaller than the shell and fully inside it);
+  buttons sit on the shell surface, wheels sit in their slot. Nothing sticks out or floats when assembled.
+- For a curved top shell use "dome" with the full footprint of the object; buttons on a curved top are thin
+  "plate"s (or small "dome"s) lying on the front of the shell, not long bars.
 - color: sample the real colour from the photo for visible parts; typical colours for internal parts
   (PCB green #2f6b3a, battery, metal #b8bcc2...).
 - explode_dir: unit vector of the direction the part moves when the object is taken apart, like a
@@ -76,7 +79,42 @@ def _vec(v, n=3, default=0.0, lo=-1e4, hi=1e4) -> list[float]:
     return [_num(v[i] if i < len(v) else default, default, lo, hi) for i in range(n)]
 
 
-def parse_assembly(raw: dict, component_ids: set[str]) -> Assembly | None:
+def _rot_matrix(deg: list[float]) -> list[list[float]]:
+    """XYZ Euler (degrees) -> 3x3 rotation matrix, matching three.js default order."""
+    a, b, c = (math.radians(v) for v in deg)
+    ca, sa, cb, sb, cc, sc = math.cos(a), math.sin(a), math.cos(b), math.sin(b), math.cos(c), math.sin(c)
+    return [[cb * cc, -cb * sc, sb],
+            [ca * sc + sa * sb * cc, ca * cc - sa * sb * sc, -sa * cb],
+            [sa * sc - ca * sb * cc, sa * cc + ca * sb * sc, ca * cb]]
+
+
+def _fit_inside_envelope(parts: list[AssemblyPart], types: dict[str, str]) -> None:
+    """Make the closed model coherent: the big outer parts (covers, housings, chassis) define an envelope,
+    and every other part is shrunk/moved to sit inside it (model coordinates are often inconsistent)."""
+    vol = {p.component_id: p.size[0] * p.size[1] * p.size[2] for p in parts}
+    biggest = max(vol.values())
+    outer = [p for p in parts if vol[p.component_id] >= 0.25 * biggest
+             and (types.get(p.component_id) in ("cover", "structure", None) or vol[p.component_id] == biggest)]
+    if not outer:
+        return
+    lo = [min(p.position[i] - p.size[i] / 2 for p in outer) for i in range(3)]
+    hi = [max(p.position[i] + p.size[i] / 2 for p in outer) for i in range(3)]
+    ext = [hi[i] - lo[i] for i in range(3)]
+    for p in parts:
+        if p in outer:
+            continue
+        R = _rot_matrix(p.rotation)
+        # world-space half extents of the rotated part
+        half = [sum(abs(R[i][j]) * p.size[j] / 2 for j in range(3)) for i in range(3)]
+        k = min([1.0] + [ext[i] * 0.92 / (2 * half[i]) for i in range(3) if half[i] > 0])
+        if k < 1.0:  # too big to fit: shrink uniformly
+            p.size = [max(0.2, v * k) for v in p.size]
+            half = [h * k for h in half]
+        for i in range(3):
+            p.position[i] = min(max(p.position[i], lo[i] + half[i]), hi[i] - half[i])
+
+
+def parse_assembly(raw: dict, component_ids: set[str], types: dict[str, str] | None = None) -> Assembly | None:
     parts: list[AssemblyPart] = []
     seen = set()
     for p in raw.get("parts", []) if isinstance(raw.get("parts"), list) else []:
@@ -106,6 +144,7 @@ def parse_assembly(raw: dict, component_ids: set[str]) -> Assembly | None:
         ))
     if len(parts) < 2:
         return None
+    _fit_inside_envelope(parts, types or {})
     overall = [abs(x) for x in _vec(raw.get("overall_size"), default=0.0, lo=-5000, hi=5000)]
     if min(overall) <= 0:  # derive from the parts
         lo = [min(p.position[i] - p.size[i] / 2 for p in parts) for i in range(3)]
@@ -139,4 +178,4 @@ def build_assembly(analysis: SystemAnalysis, jpegs: list[bytes], vision_client: 
         if cached:
             cache_dir.mkdir(parents=True, exist_ok=True)
             cached.write_text(json.dumps(raw), encoding="utf-8")
-    return parse_assembly(raw, {c.id for c in comps})
+    return parse_assembly(raw, {c.id for c in comps}, {c.id: c.type for c in comps})
