@@ -241,11 +241,27 @@
           "type": "integer"
         },
         "plate": {
-          "title": "Plate",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plate"
         },
         "plateBbox": {
-          "$ref": "#/$defs/BBox"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BBox"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "layers": {
           "items": {
@@ -271,9 +287,7 @@
       },
       "required": [
         "imageWidth",
-        "imageHeight",
-        "plate",
-        "plateBbox"
+        "imageHeight"
       ],
       "title": "Scene",
       "type": "object"

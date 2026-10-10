@@ -4,11 +4,8 @@ Interface (shared with Samvit's physical service): any client exposing
     .name: str, .model: str, .generate_json(image_bytes | None, mime | None, prompt) -> str
 Passing image_bytes=None makes a text-only call (used by grounded chat).
 
-Gemini notes (from Samvit's testing on our keys):
-  * AI Studio endpoint (api key), not Vertex.
-  * Older Flash IDs may 404 for new keys; GEMINI_MODEL overrides, else the newest
-    available Flash model is picked once at start-up. Pin GEMINI_MODEL for the demo.
-  * Keep a reference to the google-genai Client or it gets closed.
+Both labs use ONE shared client (make_shared_client: Samvit's quota-aware Gemini client with a
+local LM Studio fallback). Digital analysis and chat reach it through SharedClientAdapter.
 """
 
 from __future__ import annotations
@@ -40,14 +37,6 @@ class VisionProviderError(Exception):
         self.http_status = http_status
 
 
-def provider_not_configured() -> VisionProviderError:
-    return VisionProviderError(
-        "provider_not_configured",
-        "No vision provider is configured on the server (set GEMINI_API_KEY in apps/api/.env).",
-        503,
-    )
-
-
 # --- JSON extraction ---------------------------------------------------------
 _FENCE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.IGNORECASE)
 
@@ -72,123 +61,57 @@ def parse_model_json(text: str | None) -> dict[str, Any]:
     return value
 
 
-# --- Gemini ------------------------------------------------------------------
-_EXCLUDE = ("lite", "image", "tts", "audio", "live", "embedding", "thinking", "exp")
+# --- Shared client (Samvit's Gemini client with LM Studio fallback) -------------------
+def make_shared_client():
+    """The one vision client both labs use. VISION_PROVIDER: auto (Gemini, then local LM Studio when
+    Gemini's free quota runs out), gemini, or lmstudio. See services/vision_client.py (quota-aware
+    model switching, retries, thinking level) and services/lmstudio_client.py."""
+    from .lmstudio_client import FallbackVisionClient, LMStudioVisionClient
+    from .vision_client import GeminiVisionClient
+
+    mode = os.getenv("VISION_PROVIDER", "auto").lower()
+    if mode == "lmstudio":
+        return LMStudioVisionClient()
+    if mode == "gemini":
+        return GeminiVisionClient()
+    providers = [GeminiVisionClient()] if os.getenv("GEMINI_API_KEY") else []
+    return FallbackVisionClient(providers + [LMStudioVisionClient()])
 
 
-def _version_key(name: str) -> tuple:
-    nums = re.findall(r"\d+(?:\.\d+)?", name)
-    return tuple(float(n) for n in nums[:1]) + (0 if "preview" in name else 1,)
+_CODE_BY_STATUS = {429: "provider_rate_limited", 503: "provider_unavailable", 504: "provider_timeout"}
 
 
-class GeminiVisionClient:
-    name = "gemini"
+class SharedClientAdapter:
+    """Adapts the shared client to this module's interface:
+    generate_json(None, None, prompt) -> text-only call; ProviderError -> VisionProviderError."""
 
-    def __init__(self, api_key: str, model: str | None = None, timeout_s: float = 90.0,
-                 thinking_level: str | None = None) -> None:
-        try:
-            from google import genai
-            from google.genai import types
-        except ImportError as exc:  # pragma: no cover - depends on install
-            raise VisionProviderError(
-                "provider_not_configured", "google-genai is not installed (pip install -r requirements.txt).", 503
-            ) from exc
-        self._types = types
-        # Keep this reference alive for the process lifetime (see module notes).
-        self._client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=int(timeout_s * 1000)))
-        self.model = model or self._pick_flash_model()
-        # Lower reasoning effort = much faster responses. Dropped automatically if unsupported.
-        self._thinking = self._thinking_config(thinking_level)
+    def __init__(self, inner: Any) -> None:
+        self.inner = inner
         self.last_call: dict[str, Any] | None = None
 
-    def _thinking_config(self, level: str | None):
-        level = (level or "").strip().lower()
-        if not level or level == "default":
-            return None
-        try:
-            return self._types.ThinkingConfig(thinking_level=level)
-        except Exception:  # older SDK without thinking_level
-            log.info("thinking_level not supported by this google-genai version; ignoring")
-            return None
+    @property
+    def name(self) -> str:
+        return self.inner.name
 
-    def _config(self):
-        kwargs: dict[str, Any] = {"response_mime_type": "application/json", "temperature": 0.2}
-        if self._thinking is not None:
-            kwargs["thinking_config"] = self._thinking
-        return self._types.GenerateContentConfig(**kwargs)
-
-    def _usage(self, resp: Any, seconds: float) -> dict[str, Any]:
-        """Timing/token diagnostics for the last call (no content, safe to print)."""
-        u = getattr(resp, "usage_metadata", None)
-        get = (lambda k: getattr(u, k, None)) if u is not None else (lambda k: None)
-        return {
-            "seconds": round(seconds, 1),
-            "thinkingSent": self._thinking is not None,
-            "promptTokens": get("prompt_token_count"),
-            "outputTokens": get("candidates_token_count"),
-            "thinkingTokens": get("thoughts_token_count"),
-        }
-
-    def _pick_flash_model(self) -> str:
-        try:
-            names = []
-            for m in self._client.models.list():
-                name = (getattr(m, "name", "") or "").removeprefix("models/")
-                actions = getattr(m, "supported_actions", None) or []
-                if "flash" in name and not any(x in name for x in _EXCLUDE):
-                    if not actions or "generateContent" in actions:
-                        names.append(name)
-        except Exception as exc:
-            raise self._map_error(exc) from None
-        if not names:
-            raise VisionProviderError("provider_model_unavailable", "No Gemini Flash model is available for this key.", 503)
-        chosen = max(names, key=_version_key)
-        log.info("Auto-selected Gemini model %s (set GEMINI_MODEL to pin)", chosen)
-        return chosen
+    @property
+    def model(self) -> str:
+        return self.inner.model
 
     def generate_json(self, image_bytes: bytes | None, mime: str | None, prompt: str) -> str:
-        types = self._types
-        contents: list[Any] = []
-        if image_bytes is not None:
-            contents.append(types.Part.from_bytes(data=image_bytes, mime_type=mime or "image/png"))
-        contents.append(prompt)
+        from .vision_client import ProviderError
 
-        last: VisionProviderError | None = None
-        for attempt in range(3):  # one retry for transient server errors, one for an unsupported thinking level
-            try:
-                t0 = time.perf_counter()
-                resp = self._client.models.generate_content(model=self.model, contents=contents, config=self._config())
-                self.last_call = self._usage(resp, time.perf_counter() - t0)
-                return resp.text or ""
-            except Exception as exc:
-                last = self._map_error(exc)
-                if last.code == "provider_rejected_input" and self._thinking is not None:
-                    log.info("Model rejected thinking_level; retrying without it")
-                    self._thinking = None
-                    continue
-                if last.code != "provider_unavailable" or attempt == 2:
-                    raise last from None
-                time.sleep(1.5)
-        raise last  # pragma: no cover
-
-    @staticmethod
-    def _map_error(exc: Exception) -> VisionProviderError:
-        code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
-        kind = type(exc).__name__
-        log.warning("Gemini call failed: %s (status=%s)", kind, code)  # never log payloads or keys
-        if "Timeout" in kind:
-            return VisionProviderError("provider_timeout", "The vision model timed out. Try again.", 504)
-        if code == 429:
-            return VisionProviderError("provider_rate_limited", "The vision model is rate-limited. Wait a moment and retry.", 429)
-        if code in (401, 403):
-            return VisionProviderError("provider_auth_failed", "The server's model API key was rejected.", 503)
-        if code == 404:
-            return VisionProviderError("provider_model_unavailable", "The configured model is not available for this key; check GEMINI_MODEL.", 503)
-        if code == 400:
-            return VisionProviderError("provider_rejected_input", "The model rejected this input.", 422)
-        if isinstance(code, int) and code >= 500:
-            return VisionProviderError("provider_unavailable", "The vision model is temporarily unavailable.", 502)
-        return VisionProviderError("provider_error", "The vision model call failed.", 502)
+        t0 = time.perf_counter()
+        try:
+            if image_bytes is None:
+                text = self.inner.generate_text_json(prompt)
+            else:
+                text = self.inner.generate_json(image_bytes, mime or "image/png", prompt)
+        except ProviderError as exc:
+            status = int(getattr(exc, "status", 502) or 502)
+            raise VisionProviderError(_CODE_BY_STATUS.get(status, "provider_error"), str(exc), status) from None
+        finally:
+            self.last_call = {"seconds": round(time.perf_counter() - t0, 1), "provider": self.name, "model": self.model}
+        return text
 
 
 # --- Fixture (explicit development mode only) --------------------------------
@@ -208,37 +131,36 @@ class FixtureVisionClient:
         return self.responses[key]
 
 
-_client_singleton: VisionClient | None = None
+_shared: Any = None
+_adapter: SharedClientAdapter | None = None
+
+
+def set_shared_client(client: Any) -> None:
+    """main.py registers its client here so both labs share one instance (and one quota tracker)."""
+    global _shared, _adapter
+    _shared, _adapter = client, None
 
 
 def get_vision_client() -> VisionClient:
-    """Process-wide client. Raises VisionProviderError if nothing is configured."""
-    global _client_singleton
-    if _client_singleton is not None:
-        return _client_singleton
+    """Client for digital analysis and chat. Raises VisionProviderError if nothing is configured."""
+    global _shared, _adapter
     if os.getenv("VRE_FIXTURE_MODE") == "1":
         from .fixtures import default_fixture_client
 
-        _client_singleton = default_fixture_client()
-        return _client_singleton
-    key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    if not key:
-        raise provider_not_configured()
-    _client_singleton = GeminiVisionClient(
-        key,
-        os.getenv("GEMINI_MODEL") or None,
-        timeout_s=float(os.getenv("GEMINI_TIMEOUT_S") or 90),
-        thinking_level=os.getenv("GEMINI_THINKING_LEVEL", "low"),
-    )
-    return _client_singleton
+        return default_fixture_client()
+    if _shared is None:
+        _shared = make_shared_client()
+    if _adapter is None or _adapter.inner is not _shared:
+        _adapter = SharedClientAdapter(_shared)
+    return _adapter
 
 
 def provider_status() -> dict[str, Any]:
-    """Safe for /api/health: booleans and model name only."""
-    configured = bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
+    """Safe for /api/health: names, models and booleans only."""
+    fixture = os.getenv("VRE_FIXTURE_MODE") == "1"
+    inner = _shared
     return {
-        "name": "fixture" if os.getenv("VRE_FIXTURE_MODE") == "1" else "gemini",
-        "configured": configured or os.getenv("VRE_FIXTURE_MODE") == "1",
-        "fixtureMode": os.getenv("VRE_FIXTURE_MODE") == "1",
-        "model": _client_singleton.model if _client_singleton else (os.getenv("GEMINI_MODEL") or "auto"),
+        "fixtureMode": fixture,
+        "geminiKeyConfigured": bool(os.getenv("GEMINI_API_KEY")),
+        "active": None if inner is None else {"name": inner.name, "model": inner.model},
     }

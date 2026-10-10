@@ -43,7 +43,7 @@ export interface Relationship {
   evidence: string[];
 }
 
-/** Physical only (spec: docs/PHYSICAL_LAB.md). */
+/** Physical only (spec: docs/PHYSICAL_LAB.md; Python source of truth for these fields: apps/api/app/schemas.py). */
 export interface SceneLayer {
   componentId: string;
   bbox: BBox;
@@ -51,17 +51,66 @@ export interface SceneLayer {
   cutout: string;
   /** 0 = front */
   depthRank: number;
+  /** which photo (scene.views[i]) this layer was cut from; 0 for single-photo analyses */
+  viewIndex?: number;
+}
+
+/** One photo of the object (multi-photo analyses have one per photo). */
+export interface SceneView {
+  index: number;
+  /** top | bottom | front | back | left | right | three-quarter | inside | unknown */
+  view: string;
+  filename: string;
+  imageWidth: number;
+  imageHeight: number;
+  plate: string | null;
+  plateBbox: BBox | null;
+  layers: SceneLayer[];
+}
+
+/** Model-stated identification; only as reliable as the visible logos/text. */
+export interface Product {
+  category: string;
+  brand: string | null;
+  model: string | null;
+  searchQuery: string;
+  identifiedFrom: string;
+}
+
+/** One part as a simple solid (model estimate). mm; x right, y up, z front; origin = object centre. */
+export interface AssemblyPart {
+  componentId: string;
+  shape: string;
+  size: number[];
+  position: number[];
+  rotation: number[];
+  color: string;
+  material: string;
+  explodeDir: number[];
+  explodeDist: number;
+}
+
+/** Simplified 3D model for the 360-degree exploded view. */
+export interface Assembly {
+  kind: "primitive-assembly";
+  units: string;
+  overallSize: number[];
+  parts: AssemblyPart[];
 }
 
 export interface Scene {
   kind: "layered-2.5d";
   imageWidth: number;
   imageHeight: number;
-  plate: string;
-  plateBbox: BBox;
+  plate: string | null;
+  plateBbox: BBox | null;
   layers: SceneLayer[];
   ghostComponentIds: string[];
   notes: string[];
+  /** all photos; top-level plate/layers mirror views[0] */
+  views?: SceneView[];
+  product?: Product | null;
+  assembly?: Assembly | null;
 }
 
 export interface SampleInfo {

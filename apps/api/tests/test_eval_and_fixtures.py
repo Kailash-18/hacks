@@ -104,47 +104,53 @@ def test_type_groups_accept_equivalent_labels():
     assert not types_agree("button", "text") and not types_agree(None, "text")
 
 
-def test_gemini_client_drops_unsupported_thinking_level():
-    """Model rejects thinking_level with HTTP 400 -> client retries once without it (no SDK needed)."""
-    from types import SimpleNamespace
+def test_shared_adapter_routes_text_only_calls_and_maps_errors():
+    """Chat (image None) goes to the shared client's generate_text_json; ProviderError -> VisionProviderError."""
+    import pytest as _pytest
 
-    from app.services.vision_provider import GeminiVisionClient
+    from app.services.vision_client import ProviderError
+    from app.services.vision_provider import SharedClientAdapter, VisionProviderError
 
-    class Err(Exception):
-        code = 400
+    class Inner:
+        name, model = "google-gemini", "g-1"
 
-    configs = []
+        def __init__(self):
+            self.calls = []
 
-    def generate_content(model, contents, config):
-        configs.append(config)
-        if "thinking_config" in config:
-            raise Err()
-        return SimpleNamespace(text='{"ok": true}')
+        def generate_json(self, b, m, p):
+            self.calls.append(("image", m))
+            return "{}"
 
-    c = GeminiVisionClient.__new__(GeminiVisionClient)
-    c.model = "m"
-    c._types = SimpleNamespace(Part=None, GenerateContentConfig=lambda **kw: kw)
-    c._client = SimpleNamespace(models=SimpleNamespace(generate_content=generate_content))
-    c._thinking = "low-config"
-    assert c.generate_json(None, None, "p") == '{"ok": true}'
-    assert "thinking_config" in configs[0] and "thinking_config" not in configs[1] and c._thinking is None
+        def generate_text_json(self, p):
+            self.calls.append(("text", None))
+            return "{}"
+
+    inner = Inner()
+    ad = SharedClientAdapter(inner)
+    ad.generate_json(b"x", "image/webp", "p")
+    ad.generate_json(None, None, "p")
+    assert inner.calls == [("image", "image/webp"), ("text", None)]
+    assert ad.name == "google-gemini" and ad.last_call["model"] == "g-1"
+
+    for status, code in [(429, "provider_rate_limited"), (503, "provider_unavailable"), (504, "provider_timeout"), (502, "provider_error")]:
+        def boom(*a, _s=status):
+            raise ProviderError("friendly message", _s)
+        inner.generate_text_json = boom
+        with _pytest.raises(VisionProviderError) as ei:
+            ad.generate_json(None, None, "p")
+        assert (ei.value.code, ei.value.http_status, ei.value.message) == (code, status, "friendly message")
 
 
-def test_gemini_client_records_call_diagnostics():
-    from types import SimpleNamespace
+def test_shared_client_is_reused_and_fixture_mode_wins(monkeypatch):
+    from app.services import vision_provider as vp
 
-    from app.services.vision_provider import GeminiVisionClient
-
-    usage = SimpleNamespace(prompt_token_count=1200, candidates_token_count=900, thoughts_token_count=3000)
-    c = GeminiVisionClient.__new__(GeminiVisionClient)
-    c.model = "m"
-    c._types = SimpleNamespace(Part=None, GenerateContentConfig=lambda **kw: kw)
-    c._client = SimpleNamespace(models=SimpleNamespace(
-        generate_content=lambda model, contents, config: SimpleNamespace(text="{}", usage_metadata=usage)))
-    c._thinking = "cfg"
-    c.generate_json(None, None, "p")
-    assert c.last_call["thinkingTokens"] == 3000 and c.last_call["thinkingSent"] is True
-    assert c.last_call["outputTokens"] == 900 and c.last_call["seconds"] >= 0
+    sentinel = type("C", (), {"name": "n", "model": "m"})()
+    vp.set_shared_client(sentinel)
+    a1, a2 = vp.get_vision_client(), vp.get_vision_client()
+    assert a1 is a2 and a1.inner is sentinel
+    monkeypatch.setenv("VRE_FIXTURE_MODE", "1")
+    assert vp.get_vision_client().name == "fixture"
+    vp.set_shared_client(None)
 
 
 def test_eval_chat_flag_asks_one_grounded_question(tmp_path, monkeypatch):

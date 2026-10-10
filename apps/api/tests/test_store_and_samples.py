@@ -33,12 +33,13 @@ def test_store_survives_restart_via_disk(tmp_path):
     assert s2.get_by_image("physical", "f" * 64) is None  # domains do not collide
 
 
-def test_store_ignores_corrupt_cache_and_skips_unhashed(tmp_path):
+def test_store_ignores_corrupt_and_foreign_cache_files(tmp_path):
     (tmp_path / "digital-bad.json").write_text("{not json", encoding="utf-8")
+    (tmp_path / ("ab" * 32 + ".json")).write_text('{"physical": "lab cache"}', encoding="utf-8")  # Samvit's cache file
     s = AnalysisStore(cache_dir=tmp_path)
     s.put(analysis("digital-nohash"))  # no hash -> memory only
     assert s.get("digital-nohash") is not None
-    assert [p.name for p in tmp_path.glob("*.json")] == ["digital-bad.json"]
+    assert sorted(p.name for p in tmp_path.glob("digital-*.json")) == ["digital-bad.json"]
 
 
 def test_store_evicts_oldest(tmp_path):

@@ -78,7 +78,7 @@ def main(paths: list[str]) -> int:
     images = [Path(p) for p in paths] or sorted(SCREENS.glob("*.png"))
     OUT.mkdir(exist_ok=True)
     summary = {"provider": client.name, "model": client.model,
-               "thinkingLevel": os.getenv("GEMINI_THINKING_LEVEL", "low"), "ranAt": datetime.now(timezone.utc).isoformat(),
+               "ranAt": datetime.now(timezone.utc).isoformat(),
                "note": "Live inference on team-made synthetic screens; small sample, not a benchmark.", "screens": []}
     failures = 0
     for png in images:
@@ -110,8 +110,7 @@ def main(paths: list[str]) -> int:
             print(f"{png.name}: {row['components']} comps, {row['relationships']} edges, {secs}s (no ground truth)")
         call = row["call"] or {}
         if call:
-            print(f"    tokens: prompt={call.get('promptTokens')} output={call.get('outputTokens')} "
-                  f"thinking={call.get('thinkingTokens')} | thinking_level sent={call.get('thinkingSent')}")
+            print(f"    served by {call.get('provider')}/{call.get('model')} in {call.get('seconds')}s")
         if ask_chat:
             from app.contract import ChatRequest
             from app.services.grounded_chat import answer_question
@@ -127,7 +126,7 @@ def main(paths: list[str]) -> int:
         summary["screens"].append(row)
 
     (OUT / "eval_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    print(f"\nModel: {client.name}/{client.model} (thinking={summary['thinkingLevel']}). Overlays and JSON in {OUT}")
+    print(f"\nModel: {client.name}/{client.model} (active at the end). Overlays and JSON in {OUT}")
     return 1 if failures else 0
 
 

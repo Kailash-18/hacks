@@ -122,3 +122,25 @@ def test_concurrent_identical_uploads_share_one_model_call(monkeypatch):
 
     a, b = asyncio.run(both())
     assert a.analysisId == b.analysisId and client.calls == 1
+
+
+def test_main_app_serves_both_labs_with_one_error_shape(monkeypatch):
+    """The merged app: physical + digital routes, one error shape, physical results usable by chat."""
+    from app import main
+
+    store.clear()
+    monkeypatch.setattr(store, "_dir", None)
+    monkeypatch.setattr(routes_digital, "get_vision_client", lambda: FakeClient())
+    api = TestClient(main.app)
+
+    h = api.get("/api/health").json()
+    assert h["labs"] == ["physical", "digital"] and h["digitalSamples"] >= 3
+    r = api.post("/api/physical/analyze", files={"image": ("a.txt", b"hi", "text/plain")})
+    assert r.status_code == 415 and r.json()["error"]["code"] == "unsupported_media_type"
+    assert api.get("/api/no-such-route").json()["error"]["code"] == "not_found"
+    assert api.get("/api/digital/samples").status_code == 200
+
+    phys = api.get("/api/physical/samples/lenovo-mouse").json()
+    assert api.get(f"/api/analysis/{phys['analysisId']}").json()["domain"] == "physical"
+    c = api.post(f"/api/analysis/{phys['analysisId']}/chat", json={"question": "What does the wheel connect to?"})
+    assert c.status_code == 200 and any("not measured" in x for x in c.json()["limitations"])

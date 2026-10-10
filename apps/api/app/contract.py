@@ -113,8 +113,8 @@ class Scene(_Base):
     kind: Literal["layered-2.5d"] = "layered-2.5d"
     imageWidth: int = Field(gt=0)
     imageHeight: int = Field(gt=0)
-    plate: str  # data URL, object body with holes inpainted
-    plateBbox: BBox
+    plate: Optional[str] = None  # data URL, object body with holes inpainted
+    plateBbox: Optional[BBox] = None
     layers: list[SceneLayer] = Field(default_factory=list)
     ghostComponentIds: list[str] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)

@@ -1,9 +1,9 @@
 # Frontend handoff — Digital Lab API (for Kailash)
 
-Types: `contracts/system-analysis.ts`. Full contract and error codes: `docs/API_CONTRACT.md`.
+Types: `contracts/system-analysis.ts`. Every route (physical and digital) returns errors as `{"error": {"code", "message"}}`. Full contract and error codes: `docs/API_CONTRACT.md`.
 
 ## Base URL and CORS
-- Local: `http://localhost:8000` (`cd apps/api && uvicorn app.digital_main:app --reload --port 8000`).
+- Local: `http://localhost:8000` (`cd apps/api && uvicorn app.main:app --reload --port 8000`; serves both labs).
 - Allowed origins come from `CORS_ORIGINS` in `apps/api/.env` (default: localhost:3000 and :5173). Add the deployed frontend URL there.
 - No API key in the frontend. The Gemini key stays on the server.
 
@@ -52,7 +52,6 @@ const imgSrc = `${API}${sample.sample!.imageUrl}`;
 | code | UI |
 |---|---|
 | `unsupported_media_type`, `file_too_large`, `image_too_small`, `corrupt_image`, `empty_file` | inline message at the upload box |
-| `provider_rate_limited` | "Busy, retry in a minute" + retry button |
-| `provider_timeout`, `provider_unavailable`, `provider_error`, `provider_bad_output` | "Analysis failed, try again" + offer a sample |
-| `provider_not_configured`, `provider_auth_failed`, `provider_model_unavailable` | server setup problem; offer samples |
+| `provider_rate_limited` | show `message` (it says whether to wait a minute or that today's quota is used up) + offer a sample |
+| `provider_timeout`, `provider_unavailable`, `provider_error`, `provider_bad_output`, `analysis_failed` | show `message` + "try again" + offer a sample |
 | `analysis_not_found` | analysis expired; re-upload |

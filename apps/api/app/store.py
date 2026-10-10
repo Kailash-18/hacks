@@ -1,6 +1,6 @@
 """Analysis store shared by both labs (chat looks analyses up here by analysisId).
 
-In memory, optionally mirrored to disk (VRE_CACHE_DIR, default apps/api/.cache; "off" disables)
+In memory, optionally mirrored to disk (VRE_CACHE_DIR, default apps/api/.cache/analyses; "off" disables)
 so a restart never pays for the same image twice. Only the structured analysis and the image's
 SHA-256 are kept; raw images are never stored. Not shared across multiple server processes.
 """
@@ -31,7 +31,8 @@ def default_cache_dir() -> Path | None:
     value = os.getenv("VRE_CACHE_DIR", "").strip()
     if value.lower() == "off":
         return None
-    return Path(value) if value else Path(__file__).resolve().parent.parent / ".cache"
+    # own subfolder: the Physical Lab writes its own cache files into .cache/ itself
+    return Path(value) if value else Path(__file__).resolve().parent.parent / ".cache" / "analyses"
 
 
 class AnalysisStore:
@@ -50,7 +51,8 @@ class AnalysisStore:
 
     def _load_disk(self) -> None:
         try:
-            files = sorted(self._dir.glob("*.json"), key=lambda p: p.stat().st_mtime)[-self._max:]  # type: ignore[union-attr]
+            files = sorted((p for pat in ("digital-*.json", "physical-*.json") for p in self._dir.glob(pat)),  # type: ignore[union-attr]
+                           key=lambda p: p.stat().st_mtime)[-self._max:]
         except OSError:
             return
         for f in files:

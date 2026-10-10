@@ -14,11 +14,9 @@ __pycache__/
 .pytest_cache/
 .venv/
 
-# Local transfer files
-*.bundle
-
-# Local eval output
-apps/api/out/
-
-# Local analysis cache
+# Local caches, test data, eval output
 apps/api/.cache/
+apps/viewer/testdata/
+apps/api/out/
+node_modules/
+*.bundle
