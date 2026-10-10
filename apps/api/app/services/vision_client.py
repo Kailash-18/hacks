@@ -7,6 +7,7 @@ his version by swapping the client object.
 from __future__ import annotations
 
 import os
+import re
 from typing import Protocol
 
 
@@ -30,8 +31,9 @@ class GeminiVisionClient:
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
         self.model = model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
         self._client = None
-        # "AQ." keys are Google Cloud (Vertex AI express) keys; "AIza" keys are AI Studio keys.
-        self._vertex = os.getenv("GEMINI_USE_VERTEX", "").lower() in ("1", "true") or (self.api_key or "").startswith("AQ.")
+        # AI Studio endpoint by default; falls back to Vertex express automatically on auth errors.
+        self._vertex = os.getenv("GEMINI_USE_VERTEX", "").lower() in ("1", "true")
+        self._model_checked = False
 
     @property
     def ready(self) -> bool:
@@ -44,6 +46,22 @@ class GeminiVisionClient:
             from google import genai
             self._client = genai.Client(api_key=self.api_key, vertexai=self._vertex)
         return self._client
+
+    def _pick_model(self, client) -> str | None:
+        """Newest available Flash model for this key (model names change over time)."""
+        best = None
+        for m in client.models.list():
+            name = (m.name or "").removeprefix("models/")
+            actions = getattr(m, "supported_actions", None) or []
+            if "flash" not in name or any(x in name for x in ("lite", "image", "tts", "live", "audio", "embed", "thinking")):
+                continue
+            if actions and "generateContent" not in actions:
+                continue
+            ver = tuple(int(p) for p in re.findall(r"\d+", name.split("flash")[0])[:2]) or (0,)
+            key = (ver, "preview" not in name and "exp" not in name, -len(name))
+            if best is None or key > best[0]:
+                best = (key, name)
+        return best[1] if best else None
 
     def _call(self, client, types, cfg, image_bytes, mime_type, prompt):
         return client.models.generate_content(
@@ -72,15 +90,26 @@ class GeminiVisionClient:
                 self._vertex = not self._vertex
                 self._client = client = genai.Client(api_key=self.api_key, vertexai=self._vertex)
                 resp = self._call(client, types, cfg, image_bytes, mime_type, prompt)
-        except Exception as exc:  # map provider failures to stable errors
-            text = str(exc)
-            if "429" in text or "RESOURCE_EXHAUSTED" in text:
-                raise ProviderError("Gemini free-tier rate limit reached. Wait a minute and retry, or use a sample.", 429) from exc
-            if any(s in text for s in ("API key", "API_KEY", "401", "403", "UNAUTHENTICATED", "PERMISSION_DENIED")):
-                raise ProviderError("Google rejected the API key (tried both AI Studio and Vertex). Check the key in apps/api/.env.", 502) from exc
-            if "404" in text or "NOT_FOUND" in text:
-                raise ProviderError(f"Model '{self.model}' is not available for this key. Set GEMINI_MODEL in apps/api/.env.", 502) from exc
-            raise ProviderError("Vision provider request failed.", 502) from exc
+        except Exception as exc:
+            if ("404" in str(exc) or "NOT_FOUND" in str(exc)) and not self._model_checked:
+                self._model_checked = True
+                picked = self._pick_model(self._get())
+                if picked and picked != self.model:
+                    self.model = picked
+                    return self.generate_json(image_bytes, mime_type, prompt)
+            raise self._map(exc) from exc
         if not resp.text:
             raise ProviderError("Vision provider returned an empty response.", 502)
         return resp.text
+
+    def _map(self, exc: Exception) -> "ProviderError":
+        """Map provider failures to stable, user-readable errors."""
+        if True:
+            text = str(exc)
+            if "429" in text or "RESOURCE_EXHAUSTED" in text:
+                return ProviderError("Gemini free-tier rate limit reached. Wait a minute and retry, or use a sample.", 429)
+            if any(s in text for s in ("API key", "API_KEY", "401", "403", "UNAUTHENTICATED", "PERMISSION_DENIED")):
+                return ProviderError("Google rejected the API key (tried both AI Studio and Vertex). Check the key in apps/api/.env.", 502)
+            if "404" in text or "NOT_FOUND" in text:
+                return ProviderError(f"Model '{self.model}' is not available for this key; no newer Flash model found. Set GEMINI_MODEL in apps/api/.env.", 502)
+            return ProviderError("Vision provider request failed.", 502)

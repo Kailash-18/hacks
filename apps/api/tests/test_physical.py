@@ -200,3 +200,13 @@ def test_back_part_keeps_holes_for_front_parts():
     # screen centre (160,140) relative to shell crop must be transparent
     bx, by = round(shell.bbox.x * W), round(shell.bbox.y * H)
     assert rgba[140 - by, 160 - bx, 3] < 50
+
+
+def test_model_auto_pick():
+    from types import SimpleNamespace as NS
+    from app.services.vision_client import GeminiVisionClient
+    models = [NS(name=n, supported_actions=["generateContent"]) for n in
+              ["models/gemini-2.0-flash", "models/gemini-3-flash-preview", "models/gemini-3-flash",
+               "models/gemini-3-flash-lite", "models/gemini-3-pro", "models/gemini-2.5-flash-image"]]
+    client = NS(models=NS(list=lambda: models))
+    assert GeminiVisionClient(api_key="x")._pick_model(client) == "gemini-3-flash"
