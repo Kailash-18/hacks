@@ -12,12 +12,14 @@ import logging
 import math
 import re
 
-from ..schemas import AssemblyPart, Assembly, SystemAnalysis
+from ..schemas import Assembly, AssemblyDetail, AssemblyPart, SystemAnalysis
 from .vision_client import VisionClient
 
 log = logging.getLogger("uvicorn.error")
 
 SHAPES = ("box", "rounded_box", "cylinder", "disc", "sphere", "ellipsoid", "dome", "capsule", "cone", "torus", "plate")
+DETAIL_SHAPES = SHAPES + ("cross", "slots")
+MAX_DETAILS = 40
 MATERIALS = ("plastic", "glossy_plastic", "rubber", "metal", "aluminum", "glass", "pcb", "fabric", "screen")
 
 PROMPT = """You are a mechanical design assistant building a simplified 3D CAD-style model of the object in
@@ -32,6 +34,10 @@ Return ONLY one JSON object:
     {{"id": "<one of the ids above>", "shape": "<shape>", "size": [x, y, z], "position": [x, y, z],
       "rotation": [rx, ry, rz], "color": "#rrggbb", "material": "<material>",
       "explode_dir": [dx, dy, dz], "explode_dist": 1.0}}
+  ],
+  "details": [
+    {{"parent": "<one of the ids above>", "shape": "<detail shape>", "size": [x, y, z], "position": [x, y, z],
+      "rotation": [rx, ry, rz], "color": "#rrggbb", "material": "<material>", "count": 1}}
   ]
 }}
 
@@ -41,7 +47,9 @@ Model the object resting in its natural position on a table (a mouse, keyboard o
 its large faces are horizontal; a monitor, bottle or handheld console in use stands as it naturally would).
 Do NOT copy the photo's camera angle: in a top-down photo, the photo's vertical direction is depth (z), not y.
 rotation in degrees (XYZ). Shapes:
-- box, rounded_box, plate (thin rounded box): size = [x, y, z]
+- box, rounded_box, plate (thin rounded box): size = [x, y, z]. A thin part must be thin along the axis
+  that points OUT of the face it sits on: a screen on the front face of an upright device is [w, h, 1-2]
+  (thin in z); a label on a flat top is [w, 0.5, d] (thin in y); a side button is thin in x.
 - cylinder (axis along y; rotate for other axes), disc (short cylinder), cone: size = [diameter, height, diameter]
 - sphere, ellipsoid: size = full extents [x, y, z]
 - dome = upper half of an ellipsoid, open at the bottom (use for curved shells and covers such as a
@@ -62,6 +70,13 @@ Rules:
 - explode_dir: unit vector of the direction the part moves when the object is taken apart, like a
   technical exploded-view drawing (top covers up, internal boards up/out, bottom plates down, side
   parts sideways). explode_dist: relative distance 0.3-2.0 (outer parts travel further).
+- "details": 12-30 small surface features (more is better, as long as they are real) that make the model
+  look like THIS real object and that you can see in the photo or that this kind of object really has: screws, vents and grilles (shape "slots",
+  count = number of slots, size = the whole slotted area), ports and sockets (dark rounded_box recesses),
+  LEDs, lens rings ("torus"), buttons printed/embossed icons or labels (very thin "plate"), D-pads
+  ("cross"), keys, feet, seams. Detail shapes: the part shapes plus "cross" and "slots". Each detail
+  belongs to "parent" (it moves with that part when exploded); its position is absolute (same frame as
+  parts) and must sit ON the parent's outer surface, slightly proud of it (0.3-1 mm), never floating.
 - Keep it compact. No prose.
 """
 
@@ -145,12 +160,31 @@ def parse_assembly(raw: dict, component_ids: set[str], types: dict[str, str] | N
     if len(parts) < 2:
         return None
     _fit_inside_envelope(parts, types or {})
+    part_ids = {p.component_id for p in parts}
+    details: list[AssemblyDetail] = []
+    for d in raw.get("details", []) if isinstance(raw.get("details"), list) else []:
+        if not isinstance(d, dict) or len(details) >= MAX_DETAILS:
+            continue
+        parent = str(d.get("parent", ""))
+        if parent not in part_ids:
+            continue
+        shape = str(d.get("shape", "rounded_box")).lower().replace(" ", "_")
+        color = str(d.get("color", "#30343b"))
+        mat = str(d.get("material", "plastic")).lower()
+        size = [max(0.1, abs(x)) for x in _vec(d.get("size"), default=2.0, lo=-2000, hi=2000)]
+        details.append(AssemblyDetail(
+            parentId=parent, shape=shape if shape in DETAIL_SHAPES else "rounded_box", size=size,
+            position=_vec(d.get("position"), lo=-5000, hi=5000), rotation=_vec(d.get("rotation"), lo=-360, hi=360),
+            color=color if re.fullmatch(r"#[0-9a-fA-F]{6}", color) else "#30343b",
+            material=mat if mat in MATERIALS else "plastic",
+            count=int(_num(d.get("count"), 1, 1, 24)),
+        ))
     overall = [abs(x) for x in _vec(raw.get("overall_size"), default=0.0, lo=-5000, hi=5000)]
     if min(overall) <= 0:  # derive from the parts
         lo = [min(p.position[i] - p.size[i] / 2 for p in parts) for i in range(3)]
         hi = [max(p.position[i] + p.size[i] / 2 for p in parts) for i in range(3)]
         overall = [max(1.0, hi[i] - lo[i]) for i in range(3)]
-    return Assembly(units="mm", overallSize=overall, parts=parts)
+    return Assembly(units="mm", overallSize=overall, parts=parts, details=details)
 
 
 def build_assembly(analysis: SystemAnalysis, jpegs: list[bytes], vision_client: VisionClient, cache_dir=None) -> Assembly | None:

@@ -120,7 +120,8 @@ class GeminiVisionClient:
         from google.genai import types
         today = _dt.datetime.utcnow().date().isoformat()
         tried = set()
-        for _ in range(8):  # bounded: model switches + retries
+        busy: dict[str, int] = {}
+        for _ in range(10):  # bounded: model switches + retries
             model = self.model
             c = dict(cfg)
             if model.startswith("gemini-3") and model not in self._no_thinking:
@@ -152,6 +153,15 @@ class GeminiVisionClient:
                         log.warning("gemini: now using %s", nxt)
                         continue
                     raise self._map(exc) from exc
+                if _is_transient(t) or (_is_rate_limit(t) and not _is_daily_quota(t)):
+                    busy[model] = busy.get(model, 0) + 1
+                    if busy[model] >= 2:  # overloaded twice: try a different model instead of waiting
+                        tried.add(model)
+                        nxt = next((m for m in self._rank_models() if m not in tried and self._exhausted.get(m) != today), None)
+                        if nxt:
+                            log.warning("gemini: %s is busy; switching to %s", model, nxt)
+                            self.model = nxt
+                            continue
                 if _is_rate_limit(t) or _is_transient(t):
                     m = re.search(r"retry in (\d+(?:\.\d+)?)s|retryDelay['\"]?:\s*['\"](\d+)s", t)
                     wait = float(next(g for g in m.groups() if g)) + 1 if m else 8.0

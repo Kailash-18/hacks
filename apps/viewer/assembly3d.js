@@ -70,7 +70,7 @@ export class AssemblyView {
     if (on) { c.minAzimuthAngle = -Infinity; c.maxAzimuthAngle = Infinity; c.minPolarAngle = 0.05; c.maxPolarAngle = Math.PI - 0.05; c.minDistance = 2; c.maxDistance = 60; }
   }
 
-  build(assembly, components) {
+  build(assembly, components, views = []) {
     for (const p of this.parts) { this.root.remove(p.group); p.label.element.remove(); }
     this.parts = [];
     const comp = Object.fromEntries(components.map((c) => [c.id, c]));
@@ -125,7 +125,7 @@ export class AssemblyView {
       const label = new CSS2DObject(div); label.position.set(0, geom.boundingBox.max.y + 0.12, 0); label.center.set(0.5, 1);
       group.add(label);
       this.root.add(group);
-      this.parts.push({ id: a.componentId, group, mesh, edges, mat, label, inferred,
+      this.parts.push({ id: a.componentId, group, mesh, edges, mat, label, inferred, extras: [], pickables: [mesh], conformed,
         base: new THREE.Vector3(...a.position.map((v) => v * k)),
         dir: new THREE.Vector3(...a.explodeDir).normalize(), dist: a.explodeDist ?? 1, halfH: size[1] / 2 });
     }
@@ -135,7 +135,129 @@ export class AssemblyView {
     const ctr = box.getCenter(new THREE.Vector3());
     for (const p of this.parts) p.base.sub(ctr);
     this.size = box.getSize(new THREE.Vector3());
+    this.addDetails(assembly.details || [], k, ctr);
+    this.addDecals(views);
     this.setExplode(this.explode);
+  }
+
+  // Small surface features (screws, vents, ports, LEDs, labels...). Each is snapped onto its parent's
+  // surface with a ray from the parent's centre, oriented to the surface, and moves with the parent.
+  addDetails(details, k, ctr) {
+    const byId = Object.fromEntries(this.parts.map((p) => [p.id, p]));
+    for (const p of this.parts) { p.group.position.copy(p.base); p.group.updateMatrixWorld(true); }
+    const ray = new THREE.Raycaster(), Y = new THREE.Vector3(0, 1, 0);
+    for (const d of details) {
+      const p = byId[d.parentId]; if (!p) continue;
+      const size = d.size.map((v) => Math.max(0.008, v * k));
+      // flat details are built thin along y and then laid on the surface: move their thinnest side to y
+      if (["box", "rounded_box", "plate", "cross", "slots"].includes(d.shape)) {
+        const t = size.indexOf(Math.min(...size));
+        if (t !== 1) [size[1], size[t]] = [size[t], size[1]];
+      }
+      const obj = this.detailObject(d, size);
+      const want = new THREE.Vector3(...d.position.map((v) => v * k)).sub(ctr);
+      const centre = new THREE.Box3().setFromObject(p.mesh).getCenter(new THREE.Vector3());
+      const out = want.clone().sub(centre);
+      let placed = false;
+      if (out.lengthSq() > 1e-6) {
+        out.normalize();
+        ray.set(centre.clone().addScaledVector(out, 50), out.clone().negate());
+        const hit = ray.intersectObject(p.mesh, false)[0];
+        if (hit && hit.face) {
+          const n = hit.face.normal.clone().transformDirection(p.mesh.matrixWorld);
+          if (n.dot(out) < 0) n.negate();
+          // slide along the surface towards the requested spot, then sit just proud of it
+          obj.position.copy(hit.point).addScaledVector(n, size[1] * 0.45);
+          obj.quaternion.setFromUnitVectors(Y, n).multiply(new THREE.Quaternion().setFromAxisAngle(Y, THREE.MathUtils.degToRad(d.rotation[1] || 0)));
+          placed = true;
+        }
+      }
+      if (!placed) { obj.position.copy(want); obj.rotation.set(...d.rotation.map((r) => THREE.MathUtils.degToRad(r))); }
+      this.root.add(obj); p.group.attach(obj); // keep world pose, then follow the parent
+      obj.traverse((o) => { o.userData.partId = p.id; if (o.isMesh) { p.pickables.push(o); if (o.material) p.extras.push(o.material); } });
+    }
+  }
+
+  detailObject(d, size) {
+    const mp = MATERIALS[d.material] || MATERIALS.plastic;
+    const mat = new THREE.MeshPhysicalMaterial({ color: new THREE.Color(d.color), ...mp });
+    const g = new THREE.Group();
+    const add = (geom, x = 0, z = 0) => { const m = new THREE.Mesh(geom, mat); m.position.set(x, 0, z); m.castShadow = true; g.add(m); };
+    const [x, y, z] = size;
+    if (d.shape === "cross") {
+      add(new RoundedBoxGeometry(x, y, z * 0.34, 2, Math.min(y, z * 0.34) * 0.3));
+      add(new RoundedBoxGeometry(x * 0.34, y, z, 2, Math.min(y, x * 0.34) * 0.3));
+    } else if (d.shape === "slots") {
+      const n = Math.max(1, Math.min(24, d.count || 1)), pitch = x / n, w = pitch * 0.5;
+      mat.color.multiplyScalar(0.55);
+      for (let i = 0; i < n; i++) add(new RoundedBoxGeometry(w, y, z, 2, Math.min(w, y) * 0.45), -x / 2 + pitch * (i + 0.5));
+    } else {
+      add(geometryFor(d.shape, size));
+    }
+    return g;
+  }
+
+  // Print each visible part's photo cut-out onto the faces that look towards that photo's camera.
+  async addDecals(views) {
+    const AXES = { top: [0, 1, 0], bottom: [0, -1, 0], back: [0, 0, -1], left: [-1, 0, 0], right: [1, 0, 0] };
+    const byId = Object.fromEntries(this.parts.map((p) => [p.id, p]));
+    const load = (src) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+    for (const v of views || []) {
+      const axisW = new THREE.Vector3(...(AXES[v.view] || [0, 0, 1]));
+      for (const l of v.layers || []) {
+        const p = byId[l.componentId];
+        if (!p || p.decal || !l.cutout) continue;
+        let img; try { img = await load(l.cutout); } catch { continue; }
+        if (!this.parts.includes(p)) return; // a newer build replaced this one
+        const geom = this.decalGeometry(p, axisW, v.view);
+        if (!geom) continue;
+        const tex = new THREE.Texture(img); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; tex.needsUpdate = true;
+        const mat = new THREE.MeshPhysicalMaterial({ map: tex, transparent: true, alphaTest: 0.3, roughness: p.mat.roughness,
+          metalness: p.mat.metalness, clearcoat: p.mat.clearcoat, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+          side: THREE.DoubleSide, envMapIntensity: p.mat.envMapIntensity });
+        const m = new THREE.Mesh(geom, mat); m.userData.partId = p.id; m.renderOrder = 1;
+        p.mesh.add(m); p.decal = m; p.extras.push(mat); p.pickables.push(m);
+      }
+    }
+  }
+
+  decalGeometry(p, axisW, view) {
+    // work in the mesh's local frame
+    const inv = new THREE.Quaternion().copy(p.group.quaternion).invert();
+    const axis = axisW.clone().applyQuaternion(inv).normalize();
+    // image axes for that camera: u = image right, v = image up
+    const ref = Math.abs(axisW.y) > 0.5 ? (axisW.y > 0 ? [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, -1)] : [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1)])
+      : [new THREE.Vector3(0, 1, 0).cross(axisW).negate().normalize(), new THREE.Vector3(0, 1, 0)];
+    const U = ref[0].applyQuaternion(inv), V = ref[1].applyQuaternion(inv);
+    const src = p.mesh.geometry.index ? p.mesh.geometry.toNonIndexed() : p.mesh.geometry.clone();
+    const P = src.attributes.position, N = src.attributes.normal;
+    const keep = [], a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3();
+    for (let i = 0; i < P.count; i += 3) {
+      a.fromBufferAttribute(P, i); b.fromBufferAttribute(P, i + 1); c.fromBufferAttribute(P, i + 2);
+      n.subVectors(c, b).cross(new THREE.Vector3().subVectors(a, b)).normalize();
+      if (N) { n.fromBufferAttribute(N, i).add(new THREE.Vector3().fromBufferAttribute(N, i + 1)).add(new THREE.Vector3().fromBufferAttribute(N, i + 2)).normalize(); }
+      if (n.dot(axis) > 0.25) keep.push(i);
+    }
+    if (!keep.length) return null;
+    const pos = new Float32Array(keep.length * 9), nor = new Float32Array(keep.length * 9), uv = new Float32Array(keep.length * 6);
+    let uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+    for (const i of keep) for (let j = 0; j < 3; j++) {
+      a.fromBufferAttribute(P, i + j); const u = a.dot(U), w = a.dot(V);
+      uMin = Math.min(uMin, u); uMax = Math.max(uMax, u); vMin = Math.min(vMin, w); vMax = Math.max(vMax, w);
+    }
+    keep.forEach((i, t) => {
+      for (let j = 0; j < 3; j++) {
+        a.fromBufferAttribute(P, i + j);
+        pos.set([a.x, a.y, a.z], (t * 3 + j) * 3);
+        if (N) { n.fromBufferAttribute(N, i + j); nor.set([n.x, n.y, n.z], (t * 3 + j) * 3); }
+        uv.set([(a.dot(U) - uMin) / Math.max(1e-6, uMax - uMin), (a.dot(V) - vMin) / Math.max(1e-6, vMax - vMin)], (t * 3 + j) * 2);
+      }
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+    if (N) g.setAttribute("normal", new THREE.BufferAttribute(nor, 3)); else g.computeVertexNormals();
+    return g;
   }
 
   setExplode(t) {
@@ -175,7 +297,7 @@ export class AssemblyView {
   }
 
   pick(raycaster) {
-    const hits = raycaster.intersectObjects(this.parts.filter((p) => p.group.visible).map((p) => p.mesh), false);
+    const hits = raycaster.intersectObjects(this.parts.filter((p) => p.group.visible).flatMap((p) => p.pickables), false);
     return hits.length ? hits[0].object.userData.partId : null;
   }
 
@@ -188,6 +310,7 @@ export class AssemblyView {
       const baseOpacity = p.mat.userData.baseOpacity ??= p.mat.opacity;
       p.mat.transparent = dim || baseOpacity < 1; p.mat.opacity = dim ? 0.1 : baseOpacity; p.mat.depthWrite = !dim;
       p.edges.material.opacity = dim ? 0.05 : p.inferred ? 0.85 : 0.28;
+      for (const m of p.extras) { m.transparent = true; m.opacity = dim ? 0.08 : 1; m.depthWrite = !dim; m.needsUpdate = true; }
       p.highlight = p.id === selected || affected.has(p.id);
       p.label.element.classList.toggle("sel", p.id === selected);
       p.label.element.classList.toggle("hit", affected.has(p.id));

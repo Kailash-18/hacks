@@ -155,7 +155,7 @@ async function build(analysis, { sample = false } = {}) {
   renderPanel();
   $("explode").value = 0;
   if (A.scene.assembly && A.scene.assembly.parts.length) {
-    asm.build(A.scene.assembly, A.components);
+    asm.build(A.scene.assembly, A.components, viewsOf(A));
     show3D();
   } else await showView(0);
   $("empty").hidden = true; $("controls").hidden = false; $("panel").hidden = false; $("loading").hidden = true;

@@ -424,3 +424,20 @@ def test_fallback_provider_on_quota():
     assert f.generate_text_json("p") == "{}" and f.name == "lmstudio-local" and f.model == "gemma"
     with pytest.raises(ProviderError):  # non-quota errors are not hidden
         FallbackVisionClient([Broken(), Local()]).generate_text_json("p")
+
+
+def test_assembly_details_parsed_and_validated():
+    from app.services.assembly import parse_assembly
+    raw = {"parts": [
+        {"id": "shell", "shape": "rounded_box", "size": [60, 20, 100], "position": [0, 0, 0]},
+        {"id": "pcb", "shape": "plate", "size": [40, 2, 80], "position": [0, -2, 0]}],
+        "details": [
+            {"parent": "shell", "shape": "slots", "size": [20, 1, 10], "position": [0, 10.5, 30], "count": 6},
+            {"parent": "shell", "shape": "cross", "size": [12, 2, 12], "position": [-15, 11, -20], "color": "#111111"},
+            {"parent": "ghost", "shape": "box", "size": [1, 1, 1], "position": [0, 0, 0]},      # unknown parent -> dropped
+            {"parent": "pcb", "shape": "laser", "size": [-3, 2, 3], "position": [0, 0, 0], "count": 99},  # sanitised
+        ]}
+    a = parse_assembly(raw, {"shell", "pcb"}, {"shell": "cover", "pcb": "controller"})
+    assert [d.parent_id for d in a.details] == ["shell", "shell", "pcb"]
+    assert a.details[0].shape == "slots" and a.details[0].count == 6
+    assert a.details[2].shape == "rounded_box" and a.details[2].size[0] == 3 and a.details[2].count == 24

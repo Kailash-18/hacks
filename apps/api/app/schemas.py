@@ -107,11 +107,24 @@ class AssemblyPart(_Model):
     explode_dist: float = Field(default=1.0, alias="explodeDist")
 
 
+class AssemblyDetail(_Model):
+    """Small surface feature (screw, vent, port, LED, label...) that belongs to and moves with a part."""
+    parent_id: str = Field(alias="parentId")
+    shape: str
+    size: list[float]
+    position: list[float]  # absolute, same frame as parts
+    rotation: list[float] = [0, 0, 0]
+    color: str = "#30343b"
+    material: str = "plastic"
+    count: int = 1  # for "slots": number of parallel slots
+
+
 class Assembly(_Model):
     kind: Literal["primitive-assembly"] = "primitive-assembly"
     units: str = "mm"
     overall_size: list[float] = Field(alias="overallSize")
     parts: list[AssemblyPart] = []
+    details: list[AssemblyDetail] = []
 
 
 class Scene(_Model):
