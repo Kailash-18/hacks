@@ -18,8 +18,9 @@
 <header class="topbar">
   <div class="brand"><span class="dot"></span>Visual Reverse Engineering <span class="muted">/ Physical Lab</span></div>
   <div class="actions">
-    <label class="btn primary" for="file">Upload photo</label>
-    <input id="file" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden />
+    <label class="btn primary" for="file">Upload photos</label>
+    <input id="file" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden />
+    <input id="addFile" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden />
     <select id="samples" class="btn" title="Saved results of earlier real analyses"><option value="">Samples…</option></select>
   </div>
 </header>
@@ -29,18 +30,20 @@
     <canvas id="c"></canvas>
     <div id="empty" class="empty">
       <h1>Photo in. Exploded diagram out.</h1>
-      <p>Upload a photo of any object. The AI finds its parts, cuts them out, estimates depth and pulls them apart so you can inspect each one.</p>
+      <p>Upload 1–4 photos of any object. The AI finds its parts, cuts them out, estimates depth and pulls them apart so you can inspect each one. More angles = more real parts.</p>
       <ul class="tips">
         <li>One object, filling most of the frame</li>
         <li>Plain background, good light</li>
         <li>Objects with visible parts work best: a bike, a keyboard, an open PC, a drone</li>
+        <li>Add a bottom or opened-up shot to reveal parts hidden from the top</li>
       </ul>
-      <label class="btn primary big" for="file">Choose a photo</label>
+      <label class="btn primary big" for="file">Choose photos</label>
     </div>
     <div id="loading" class="loading" hidden>
       <div class="spinner"></div>
       <ol id="steps"></ol>
     </div>
+    <div id="viewTabs" class="tabs" hidden></div>
     <div id="error" class="toast" hidden></div>
     <div id="hover" class="hover" hidden></div>
 
@@ -59,6 +62,7 @@
       <div class="eyebrow" id="modeBadge">Live analysis</div>
       <h2 id="title"></h2>
       <p id="summary" class="muted"></p>
+      <div id="product" class="product" hidden></div>
     </div>
 
     <div class="block">

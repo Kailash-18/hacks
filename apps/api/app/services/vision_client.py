@@ -119,6 +119,19 @@ class GeminiVisionClient:
             raise ProviderError("Vision provider returned an empty response.", 502)
         return resp.text
 
+    def generate_text_json(self, prompt: str) -> str:
+        """Small text-only JSON call (used to match part names across photos)."""
+        from google.genai import types
+        cfg = {"response_mime_type": "application/json", "temperature": 0, "max_output_tokens": 2000}
+        if self.model.startswith("gemini-3") and not getattr(self, "_no_thinking_cfg", False):
+            cfg["thinking_config"] = types.ThinkingConfig(thinking_level="low")
+        try:
+            resp = self._get().models.generate_content(model=self.model, contents=prompt,
+                                                       config=types.GenerateContentConfig(**cfg))
+        except Exception as exc:
+            raise self._map(exc) from exc
+        return resp.text or "{}"
+
     def _map(self, exc: Exception) -> "ProviderError":
         """Map provider failures to stable, user-readable errors."""
         if True:

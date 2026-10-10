@@ -70,6 +70,28 @@ class SceneLayer(_Model):
     bbox: BBox
     cutout: str  # data URL, RGBA image cropped to bbox
     depth_rank: int = Field(alias="depthRank")  # 0 = front-most (model estimate)
+    view_index: int = Field(default=0, alias="viewIndex")
+
+
+class SceneView(_Model):
+    """One photo of the object. Multi-photo analyses have one entry per photo."""
+    index: int
+    view: str = "unknown"  # top | bottom | front | back | left | right | three-quarter | inside | unknown
+    filename: str = ""
+    image_width: int = Field(alias="imageWidth")
+    image_height: int = Field(alias="imageHeight")
+    plate: Optional[str] = None
+    plate_bbox: Optional[BBox] = Field(default=None, alias="plateBbox")
+    layers: list[SceneLayer] = []
+
+
+class Product(_Model):
+    """Model-stated identification. Only as reliable as the visible logos/text."""
+    category: str = ""
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    search_query: str = Field(default="", alias="searchQuery")
+    identified_from: str = Field(default="", alias="identifiedFrom")
 
 
 class Scene(_Model):
@@ -81,6 +103,8 @@ class Scene(_Model):
     layers: list[SceneLayer] = []
     ghost_component_ids: list[str] = Field(default=[], alias="ghostComponentIds")
     notes: list[str] = []
+    views: list[SceneView] = []  # all photos (top-level plate/layers mirror views[0] for compatibility)
+    product: Optional[Product] = None
 
 
 class SystemAnalysis(_Model):

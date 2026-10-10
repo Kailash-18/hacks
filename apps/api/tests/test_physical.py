@@ -225,3 +225,76 @@ def test_outline_path():
     assert any("outline" in e for e in btn.evidence)
     layer = next(l for l in a.scene.layers if l.component_id == "button")
     assert 0.1 < layer.bbox.width < 0.2  # ~60px of 400
+
+
+def bottom_photo() -> bytes:
+    img = np.full((H, W + 100, 3), 235, np.uint8)  # different size so the fake can tell photos apart
+    cv2.rectangle(img, (60, 50), (340, 250), (70, 70, 70), -1)        # base
+    cv2.circle(img, (200, 150), 25, (30, 160, 30), -1)               # sensor window
+    ok, buf = cv2.imencode(".png", img)
+    return buf.tobytes()
+
+
+def bottom_response() -> dict:
+    def bx(x0, y0, x1, y1, ww=W + 100):
+        return [round(y0 / H * 1000), round(x0 / ww * 1000), round(y1 / H * 1000), round(x1 / ww * 1000)]
+    def ol(x0, y0, x1, y1, ww=W + 100):
+        return [[round(y / H * 1000), round(x / ww * 1000)] for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))]
+    return {
+        "object_name": "Test gadget (bottom)", "view": "bottom",
+        "product": {"brand": "Acme", "model": None, "category": "gadget", "search_query": "acme gadget"},
+        "object": {"box_2d": bx(60, 50, 340, 250), "outline": ol(60, 50, 340, 250)},
+        "parts": [
+            {"id": "sensor", "label": "Battery pack", "type": "power_source", "box_2d": bx(175, 125, 225, 175),
+             "outline": ol(175, 125, 225, 175), "depth_rank": 0, "evidence": "visible through window"},
+            {"id": "base", "label": "Base plate", "type": "structure", "box_2d": bx(60, 50, 340, 250),
+             "outline": ol(60, 50, 340, 250), "depth_rank": 1},
+        ],
+        "hidden_parts": [{"id": "pcb", "label": "Circuit Boards", "type": "controller", "reason": "electronics"}],
+        "relationships": [{"from": "sensor", "to": "pcb", "type": "powers", "visible": False}],
+    }
+
+
+class MultiFake:
+    name, model = "fake", "fake-model"
+
+    def generate_json(self, image_bytes, mime_type, prompt):
+        img = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
+        return json.dumps(bottom_response() if img.shape[1] > W else good_response())
+
+    def generate_text_json(self, prompt):
+        assert "Photo 1" in prompt and "Photo 2" in prompt
+        return json.dumps({"groups": [["Battery", "Battery pack"]]})
+
+
+def test_multi_view_merge(tmp_path):
+    from app.services.physical_analysis import analyze_physical_images
+    a = analyze_physical_images([(synthetic_device(), "top.png"), (bottom_photo(), "bottom.png")], MultiFake(), tmp_path)
+    d = a.dump()
+    by = {c["id"]: c for c in d["components"]}
+    # hidden "Battery" in photo 1 became observed via "Battery pack" in photo 2 (merged by the label groups)
+    battery = [c for c in d["components"] if c["label"] in ("Battery", "Battery pack")]
+    assert len(battery) == 1 and battery[0]["status"] == "observed"
+    assert battery[0]["id"] not in d["scene"]["ghostComponentIds"]
+    # "Circuit Boards" (photo 2, plural) merges with "Circuit board" (photo 1) by normalized name
+    assert len([c for c in d["components"] if "ircuit" in c["label"]]) == 1
+    assert [v["view"] for v in d["scene"]["views"]] == ["unknown", "bottom"]
+    assert all(l["viewIndex"] == 1 for l in d["scene"]["views"][1]["layers"])
+    assert d["scene"]["layers"] == d["scene"]["views"][0]["layers"]
+    assert d["scene"]["product"]["brand"] == "Acme"
+    assert by["base"]["label"] == "Base plate"
+    # raw model answers are cached per photo
+    assert len(list(tmp_path.glob("raw-*.json"))) == 2
+
+
+def test_api_multi_upload(monkeypatch, tmp_path):
+    from app import main
+    monkeypatch.setattr(main, "vision", MultiFake())
+    monkeypatch.setattr(main, "CACHE_DIR", tmp_path)
+    client = TestClient(main.app)
+    files = [("images", ("t.png", synthetic_device(), "image/png")), ("images", ("b.png", bottom_photo(), "image/png"))]
+    r = client.post("/api/physical/analyze", files=files)
+    assert r.status_code == 200, r.text
+    assert len(r.json()["scene"]["views"]) == 2
+    five = [("images", (f"{i}.png", synthetic_device(), "image/png")) for i in range(5)]
+    assert client.post("/api/physical/analyze", files=five).status_code == 400

@@ -135,11 +135,43 @@ function textSprite(text, color = "#f2b84b") {
 }
 
 // ---------------------------------------------------------------- build scene
-async function build(analysis, { sample = false, photoURL = null } = {}) {
+let currentView = 0;
+const depthCache = {};
+function viewsOf(a) {
+  const S = a.scene;
+  return S.views && S.views.length ? S.views
+    : [{ index: 0, view: "photo", imageWidth: S.imageWidth, imageHeight: S.imageHeight, plate: S.plate, plateBbox: S.plateBbox, layers: S.layers }];
+}
+const VIEW_NAMES = { top: "Top", bottom: "Bottom", front: "Front", back: "Back", left: "Left side", right: "Right side", "three-quarter": "Angle", inside: "Inside", unknown: "Photo", photo: "Photo" };
+
+async function build(analysis, { sample = false } = {}) {
   A = analysis; isSample = sample; selected = removed = null; affected = new Set();
+  for (const k in depthCache) delete depthCache[k];
+  if (!A.scene) { showError("This analysis has no physical scene data."); return; }
+  renderPanel();
+  await showView(0);
+  $("empty").hidden = true; $("controls").hidden = false; $("panel").hidden = false; $("loading").hidden = true;
+}
+
+function renderTabs() {
+  const box = $("viewTabs"); box.innerHTML = "";
+  const vs = viewsOf(A);
+  vs.forEach((v, i) => {
+    const b = el("button", "tab" + (i === currentView ? " on" : ""), `${i + 1} · ${VIEW_NAMES[v.view] || "Photo"}`);
+    b.title = v.filename || ""; b.onclick = () => { if (i !== currentView) showView(i).then(paint); };
+    box.append(b);
+  });
+  if (!isSample && vs.length < 4) {
+    const add = el("label", "tab add", "+ Add photo"); add.htmlFor = "addFile";
+    add.title = "Add another angle of the same object (bottom, side, opened...)"; box.append(add);
+  }
+  box.hidden = false;
+}
+
+async function showView(vi) {
+  currentView = vi;
   root.clear(); parts = []; ghosts = []; plate = null; depthMap = null;
-  const S = A.scene;
-  if (!S) { showError("This analysis has no physical scene data."); return; }
+  const S = { ...viewsOf(A)[vi], ghostComponentIds: A.scene.ghostComponentIds || [] };
   worldH = WORLD_W * S.imageHeight / S.imageWidth;
 
   steps(2);
@@ -149,7 +181,7 @@ async function build(analysis, { sample = false, photoURL = null } = {}) {
   // Depth (browser). Composite the object from plate + layers so it also works for samples.
   steps(3);
   try {
-    depthMap = await estimateDepth(S, plateImg, layerImgs);
+    depthMap = depthCache[vi] || (depthCache[vi] = await estimateDepth(S, plateImg, layerImgs));
     $("depthBadge").textContent = "depth: Depth Anything V2 (in-browser)";
   } catch (e) {
     console.warn("Depth model unavailable, using silhouette relief only", e);
@@ -198,8 +230,8 @@ async function build(analysis, { sample = false, photoURL = null } = {}) {
 
   frame();
   applyExplode();
-  renderPanel();
-  $("empty").hidden = true; $("controls").hidden = false; $("panel").hidden = false; $("loading").hidden = true;
+  renderTabs();
+  $("loading").hidden = true;
 }
 
 function reorder() { // back-to-front order -> explode layer index
@@ -327,6 +359,20 @@ function renderPanel() {
   mb.className = "eyebrow" + (isSample ? " sample" : "");
   $("limits").innerHTML = "";
   A.limitations.concat(A.scene?.notes || []).forEach((t) => $("limits").append(el("li", "", t)));
+  const pr = A.scene?.product, pe = $("product");
+  if (pr && (pr.searchQuery || pr.brand)) {
+    pe.innerHTML = "";
+    const name = [pr.brand, pr.model].filter(Boolean).join(" ") || pr.category || A.title;
+    pe.append(el("div", "", `Identified: ${name}` + (pr.model ? "" : " (exact model not readable)")));
+    if (pr.identifiedFrom) pe.append(el("div", "tiny muted", "From: " + pr.identifiedFrom));
+    if (!isSample) {
+      const a = el("a", "btn small", "Find photos of this model ↗");
+      a.href = "https://www.google.com/search?tbm=isch&q=" + encodeURIComponent(pr.searchQuery || name);
+      a.target = "_blank"; a.rel = "noopener";
+      pe.append(a, el("div", "tiny muted", "Save top / bottom / side shots, then use “+ Add photo”. Up to 4 photos."));
+    }
+    pe.hidden = false;
+  } else pe.hidden = true;
   $("providerLine").textContent = `Vision: ${A.provider.name} · ${A.provider.model}. What-if = graph traversal, not physics.`;
   renderParts(); renderGraph(); renderDetail();
 }
@@ -363,7 +409,11 @@ function renderDetail() {
   $("whatif").textContent = removed === c.id ? "Put it back" : "What if I remove it?";
 }
 
-function select(id) {
+async function select(id) {
+  if (id && !parts.some((p) => p.id === id)) { // part lives in another photo -> switch to it
+    const vi = viewsOf(A).findIndex((v) => v.layers.some((l) => l.componentId === id));
+    if (vi >= 0 && vi !== currentView) await showView(vi);
+  }
   selected = id; renderParts(); renderDetail(); renderGraph(); paint();
 }
 
@@ -435,24 +485,48 @@ async function shrink(file, max = 1600) { // client-side downscale keeps uploads
   return new Promise((res) => c.toBlob(res, "image/jpeg", 0.9));
 }
 
-$("file").addEventListener("change", async (e) => {
-  const file = e.target.files[0]; e.target.value = "";
-  if (!file) return;
-  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return showError("Please choose a JPEG, PNG or WebP photo.");
+let currentFiles = []; // shrunk blobs of the current object (re-sent on "Add photo"; server caches each photo)
+
+async function analyze(files) {
   try {
     steps(0);
-    const blob = await shrink(file);
-    const fd = new FormData(); fd.append("image", blob, file.name.replace(/\.\w+$/, "") + ".jpg");
+    const fd = new FormData();
+    files.forEach((b, i) => fd.append("images", b, `photo${i + 1}.jpg`));
+    STEP_NAMES[1] = files.length > 1 ? `AI finding parts in ${files.length} photos` : "AI finding parts & cutting them out";
     steps(1);
-    const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 150000);
+    const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 180000);
     let r;
     try { r = await fetch(API + "/api/physical/analyze", { method: "POST", body: fd, signal: ctl.signal }); }
-    catch (err) { throw new Error(err.name === "AbortError" ? "The analysis took over 2.5 minutes and was stopped. Please try again." : "Can't reach the server. Is uvicorn running?"); }
+    catch (err) { throw new Error(err.name === "AbortError" ? "The analysis took over 3 minutes and was stopped. Please try again." : "Can't reach the server. Is uvicorn running?"); }
     finally { clearTimeout(timer); }
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error || data.detail || `Analysis failed (${r.status})`);
+    currentFiles = files;
     await build(data, { sample: false });
   } catch (err) { $("loading").hidden = true; showError(err.message || "Something went wrong."); }
+}
+
+async function pickFiles(list) {
+  const ok = [...list].filter((f) => /^image\/(jpeg|png|webp)$/.test(f.type));
+  if (ok.length < list.length) showError("Some files were skipped: use JPEG, PNG or WebP photos.");
+  return Promise.all(ok.map((f) => shrink(f)));
+}
+
+$("file").addEventListener("change", async (e) => {
+  const list = [...e.target.files]; e.target.value = "";
+  if (!list.length) return;
+  const blobs = await pickFiles(list);
+  if (!blobs.length) return;
+  if (blobs.length > 4) showError("Using the first 4 photos.");
+  analyze(blobs.slice(0, 4));
+});
+
+$("addFile").addEventListener("change", async (e) => {
+  const list = [...e.target.files]; e.target.value = "";
+  if (!list.length) return;
+  const blobs = await pickFiles(list);
+  const all = currentFiles.concat(blobs).slice(0, 4);
+  if (all.length > currentFiles.length) analyze(all);
 });
 
 async function loadSamples() {

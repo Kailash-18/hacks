@@ -10,11 +10,13 @@ import json
 import os
 from collections import OrderedDict
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
 API_DIR = Path(__file__).resolve().parents[1]
 
@@ -33,10 +35,11 @@ _load_env(API_DIR / ".env")
 
 from .schemas import SystemAnalysis, WhatIfRequest  # noqa: E402
 from .services.component_graph import what_if  # noqa: E402
-from .services.physical_analysis import AnalysisError, analyze_physical_image  # noqa: E402
+from .services.physical_analysis import MAX_VIEWS, PROMPT, AnalysisError, analyze_physical_images  # noqa: E402
 from .services.vision_client import GeminiVisionClient, ProviderError  # noqa: E402
 
 MAX_BYTES = 8 * 1024 * 1024
+PROMPT_VERSION = hashlib.sha256(PROMPT.encode()).hexdigest()[:8]
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
 CACHE_DIR = API_DIR / ".cache"
 SAMPLES_DIR = API_DIR / "samples"
@@ -81,23 +84,32 @@ def assets():
 
 
 @app.post("/api/physical/analyze")
-async def physical_analyze(image: UploadFile = File(...)):
-    if image.content_type not in ALLOWED_MIME:
-        raise HTTPException(415, "Upload a JPEG, PNG or WebP image.")
-    data = await image.read(MAX_BYTES + 1)
-    if len(data) > MAX_BYTES:
-        raise HTTPException(413, "Image is larger than 8 MB.")
-    if not data:
-        raise HTTPException(400, "Empty file.")
+async def physical_analyze(images: Optional[list[UploadFile]] = File(None), image: Optional[UploadFile] = File(None)):
+    """One to four photos of the same object (form field ``images``; ``image`` still works for one)."""
+    uploads = [u for u in (images or []) + ([image] if image else []) if u is not None]
+    if not uploads:
+        raise HTTPException(400, "Upload at least one photo.")
+    if len(uploads) > MAX_VIEWS:
+        raise HTTPException(400, f"Upload at most {MAX_VIEWS} photos of the same object.")
+    files = []
+    for u in uploads:
+        if u.content_type not in ALLOWED_MIME:
+            raise HTTPException(415, "Upload JPEG, PNG or WebP images.")
+        data = await u.read(MAX_BYTES + 1)
+        if len(data) > MAX_BYTES:
+            raise HTTPException(413, "Each image must be 8 MB or smaller.")
+        if not data:
+            raise HTTPException(400, "Empty file.")
+        files.append((data, u.filename or f"photo{len(files) + 1}"))
 
-    key = hashlib.sha256(data + vision.model.encode()).hexdigest()
+    key = hashlib.sha256(b"".join(hashlib.sha256(d).digest() for d, _ in files) + vision.model.encode()
+                         + PROMPT_VERSION.encode()).hexdigest()
     cached = CACHE_DIR / f"{key}.json"
-    if cached.exists():  # free-tier friendly: same photo never costs a second model call
+    if cached.exists():  # free-tier friendly: same photos never cost a second model call
         analysis = SystemAnalysis.model_validate(json.loads(cached.read_text(encoding="utf-8")))
     else:
-        # run the blocking model call off the event loop so the server stays responsive
-        from starlette.concurrency import run_in_threadpool
-        analysis = await run_in_threadpool(analyze_physical_image, data, image.filename or "upload", vision)
+        # run the blocking model calls off the event loop so the server stays responsive
+        analysis = await run_in_threadpool(analyze_physical_images, files, vision, CACHE_DIR)
         CACHE_DIR.mkdir(exist_ok=True)
         cached.write_text(json.dumps(analysis.dump()), encoding="utf-8")
     _remember(analysis)
