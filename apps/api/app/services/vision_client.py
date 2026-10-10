@@ -62,7 +62,8 @@ class GeminiVisionClient:
 
     def __init__(self, api_key: str | None = None, model: str | None = None):
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        self.model = model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        # An empty GEMINI_MODEL (as in .env.example) means "pick automatically" on the first call.
+        self.model = model or (os.getenv("GEMINI_MODEL") or "").strip()
         self._client = None
         self._vertex = os.getenv("GEMINI_USE_VERTEX", "").lower() in ("1", "true")
         self._exhausted: dict[str, str] = {}   # model -> UTC date its daily quota ran out
@@ -119,6 +120,9 @@ class GeminiVisionClient:
     # ------------------------------------------------------------------ core call
     def _generate(self, contents, cfg: dict, raw: bool = False):
         from google.genai import types
+        if not self.model:  # no model configured: newest available Flash, else a known default
+            self.model = self._pick_model() or "gemini-2.5-flash"
+            log.warning("gemini: no GEMINI_MODEL set; using %s", self.model)
         today = _dt.datetime.utcnow().date().isoformat()
         tried = set()
         busy: dict[str, int] = {}

@@ -128,8 +128,9 @@ app.include_router(explorer_router)  # /api/digital/{whatif,workflow,diff,recons
 def health():
     return {"status": "ok", "pipeline": PIPELINE_VERSION,
             "labs": ["physical", "digital"],
-            "provider": {"name": vision.name, "model": vision.model},
-            "providers": [{"name": p.name, "model": p.model} for p in getattr(vision, "providers", [vision])],
+            "provider": {"name": vision.name, "model": vision.model or "auto (picked on first call)"},
+            "providers": [{"name": p.name, "model": p.model or "auto (picked on first call)"}
+                          for p in getattr(vision, "providers", [vision])],
             "geminiKeyConfigured": provider_status()["geminiKeyConfigured"],
             "fixtureMode": provider_status()["fixtureMode"],
             "digitalSamples": len(DIGITAL_SAMPLES)}
