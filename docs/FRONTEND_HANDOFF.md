@@ -2,6 +2,19 @@
 
 _Updated 10 Oct 2026. Physical Lab section first (new); Digital Lab section below is unchanged._
 
+## Your scope: frontend only
+
+**You own:** the UI (pages, layout, styling, components), the upload flow, loading/progress states, showing results, the frontend's own config (`NEXT_PUBLIC_API_URL`), and deploying the frontend.
+
+**Do not change (read-only for you):**
+- `apps/api/**`: backend, routes, AI prompts, the vision client, the 3D/what-if logic. Owners: Krishna (backend, Digital Lab) and Samvit (Physical Lab, AI).
+- `contracts/**`: the shared types. Import them; don't edit them.
+- `apps/api/.env`, `apps/api/samples/`, `apps/api/.cache/`. Never put an API key in the frontend.
+- In `apps/viewer/`, the 3D and AI-facing logic (`assembly3d.js`, `textures.js`, and the fetch/what-if code in `viewer.js`) is Samvit's. You may restyle it (`style.css`, layout in `index.html`) or embed it as is.
+
+**Need something from the backend or AI** (a new field, a different response, a bug in results)? Ask Krishna or Samvit. Don't work around it in the frontend by inventing data, and don't hardcode fake AI results. Use the samples endpoints for demo data.
+
+
 Types: `contracts/system-analysis.ts`. Every route (physical and digital) returns errors as `{"error": {"code", "message"}}`. Full contract and error codes: `docs/API_CONTRACT.md`.
 
 
