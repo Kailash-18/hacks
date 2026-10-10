@@ -168,6 +168,7 @@ function show3D() {
   asm.setExplode(parseFloat($("explode").value));
   asm.frame(); renderTabs(); paint();
   $("depthBadge").textContent = "3D model: AI-estimated shapes (approximate)";
+  $("handsHint").hidden = false; $("resetParts").hidden = !asm.anyMoved();
   $("forward").disabled = $("backward").disabled = true;
   $("loading").hidden = true;
 }
@@ -195,6 +196,7 @@ function renderTabs() {
 async function showView(vi, { fromTab = false } = {}) {
   currentView = vi;
   mode = "layers"; asm.setActive(false); root.visible = true; controls.autoRotate = false; $("spin").checked = false;
+  $("handsHint").hidden = true; $("resetParts").hidden = true;
   controls.minAzimuthAngle = -0.75; controls.maxAzimuthAngle = 0.75;          // 2.5D layers only look right from the front
   controls.minPolarAngle = Math.PI / 2 - 0.6; controls.maxPolarAngle = Math.PI / 2 + 0.6; controls.minDistance = 4; controls.maxDistance = 40;
   if (fromTab) { // only the in-browser steps run when switching photos
@@ -375,6 +377,32 @@ function pick(ev) {
   }
   return null;
 }
+// ---------------------------------------------------------------- hands-on parts (3D mode)
+// drag = pull a part out, Shift+drag = turn it, double-click = focus on it, "Reset parts" = put everything back
+let drag = null;
+function rayFrom(ev) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera); return ray;
+}
+canvas.parentElement.addEventListener("pointerdown", (e) => { // capture phase: runs before the orbit controls
+  if (mode !== "3d" || e.button !== 0 || e.target !== canvas) return;
+  const id = asm.pick(rayFrom(e)); if (!id) return;
+  drag = asm.beginDrag(id, ray, e.shiftKey ? "rotate" : "move", e.clientX, e.clientY);
+  if (!drag) return;
+  controls.enabled = false; canvas.setPointerCapture(e.pointerId); canvas.style.cursor = "grabbing";
+  if (controls.autoRotate) { controls.autoRotate = false; $("spin").checked = false; }
+  if (selected !== id) select(id);
+}, { capture: true });
+window.addEventListener("pointermove", (e) => { if (drag) { asm.dragTo(drag, rayFrom(e), e.clientX, e.clientY); $("resetParts").hidden = false; } });
+window.addEventListener("pointerup", () => { if (drag) { drag = null; controls.enabled = true; canvas.style.cursor = ""; } });
+canvas.addEventListener("dblclick", (e) => {
+  if (mode !== "3d") return;
+  const id = asm.pick(rayFrom(e)); if (!id) return;
+  $("isolate").checked = true; select(id).then(() => asm.focus(id));
+});
+$("resetParts").addEventListener("click", () => { asm.resetParts(); $("resetParts").hidden = true; });
+
 let downAt = null;
 canvas.addEventListener("pointerdown", (e) => (downAt = [e.clientX, e.clientY]));
 canvas.addEventListener("pointerup", (e) => {
@@ -409,7 +437,7 @@ function paint() {
   }
 }
 $("isolate").addEventListener("change", paint);
-$("resetView").addEventListener("click", frame);
+$("resetView").addEventListener("click", () => { if (mode === "3d" && $("isolate").checked) { $("isolate").checked = false; paint(); } frame(); });
 
 // ---------------------------------------------------------------- panel
 function statusChip(s) { return el("span", `chip ${s}`, s); }

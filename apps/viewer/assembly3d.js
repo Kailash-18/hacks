@@ -126,6 +126,7 @@ export class AssemblyView {
       group.add(label);
       this.root.add(group);
       this.parts.push({ id: a.componentId, group, mesh, edges, mat, label, inferred, extras: [], pickables: [mesh], conformed,
+        offset: new THREE.Vector3(), baseQuat: group.quaternion.clone(), userQuat: new THREE.Quaternion(),
         base: new THREE.Vector3(...a.position.map((v) => v * k)),
         dir: new THREE.Vector3(...a.explodeDir).normalize(), dist: a.explodeDist ?? 1, halfH: size[1] / 2 });
     }
@@ -263,7 +264,10 @@ export class AssemblyView {
   setExplode(t) {
     this.explode = t;
     const reach = TARGET_SIZE * 0.8;
-    for (const p of this.parts) p.group.position.copy(p.base).addScaledVector(p.dir, t * p.dist * reach);
+    for (const p of this.parts) {
+      p.group.position.copy(p.base).addScaledVector(p.dir, t * p.dist * reach).add(p.offset);
+      p.group.quaternion.copy(p.userQuat).multiply(p.baseQuat);
+    }
     // floor sits just under the lowest part
     let minY = Infinity;
     for (const p of this.parts) { if (!p.group.visible) continue; p.group.updateMatrixWorld(true); minY = Math.min(minY, new THREE.Box3().setFromObject(p.mesh).min.y); }
@@ -294,6 +298,59 @@ export class AssemblyView {
     const [az, el] = main === 2 ? [0.68, 0.3] : main === 0 ? [0.3, 0.35] : [0.75, 0.3];
     this.camera.position.set(ctr.x + d * Math.sin(az) * Math.cos(el), ctr.y + d * Math.sin(el), ctr.z + d * Math.cos(az) * Math.cos(el));
     this.controls.target.copy(ctr); this.controls.update();
+  }
+
+  // ---------------------------------------------------------------- hands-on: move / turn / focus parts
+  beginDrag(id, raycaster, kind, x, y) {
+    const p = this.parts.find((q) => q.id === id); if (!p) return null;
+    const hit = raycaster.intersectObjects(p.pickables, false)[0]; if (!hit) return null;
+    const normal = this.camera.getWorldDirection(new THREE.Vector3());
+    return { p, kind, x, y, start: hit.point.clone(), plane: new THREE.Plane().setFromNormalAndCoplanarPoint(normal, hit.point),
+      offset0: p.offset.clone(), quat0: p.userQuat.clone() };
+  }
+
+  dragTo(d, raycaster, x, y) {
+    if (d.kind === "rotate") { // turn the part around the camera's up/right axes
+      const up = this.camera.up.clone().applyQuaternion(this.camera.quaternion).normalize();
+      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize();
+      const q = new THREE.Quaternion().setFromAxisAngle(up, (x - d.x) * 0.01)
+        .multiply(new THREE.Quaternion().setFromAxisAngle(right, (y - d.y) * 0.01));
+      d.p.userQuat.copy(q).multiply(d.quat0);
+    } else {
+      const pt = raycaster.ray.intersectPlane(d.plane, new THREE.Vector3());
+      if (pt) d.p.offset.copy(d.offset0).add(pt.sub(d.start));
+    }
+    d.p.moved = d.p.offset.lengthSq() > 1e-6 || d.p.userQuat.angleTo(new THREE.Quaternion()) > 1e-3;
+    this.setExplode(this.explode);
+  }
+
+  anyMoved() { return this.parts.some((p) => p.moved); }
+
+  resetParts(ms = 500) { // glide every part back into place
+    const from = this.parts.map((p) => ({ p, o: p.offset.clone(), q: p.userQuat.clone() })), t0 = performance.now(), I = new THREE.Quaternion();
+    const tick = (now) => {
+      const k = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - k, 3);
+      for (const f of from) { f.p.offset.copy(f.o).multiplyScalar(1 - e); f.p.userQuat.copy(f.q).slerp(I, e); if (k === 1) f.p.moved = false; }
+      this.setExplode(this.explode);
+      if (k < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  focus(id, ms = 600) { // fly the camera to one part
+    const p = this.parts.find((q) => q.id === id); if (!p) return;
+    const box = new THREE.Box3(); for (const o of p.pickables) box.expandByObject(o);
+    const ctr = box.getCenter(new THREE.Vector3()), r = Math.max(0.4, box.getSize(new THREE.Vector3()).length() / 2);
+    const dir = this.camera.position.clone().sub(this.controls.target).normalize();
+    const vfov = THREE.MathUtils.degToRad(this.camera.fov);
+    const toPos = ctr.clone().addScaledVector(dir, (r / Math.sin(vfov / 2)) * 1.25);
+    const fromPos = this.camera.position.clone(), fromT = this.controls.target.clone(), t0 = performance.now();
+    const tick = (now) => {
+      const k = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - k, 3);
+      this.camera.position.lerpVectors(fromPos, toPos, e); this.controls.target.lerpVectors(fromT, ctr, e); this.controls.update();
+      if (k < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
 
   pick(raycaster) {

@@ -127,3 +127,5 @@ details summary { cursor: pointer; font-weight: 600; color: var(--muted); }
 .lbl { transition: opacity .15s; }
 .stage.studio { background: radial-gradient(ellipse at 50% 42%, #5a6475 0%, #353c49 45%, #1b1f27 100%); }
 :root[data-theme="light"] .stage.studio { background: radial-gradient(ellipse at 50% 42%, #ffffff 0%, #e3e7ee 60%, #c9cfd9 100%); }
+.hint { font-size: 11px; color: var(--muted); }
+@media (max-width: 860px) { .hint { display: none; } }
