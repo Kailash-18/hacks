@@ -12,7 +12,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -84,16 +84,20 @@ def assets():
 
 
 @app.post("/api/physical/analyze")
-async def physical_analyze(images: Optional[list[UploadFile]] = File(None), image: Optional[UploadFile] = File(None)):
+async def physical_analyze(request: Request):
     """One to four photos of the same object (form field ``images``; ``image`` still works for one)."""
-    uploads = [u for u in (images or []) + ([image] if image else []) if u is not None]
+    try:
+        form = await request.form()
+    except Exception:
+        raise HTTPException(400, "Send the photos as multipart form data.")
+    uploads = [u for u in form.getlist("images") + form.getlist("image") if hasattr(u, "read")]
     if not uploads:
         raise HTTPException(400, "Upload at least one photo.")
     if len(uploads) > MAX_VIEWS:
         raise HTTPException(400, f"Upload at most {MAX_VIEWS} photos of the same object.")
     files = []
     for u in uploads:
-        if u.content_type not in ALLOWED_MIME:
+        if (u.content_type or "").split(";")[0] not in ALLOWED_MIME:
             raise HTTPException(415, "Upload JPEG, PNG or WebP images.")
         data = await u.read(MAX_BYTES + 1)
         if len(data) > MAX_BYTES:
