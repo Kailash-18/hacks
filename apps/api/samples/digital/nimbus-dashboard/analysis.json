@@ -1,0 +1,472 @@
+{
+  "analysisId": "digital-981de6d519284b13",
+  "domain": "digital",
+  "title": "Nimbus Dashboard",
+  "source": {
+    "kind": "image",
+    "filename": "dashboard.png"
+  },
+  "assetId": null,
+  "components": [
+    {
+      "id": "sidebar",
+      "label": "Sidebar navigation",
+      "type": "sidebar",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Dark vertical navigation panel on the left side of the screen"
+      ],
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 0.181,
+        "height": 1.0
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "logo",
+      "label": "Nimbus",
+      "type": "logo",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Logo at the top of the sidebar with icon and text"
+      ],
+      "bbox": {
+        "x": 0.018,
+        "y": 0.025,
+        "width": 0.086,
+        "height": 0.039
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-dashboard",
+      "label": "Dashboard",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Sidebar navigation item"
+      ],
+      "bbox": {
+        "x": 0.018,
+        "y": 0.095,
+        "width": 0.153,
+        "height": 0.051
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-projects",
+      "label": "Projects",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Sidebar navigation item"
+      ],
+      "bbox": {
+        "x": 0.018,
+        "y": 0.164,
+        "width": 0.069,
+        "height": 0.024
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-tasks",
+      "label": "My tasks",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Sidebar navigation item"
+      ],
+      "bbox": {
+        "x": 0.018,
+        "y": 0.218,
+        "width": 0.073,
+        "height": 0.024
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-reports",
+      "label": "Reports",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Sidebar navigation item"
+      ],
+      "bbox": {
+        "x": 0.018,
+        "y": 0.273,
+        "width": 0.067,
+        "height": 0.024
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-team",
+      "label": "Team",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Sidebar navigation item"
+      ],
+      "bbox": {
+        "x": 0.018,
+        "y": 0.327,
+        "width": 0.055,
+        "height": 0.026
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-settings",
+      "label": "Settings",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Sidebar navigation item near bottom"
+      ],
+      "bbox": {
+        "x": 0.018,
+        "y": 0.874,
+        "width": 0.069,
+        "height": 0.025
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-logout",
+      "label": "Log out",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Sidebar navigation item near bottom"
+      ],
+      "bbox": {
+        "x": 0.018,
+        "y": 0.93,
+        "width": 0.066,
+        "height": 0.025
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "search-input",
+      "label": "Search projects and tasks...",
+      "type": "search",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Top navigation search bar"
+      ],
+      "bbox": {
+        "x": 0.203,
+        "y": 0.016,
+        "width": 0.282,
+        "height": 0.048
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "notification-icon",
+      "label": "Notifications",
+      "type": "icon",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Top right notification bell icon"
+      ],
+      "bbox": {
+        "x": 0.909,
+        "y": 0.018,
+        "width": 0.03,
+        "height": 0.045
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "user-avatar",
+      "label": "AK",
+      "type": "avatar",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "User initials avatar top right"
+      ],
+      "bbox": {
+        "x": 0.949,
+        "y": 0.018,
+        "width": 0.029,
+        "height": 0.045
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "dashboard-heading",
+      "label": "Dashboard",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Main page title"
+      ],
+      "bbox": {
+        "x": 0.203,
+        "y": 0.118,
+        "width": 0.104,
+        "height": 0.027
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "dashboard-subtitle",
+      "label": "Good morning, Asha. Here is your team this week.",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Subtitle text below dashboard heading"
+      ],
+      "bbox": {
+        "x": 0.203,
+        "y": 0.159,
+        "width": 0.259,
+        "height": 0.019
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "new-project-button",
+      "label": "+ New project",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Top right action button"
+      ],
+      "bbox": {
+        "x": 0.878,
+        "y": 0.121,
+        "width": 0.1,
+        "height": 0.048
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "stat-card-active-projects",
+      "label": "Active projects 12 +2 this month",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "First metric card"
+      ],
+      "bbox": {
+        "x": 0.203,
+        "y": 0.205,
+        "width": 0.185,
+        "height": 0.148
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "stat-card-tasks-due",
+      "label": "Tasks due this week 38 9 due today",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Second metric card"
+      ],
+      "bbox": {
+        "x": 0.399,
+        "y": 0.205,
+        "width": 0.185,
+        "height": 0.148
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "stat-card-completed",
+      "label": "Completed 214 +18% vs last week",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Third metric card"
+      ],
+      "bbox": {
+        "x": 0.597,
+        "y": 0.205,
+        "width": 0.184,
+        "height": 0.148
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "stat-card-team-members",
+      "label": "Team members 9 2 invited",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Fourth metric card"
+      ],
+      "bbox": {
+        "x": 0.794,
+        "y": 0.205,
+        "width": 0.184,
+        "height": 0.148
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "recent-projects-section",
+      "label": "Recent projects",
+      "type": "section",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Recent projects container section with table"
+      ],
+      "bbox": {
+        "x": 0.203,
+        "y": 0.38,
+        "width": 0.775,
+        "height": 0.333
+      },
+      "modelNodeId": null,
+      "transform": null
+    }
+  ],
+  "relationships": [
+    {
+      "id": "sidebar--contains--logo",
+      "from": "sidebar",
+      "to": "logo",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar--contains--nav-dashboard",
+      "from": "sidebar",
+      "to": "nav-dashboard",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar--contains--nav-projects",
+      "from": "sidebar",
+      "to": "nav-projects",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar--contains--nav-tasks",
+      "from": "sidebar",
+      "to": "nav-tasks",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar--contains--nav-reports",
+      "from": "sidebar",
+      "to": "nav-reports",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar--contains--nav-team",
+      "from": "sidebar",
+      "to": "nav-team",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar--contains--nav-settings",
+      "from": "sidebar",
+      "to": "nav-settings",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar--contains--nav-logout",
+      "from": "sidebar",
+      "to": "nav-logout",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    }
+  ],
+  "summary": "Project management dashboard showing an overview of active projects, team tasks, and recent project statuses in a table layout.",
+  "limitations": [
+    "A single screenshot shows layout and visible text only; it does not reveal event handlers, API calls, data sources or where any control navigates.",
+    "Bounding boxes are model estimates and may be offset slightly from the true element edges.",
+    "confidence is null because the model does not produce calibrated probabilities."
+  ],
+  "provider": {
+    "name": "google-gemini",
+    "model": "gemini-3.5-flash-lite"
+  }
+}

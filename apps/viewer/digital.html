@@ -66,7 +66,15 @@
         <label class="check"><input type="checkbox" id="showBoxes" checked /> All boxes</label>
         <label class="check"><input type="checkbox" id="showLabels" /> Labels</label>
         <span class="legend"><i class="st observed"></i>seen <i class="st inferred"></i>inferred <i class="st estimated"></i>from geometry</span>
+        <button class="btn small" id="repoToggle" title="Connect UI elements to the files that render them">Link source code</button>
       </div>
+      <form class="repobar" id="repoBar" hidden>
+        <label class="btn small" for="repoZip">Upload repo .zip</label><input id="repoZip" type="file" accept=".zip,application/zip" hidden />
+        <span class="tiny muted">or</span>
+        <input id="repoUrl" placeholder="https://github.com/owner/repo" autocomplete="off" />
+        <button class="btn small primary" id="repoGo">Map</button>
+        <span class="tiny muted" id="repoNote">Nothing is executed: visible text and component names are matched against the source.</span>
+      </form>
       <div class="canvas-wrap"><div class="shot" id="shot"><img id="shotImg" alt="" /><div class="boxes" id="boxes"></div></div></div>
     </div>
 

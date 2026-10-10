@@ -16,6 +16,7 @@ const S = {
   codeTab: "preview",
   chats: {},        // analysisId -> [{q, a}]
   refs: [],
+  repos: {},        // screen analysisId -> repo mapping result
 };
 
 // ---------- api ----------
@@ -81,8 +82,12 @@ $("#file").addEventListener("change", async (ev) => {
 
 async function loadSamples() {
   try {
-    const list = await api("/api/digital/samples");
-    if (!list.length) return toast("No saved samples on this server.");
+    const all = await api("/api/digital/samples");
+    if (!all.length) return toast("No saved samples on this server.");
+    // A demo app (screens saved as one set) loads first and in order; a second click adds the rest.
+    const loaded = (it) => S.screens.some((s) => s.analysis?.analysisId === it.analysisId);
+    const setName = all.find((it) => it.set && !loaded(it))?.set;
+    const list = setName ? all.filter((it) => it.set === setName).sort((a, b) => (a.order ?? 99) - (b.order ?? 99)) : all;
     let first = null;
     for (const item of list) {
       if (S.screens.some((s) => s.analysis?.analysisId === item.analysisId)) continue;
@@ -119,6 +124,8 @@ function renderScreens() {
 function selectScreen(i) {
   if (i < 0 || i >= S.screens.length) return;
   S.cur = i; S.sel = null; S.impact = null; S.refs = [];
+  const r = S.screens[i].analysis && S.repos[S.screens[i].analysis.analysisId];
+  $("#repoToggle").textContent = r ? `Source: ${r.repo}` : "Link source code";
   renderScreens();
   if (S.tab === "workflow" || S.tab === "compare") { renderAll(); return; }
   renderAll();
@@ -151,7 +158,9 @@ function setTab(t) {
 function contextAnalysis() {
   if (S.tab === "workflow") return S.workflow;
   if (S.tab === "compare") return S.diff ? S.diff.chat : null;
-  return cur()?.analysis || null;
+  const a = cur()?.analysis || null;
+  if (S.tab === "explore" && a && S.repos[a.analysisId]?.chat) return S.repos[a.analysisId].chat;
+  return a;
 }
 
 function renderAll() {
@@ -234,11 +243,12 @@ function paintSelection() {
   });
 }
 
+let MAPPED = new Set();
 function treeHTML(nodes, depth = 0) {
   return `<ul class="${depth ? "" : "tree"}">${nodes.map((n) => `
     <li class="${depth >= 2 && n.children.length ? "closed" : ""}">
       <div class="tn" data-id="${esc(n.id)}"><span class="tw">${n.children.length ? "▾" : ""}</span>
-        <i class="st ${n.status}"></i><span class="tl">${esc(n.label)}</span><span class="tt">${esc(n.type)}</span></div>
+        <i class="st ${n.status}"></i><span class="tl">${esc(n.label)}</span>${MAPPED.has(n.id) ? '<span class="has-src" title="Found in source">{ }</span>' : ""}<span class="tt">${esc(n.type)}</span></div>
       ${n.children.length ? treeHTML(n.children, depth + 1) : ""}</li>`).join("")}</ul>`;
 }
 
@@ -267,8 +277,10 @@ function renderSide() {
   if (S.tab === "rebuild") return renderBuildSide();
   if (!a) { side.innerHTML = ""; return; }
   const c = a.components.find((x) => x.id === S.sel);
+  MAPPED = new Set((S.repos[a.analysisId]?.mappings || []).map((m) => m.componentId));
   side.innerHTML = `
     ${c ? detailHTML(a, c) : ""}
+    ${repoBlockHTML(a)}
     <div class="block">
       <div class="block-head"><h3>Component tree</h3><span class="legend">${a.components.length} items</span></div>
       ${treeHTML(buildTree(a))}
@@ -302,9 +314,31 @@ function detailHTML(a, c) {
     ${c.bbox ? `<div class="kv"><span>Region</span><b class="tiny">${Math.round(c.bbox.x * 100)}%, ${Math.round(c.bbox.y * 100)}% · ${Math.round(c.bbox.width * 100)}×${Math.round(c.bbox.height * 100)}%</b></div>` : ""}
     <ul class="evidence">${c.evidence.map((e) => `<li>${esc(e)}</li>`).join("")}</ul>
     ${rels.length ? `<h4>Connections</h4><ul class="rels">${rels.slice(0, 14).map(relLine).join("")}</ul>` : ""}
+    ${srcHTML(a, c)}
     <div class="row"><button id="whatif" class="btn small danger">What if I remove it?</button><button id="closeDetail" class="btn small">Close</button></div>
     ${im ? impactHTML(im, by) : ""}
   </div>`;
+}
+
+function srcHTML(a, c) {
+  const r = S.repos[a.analysisId];
+  if (!r) return "";
+  const m = r.mappings.find((x) => x.componentId === c.id);
+  if (!m) return `<h4>Source</h4><p class="tiny muted">Not found in ${esc(r.repo)} (text may come from data or translations).</p>`;
+  return `<h4>Source · ${esc(r.repo)}</h4><ul class="src-list">${m.matches.map((h) => `<li class="${h.status}"><code>${esc(h.path)}${h.line ? ":" + h.line : ""}</code>
+    <span class="tiny muted"> ${h.status === "observed" ? "text match" : "name match"}</span>${h.snippet ? `<pre>${esc(h.snippet)}</pre>` : ""}</li>`).join("")}</ul>`;
+}
+
+function repoBlockHTML(a) {
+  const r = S.repos[a.analysisId];
+  if (!r) return "";
+  const st = r.structure;
+  return `<div class="block"><div class="block-head"><h3>Source code</h3><span class="legend">${r.fileCount} files</span></div>
+    <div class="fw">${r.frameworks.map((f) => `<span>${esc(f)}</span>`).join("")}</div>
+    <p class="tiny">${esc(r.summary)}</p>
+    ${st.pages.length ? `<h4>Pages / routes</h4><ul class="tiny">${st.pages.slice(0, 8).map((p) => `<li><code>${esc(p)}</code></li>`).join("")}</ul>` : ""}
+    ${st.componentFiles.length ? `<h4>Most-imported components</h4><ul class="tiny">${st.componentFiles.slice(0, 8).map((p) => `<li><code>${esc(p)}</code></li>`).join("")}</ul>` : ""}
+    <p class="tiny muted">Chat now also sees the files: try “Which file renders the main button?”</p></div>`;
 }
 
 function impactHTML(im, by) {
@@ -326,7 +360,9 @@ async function runWhatIf() {
 
 // ---------- workflow ----------
 $("#mapFlow").onclick = async () => {
-  const rs = ready();
+  // a newer version of a screen is the same screen, not a separate step in the journey
+  const all = ready(), ids = new Set(all.map((s) => s.analysis.sample?.id).filter(Boolean));
+  const rs = all.filter((s) => !(s.analysis.sample?.compareWith && ids.has(s.analysis.sample.compareWith)));
   if (rs.length < 2) return toast("Add at least two analysed screens first.");
   const btn = $("#mapFlow"); btn.disabled = true; btn.textContent = "Mapping…";
   try {
@@ -426,6 +462,10 @@ function fillPairSelects() {
 }
 function autoPair() {
   const idx = S.screens.map((s, i) => (s.analysis ? i : -1)).filter((i) => i >= 0);
+  // a saved newer version names its earlier version: pre-select that pair
+  const after = idx.find((i) => S.screens[i].analysis.sample?.compareWith);
+  const before = after === undefined ? -1 : idx.find((i) => S.screens[i].analysis.sample?.id === S.screens[after].analysis.sample.compareWith);
+  if (before !== undefined && before >= 0 && !S.diff) { $("#beforeSel").value = before; $("#afterSel").value = after; return; }
   if (idx.length >= 2 && !S.diff) { $("#beforeSel").value = idx[idx.length - 2]; $("#afterSel").value = idx[idx.length - 1]; }
 }
 
@@ -566,8 +606,9 @@ const SUGGEST = {
 
 function renderChat() {
   const a = S.tab === "rebuild" ? cur()?.analysis : contextAnalysis();
-  $("#chatScope").textContent = { explore: "this screen", workflow: "the workflow", compare: "the changes", rebuild: "this screen" }[S.tab];
+  $("#chatScope").textContent = a?.analysisId?.startsWith("repo-") ? "this screen + its code" : { explore: "this screen", workflow: "the workflow", compare: "the changes", rebuild: "this screen" }[S.tab];
   const log = a ? S.chats[a.analysisId] || [] : [];
+  const sugg = a?.analysisId?.startsWith("repo-") ? ["Which file renders the main call-to-action?", "How is the app organised?", "Which components are reused?"] : SUGGEST[S.tab];
   $("#chatLog").innerHTML = log.map((m) => `<div class="msg q">${esc(m.q)}</div>` + (m.pending ? `<div class="msg a muted">Thinking…</div>` :
     m.err ? `<div class="msg a err">${esc(m.err)}</div>` :
     `<div class="msg a">${esc(m.a.answer)}
@@ -575,7 +616,7 @@ function renderChat() {
       ${m.a.limitations.length ? `<div class="lim">${m.a.limitations.map(esc).join(" ")}</div>` : ""}</div>`)).join("");
   $("#chatLog").scrollTop = 1e6;
   $$("#chatLog [data-cite]").forEach((b) => (b.onclick = () => cite(a, b.dataset.cite)));
-  $("#chatSuggest").innerHTML = a && !log.length ? SUGGEST[S.tab].map((q) => `<button>${esc(q)}</button>`).join("") : "";
+  $("#chatSuggest").innerHTML = a && !log.length ? sugg.map((q) => `<button>${esc(q)}</button>`).join("") : "";
   $$("#chatSuggest button").forEach((b) => (b.onclick = () => ask(b.textContent)));
   $("#chatInput").disabled = !a;
   $("#chatInput").placeholder = a ? (S.sel && S.tab === "explore" ? `Ask about “${labelOf(a, S.sel)}”…` : "Ask a question about it…") : "Analyse a screen first";
@@ -583,6 +624,11 @@ function renderChat() {
 const labelOf = (a, id) => a.components.find((c) => c.id === id)?.label || id;
 
 function cite(a, id) {
+  if (S.tab === "explore" && id.startsWith("file:")) {  // a cited source file -> highlight the UI parts it renders
+    S.refs = a.relationships.filter((r) => r.from === id && r.type === "implemented_in").map((r) => r.to);
+    if (!S.refs.length) toast("That file does not render a visible component on this screen.");
+    return paintSelection();
+  }
   if (S.tab === "explore") return select(id);
   if (S.tab === "compare") { const ch = S.diff.changes.find((c) => c.chatId === id); if (ch) { S.diffSel = ch.id; renderCompare(); } return; }
   if (S.tab === "workflow") { const s = screenFor(a.components.find((c) => c.id === id)?.analysisId); if (s) { S.cur = S.screens.indexOf(s); renderScreens(); renderWorkflow(); } }
@@ -601,6 +647,28 @@ async function ask(q) {
     if (S.tab === "explore") { S.refs = m.a.referencedComponentIds; paintSelection(); }
   } catch (e) { m.err = e.message; }
   m.pending = false; renderChat();
+}
+
+// ---------- repository mapping ----------
+$("#repoToggle").onclick = () => { $("#repoBar").hidden = !$("#repoBar").hidden; };
+$("#repoZip").onchange = () => { const f = $("#repoZip").files[0]; if (f) { $("#repoNote").textContent = `Selected ${f.name}`; mapRepo(f); } };
+$("#repoBar").onsubmit = (e) => { e.preventDefault(); const u = $("#repoUrl").value.trim(); if (u) mapRepo(null, u); else toast("Paste a public GitHub URL or upload a .zip."); };
+
+async function mapRepo(file, url) {
+  const a = cur()?.analysis;
+  if (!a) return toast("Select an analysed screen first.");
+  const btn = $("#repoGo"); btn.disabled = true; btn.textContent = "Mapping…";
+  try {
+    const fd = new FormData(); fd.append("analysisId", a.analysisId);
+    if (file) fd.append("repo", file, file.name); else fd.append("repoUrl", url);
+    const r = await api("/api/digital/repo", { method: "POST", body: fd });
+    r.chat = await api(`/api/analysis/${r.analysisId}`);
+    S.repos[a.analysisId] = r;
+    $("#repoNote").textContent = r.summary;
+    $("#repoToggle").textContent = `Source: ${r.repo}`;
+    renderAll();
+  } catch (e) { toast(e.message); }
+  finally { btn.disabled = false; btn.textContent = "Map"; $("#repoZip").value = ""; }
 }
 
 // keyboard: Esc clears selection

@@ -35,10 +35,14 @@ class Sample:
     image_path: Path
     image_sha256: str
     analysis: SystemAnalysis
+    sample_set: str | None = None   # screens of one app, loaded together by the UI
+    order: int | None = None
+    compare_with: str | None = None  # sample id of the earlier version of this screen
 
     def sample_info(self) -> dict[str, Any]:
         return {"id": self.id, "title": self.title, "savedAt": self.saved_at, "note": self.note,
-                "imageUrl": f"/api/digital/samples/{self.id}/image"}
+                "imageUrl": f"/api/digital/samples/{self.id}/image", "set": self.sample_set,
+                "order": self.order, "compareWith": self.compare_with}
 
     def summary(self) -> dict[str, Any]:
         a = self.analysis
@@ -72,6 +76,8 @@ def load_samples(directory: Path = SAMPLES_DIR) -> dict[str, Sample]:
                 id=d.name, title=str(meta.get("title") or analysis.title), saved_at=meta.get("savedAt"),
                 note=str(meta.get("note") or "Saved result of a real model run."),
                 image_path=images[0], image_sha256=image_hash(images[0].read_bytes()), analysis=analysis,
+                sample_set=meta.get("set") or None, order=meta.get("order") if isinstance(meta.get("order"), int) else None,
+                compare_with=meta.get("compareWith") or None,
             )
         except Exception as exc:
             log.warning("Skipping digital sample %s: %s", d.name, exc)

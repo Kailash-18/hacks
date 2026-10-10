@@ -206,3 +206,45 @@ def test_routes_diff_and_reconstruct_by_id(api):
     r = api.post("/api/digital/reconstruct", data={"analysisId": login}).json()
     assert r["prototype"]["html"].startswith("<!doctype html>") and r["tokens"] is None
     assert api.post("/api/digital/reconstruct", data={}).json()["error"]["code"] == "missing_input"
+
+
+# --- repository mapping ------------------------------------------------------------
+def _repo_zip():
+    import zipfile
+    b = io.BytesIO()
+    with zipfile.ZipFile(b, "w") as z:
+        z.writestr("shop-main/package.json", json.dumps({"dependencies": {"react": "18", "next": "14"}}))
+        z.writestr("shop-main/src/components/TopNav.tsx",
+                   "export default function TopNav() {\n  return <nav><a>Settings</a></nav>;\n}\n")
+        z.writestr("shop-main/src/pages/dashboard.tsx",
+                   "import TopNav from '../components/TopNav';\nexport default function Dashboard() {\n"
+                   "  return <main><TopNav/><h1>Dashboard</h1><Card title=\"Revenue\"/></main>;\n}\n")
+        z.writestr("shop-main/node_modules/x/index.js", "Revenue Orders Refunds")   # must be skipped
+        z.writestr("shop-main/../evil.js", "x")                                       # path traversal ignored
+    return b.getvalue()
+
+
+def test_repo_map_text_name_and_imports():
+    from app.services import repo_map as rm
+    files = rm.read_zip(_repo_zip())
+    assert "src/pages/dashboard.tsx" in files and not any("node_modules" in p for p in files)
+    result, chat = rm.map_repository(screen("Dashboard", DASH, "2" * 64), files, "shop")
+    m = {x["componentId"]: x["matches"] for x in result["mappings"]}
+    assert m["title"][0]["path"] == "src/pages/dashboard.tsx" and m["title"][0]["status"] == "observed"
+    assert m["title"][0]["line"] == 3
+    assert any(h["path"] == "src/components/TopNav.tsx" for h in m["nav"])            # name match for navbar
+    assert any(h["path"] == "src/components/TopNav.tsx" and h["status"] == "observed" for h in m["nav-settings"])
+    assert {"from": "src/pages/dashboard.tsx", "to": "src/components/TopNav.tsx"} in result["imports"]
+    assert "Next.js" in result["frameworks"] and "React" in result["frameworks"]
+    assert "card-3" in result["unmapped"]  # "Refunds" only appears inside node_modules
+    assert any(r.type == "implemented_in" for r in chat.relationships) and any(r.type == "depends_on" for r in chat.relationships)
+
+
+def test_repo_route_errors_and_success(api):
+    dash = "digital-" + "2" * 16
+    r = api.post("/api/digital/repo", data={"analysisId": dash}, files={"repo": ("shop.zip", _repo_zip(), "application/zip")}).json()
+    assert r["mappings"] and api.get(f"/api/analysis/{r['analysisId']}").status_code == 200
+    bad = api.post("/api/digital/repo", data={"analysisId": dash}, files={"repo": ("x.zip", b"not a zip", "application/zip")}).json()
+    assert bad["error"]["code"] == "bad_zip"
+    assert api.post("/api/digital/repo", data={"analysisId": dash, "repoUrl": "https://example.com/x"}).json()["error"]["code"] == "bad_repo_url"
+    assert api.post("/api/digital/repo", data={"analysisId": dash}).json()["error"]["code"] == "missing_input"

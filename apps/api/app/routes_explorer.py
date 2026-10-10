@@ -1,4 +1,4 @@
-"""Digital explorer routes: tree, what-if, workflow, diff, reconstruction (+ repo mapping).
+"""Digital explorer routes: tree, what-if, workflow, diff, reconstruction, repository mapping.
 
 Built on routes_digital (same model-call limits, cache and in-flight sharing). Mounted in main.py.
 Images can be uploaded, or referenced by `analysisId` when they are saved samples.
@@ -131,3 +131,27 @@ async def reconstruct(request: Request) -> dict:
     form = await request.form()
     analysis, img = await _resolve(form, "image", "analysisId")
     return await run_in_threadpool(dx.reconstruct, analysis, img[0] if img else None)
+
+
+@router.post("/repo")
+async def repo(request: Request) -> dict:
+    """multipart: analysisId + (repo = .zip upload | repoUrl = public GitHub URL) -> UI component <-> source file map."""
+    from .services import repo_map as rm
+
+    form = await request.form()
+    analysis = _get(str(form.get("analysisId") or ""))
+    up, url = form.get("repo"), str(form.get("repoUrl") or "").strip()
+    try:
+        if up is not None and hasattr(up, "read"):
+            data = await up.read(rm.MAX_ZIP_BYTES + 1)
+            name = (getattr(up, "filename", None) or "repository.zip").rsplit(".", 1)[0][:80]
+        elif url:
+            data, name = await run_in_threadpool(rm.download_github_zip, url)
+        else:
+            raise ApiError(400, "missing_input", "Upload the repository as a .zip ('repo') or give a public GitHub URL ('repoUrl').")
+        files = await run_in_threadpool(rm.read_zip, data)
+        result, repo_analysis = await run_in_threadpool(rm.map_repository, analysis, files, name)
+    except rm.RepoError as exc:
+        raise ApiError(exc.status, exc.code, exc.message) from None
+    store.put(repo_analysis, persist=False)  # chat-able: "which file renders the Sign in button?"
+    return result

@@ -1,0 +1,647 @@
+{
+  "analysisId": "digital-cb6d1d6fa0620d4f",
+  "domain": "digital",
+  "title": "Settings page",
+  "source": {
+    "kind": "image",
+    "filename": "settings.png"
+  },
+  "assetId": null,
+  "components": [
+    {
+      "id": "sidebar",
+      "label": "Sidebar navigation",
+      "type": "sidebar",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible dark sidebar with navigation items"
+      ],
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 0.181,
+        "height": 1.0
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "logo",
+      "label": "Nimbus logo",
+      "type": "logo",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Logo and app name Nimbus in sidebar"
+      ],
+      "bbox": {
+        "x": 0.018,
+        "y": 0.024,
+        "width": 0.086,
+        "height": 0.041
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "dashboard-nav",
+      "label": "Dashboard",
+      "type": "menu_item",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Sidebar menu item Dashboard"
+      ],
+      "bbox": {
+        "x": 0.021,
+        "y": 0.108,
+        "width": 0.08,
+        "height": 0.023
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "projects-nav",
+      "label": "Projects",
+      "type": "menu_item",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Sidebar menu item Projects"
+      ],
+      "bbox": {
+        "x": 0.021,
+        "y": 0.165,
+        "width": 0.066,
+        "height": 0.023
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "my-tasks-nav",
+      "label": "My tasks",
+      "type": "menu_item",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Sidebar menu item My tasks"
+      ],
+      "bbox": {
+        "x": 0.021,
+        "y": 0.219,
+        "width": 0.07,
+        "height": 0.023
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "reports-nav",
+      "label": "Reports",
+      "type": "menu_item",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Sidebar menu item Reports"
+      ],
+      "bbox": {
+        "x": 0.021,
+        "y": 0.274,
+        "width": 0.064,
+        "height": 0.023
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "team-nav",
+      "label": "Team",
+      "type": "menu_item",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Sidebar menu item Team"
+      ],
+      "bbox": {
+        "x": 0.021,
+        "y": 0.329,
+        "width": 0.052,
+        "height": 0.023
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "settings-nav",
+      "label": "Settings",
+      "type": "menu_item",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Sidebar menu item Settings, active state"
+      ],
+      "bbox": {
+        "x": 0.012,
+        "y": 0.861,
+        "width": 0.158,
+        "height": 0.052
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "log-out-nav",
+      "label": "Log out",
+      "type": "menu_item",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Sidebar menu item Log out"
+      ],
+      "bbox": {
+        "x": 0.021,
+        "y": 0.932,
+        "width": 0.063,
+        "height": 0.023
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "search-input",
+      "label": "Search projects and tasks...",
+      "type": "search",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Search bar at the top"
+      ],
+      "bbox": {
+        "x": 0.203,
+        "y": 0.016,
+        "width": 0.282,
+        "height": 0.049
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "user-avatar",
+      "label": "AK",
+      "type": "avatar",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "User avatar with initials AK"
+      ],
+      "bbox": {
+        "x": 0.91,
+        "y": 0.018,
+        "width": 0.068,
+        "height": 0.045
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "settings-heading",
+      "label": "Settings",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Page heading Settings"
+      ],
+      "bbox": {
+        "x": 0.203,
+        "y": 0.116,
+        "width": 0.079,
+        "height": 0.035
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "settings-description",
+      "label": "Manage your profile and how Nimbus notifies you.",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Subtitle text below heading"
+      ],
+      "bbox": {
+        "x": 0.203,
+        "y": 0.159,
+        "width": 0.26,
+        "height": 0.019
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "tabs",
+      "label": "Profile, Notifications, Billing, Integrations tabs",
+      "type": "tabs",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Tab bar under settings description"
+      ],
+      "bbox": {
+        "x": 0.203,
+        "y": 0.215,
+        "width": 0.259,
+        "height": 0.038
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "profile-card",
+      "label": "Profile settings card",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "White container card for profile settings"
+      ],
+      "bbox": {
+        "x": 0.203,
+        "y": 0.284,
+        "width": 0.563,
+        "height": 0.467
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "profile-section-heading",
+      "label": "Profile",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card section heading Profile"
+      ],
+      "bbox": {
+        "x": 0.223,
+        "y": 0.317,
+        "width": 0.042,
+        "height": 0.017
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "profile-section-desc",
+      "label": "This is how teammates see you on boards and comments.",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card section description"
+      ],
+      "bbox": {
+        "x": 0.223,
+        "y": 0.346,
+        "width": 0.3,
+        "height": 0.02
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "full-name-input",
+      "label": "Asha Kapoor",
+      "type": "input",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Full name input field with value Asha Kapoor"
+      ],
+      "bbox": {
+        "x": 0.223,
+        "y": 0.418,
+        "width": 0.255,
+        "height": 0.052
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "work-email-input",
+      "label": "asha@fernway.io",
+      "type": "input",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Work email input field with value asha@fernway.io"
+      ],
+      "bbox": {
+        "x": 0.491,
+        "y": 0.418,
+        "width": 0.255,
+        "height": 0.052
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "due-dates-toggle",
+      "label": "Email me about due dates",
+      "type": "toggle",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Toggle switch for email notifications on due dates"
+      ],
+      "bbox": {
+        "x": 0.714,
+        "y": 0.517,
+        "width": 0.032,
+        "height": 0.028
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "sprint-report-toggle",
+      "label": "Weekly sprint report",
+      "type": "toggle",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Toggle switch for weekly sprint report"
+      ],
+      "bbox": {
+        "x": 0.714,
+        "y": 0.597,
+        "width": 0.032,
+        "height": 0.028
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "cancel-button",
+      "label": "Cancel",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Cancel button at the bottom of profile card"
+      ],
+      "bbox": {
+        "x": 0.574,
+        "y": 0.673,
+        "width": 0.064,
+        "height": 0.047
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "save-button",
+      "label": "Save changes",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Save changes primary button at the bottom of profile card"
+      ],
+      "bbox": {
+        "x": 0.645,
+        "y": 0.673,
+        "width": 0.101,
+        "height": 0.047
+      },
+      "modelNodeId": null,
+      "transform": null
+    }
+  ],
+  "relationships": [
+    {
+      "id": "sidebar--contains--logo",
+      "from": "sidebar",
+      "to": "logo",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar--contains--dashboard-nav",
+      "from": "sidebar",
+      "to": "dashboard-nav",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar--contains--projects-nav",
+      "from": "sidebar",
+      "to": "projects-nav",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar--contains--my-tasks-nav",
+      "from": "sidebar",
+      "to": "my-tasks-nav",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar--contains--reports-nav",
+      "from": "sidebar",
+      "to": "reports-nav",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar--contains--team-nav",
+      "from": "sidebar",
+      "to": "team-nav",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar--contains--settings-nav",
+      "from": "sidebar",
+      "to": "settings-nav",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "sidebar--contains--log-out-nav",
+      "from": "sidebar",
+      "to": "log-out-nav",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "profile-card--contains--profile-section-heading",
+      "from": "profile-card",
+      "to": "profile-section-heading",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "profile-card--contains--profile-section-desc",
+      "from": "profile-card",
+      "to": "profile-section-desc",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "profile-card--contains--full-name-input",
+      "from": "profile-card",
+      "to": "full-name-input",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "profile-card--contains--work-email-input",
+      "from": "profile-card",
+      "to": "work-email-input",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "profile-card--contains--due-dates-toggle",
+      "from": "profile-card",
+      "to": "due-dates-toggle",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "profile-card--contains--sprint-report-toggle",
+      "from": "profile-card",
+      "to": "sprint-report-toggle",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "profile-card--contains--cancel-button",
+      "from": "profile-card",
+      "to": "cancel-button",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "profile-card--contains--save-button",
+      "from": "profile-card",
+      "to": "save-button",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "settings-heading--visually_aligned_with--settings-description",
+      "from": "settings-heading",
+      "to": "settings-description",
+      "type": "visually_aligned_with",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Vertical stacking in header area"
+      ]
+    },
+    {
+      "id": "full-name-input--appears_related_to--profile-card",
+      "from": "full-name-input",
+      "to": "profile-card",
+      "type": "appears_related_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Contained within profile card"
+      ]
+    },
+    {
+      "id": "work-email-input--appears_related_to--profile-card",
+      "from": "work-email-input",
+      "to": "profile-card",
+      "type": "appears_related_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Contained within profile card"
+      ]
+    }
+  ],
+  "summary": "Settings page of Nimbus app showing profile and notification preferences with editable user details.",
+  "limitations": [
+    "A single screenshot shows layout and visible text only; it does not reveal event handlers, API calls, data sources or where any control navigates.",
+    "Bounding boxes are model estimates and may be offset slightly from the true element edges.",
+    "confidence is null because the model does not produce calibrated probabilities."
+  ],
+  "provider": {
+    "name": "google-gemini",
+    "model": "gemini-3.5-flash-lite"
+  }
+}

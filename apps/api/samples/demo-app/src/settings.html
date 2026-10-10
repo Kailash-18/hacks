@@ -1,0 +1,33 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Settings · Nimbus</title><link rel="stylesheet" href="app.css">
+<style>
+.tabs{display:flex;gap:26px;border-bottom:1px solid #e2e8f0;margin-bottom:22px;font-size:14px;font-weight:600;color:#64748b}
+.tabs a{padding:10px 0}.tabs a.on{color:#4f46e5;border-bottom:2px solid #4f46e5}
+.form{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:24px;width:720px}
+.form h2{font-size:17px}.form .d{color:#64748b;font-size:14px;margin:4px 0 20px}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+label{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+.in{height:42px;border:1px solid #cbd5e1;border-radius:9px;padding:0 12px;display:flex;align-items:center;font-size:14px;margin-bottom:16px}
+.tg{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid #f1f5f9;font-size:14px}
+.tg span small{display:block;color:#64748b;font-size:13px;margin-top:2px}
+.sw{width:40px;height:22px;border-radius:99px;background:#4f46e5;position:relative}.sw:after{content:"";position:absolute;right:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff}
+.sw.off{background:#cbd5e1}.sw.off:after{right:auto;left:3px}
+.acts{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+</style></head><body>
+<aside class="sb"><div class="logo"><i></i>Nimbus</div>
+  <a><i></i>Dashboard</a><a><i></i>Projects</a><a><i></i>My tasks</a><a><i></i>Reports</a><a><i></i>Team</a>
+  <div class="bottom"><a class="on"><i></i>Settings</a><a><i></i>Log out</a></div></aside>
+<div class="main">
+  <header class="top"><div class="search">Search projects and tasks…</div>
+    <div class="r"><div class="bell"></div><div class="av">AK</div></div></header>
+  <section class="content">
+    <div class="head"><div><h1>Settings</h1><p>Manage your profile and how Nimbus notifies you.</p></div></div>
+    <nav class="tabs"><a class="on">Profile</a><a>Notifications</a><a>Billing</a><a>Integrations</a></nav>
+    <div class="form"><h2>Profile</h2><p class="d">This is how teammates see you on boards and comments.</p>
+      <div class="f2"><div><label>Full name</label><div class="in">Asha Kapoor</div></div><div><label>Work email</label><div class="in">asha@fernway.io</div></div></div>
+      <div class="tg"><span>Email me about due dates<small>A daily digest of tasks due in the next 48 hours</small></span><i class="sw"></i></div>
+      <div class="tg"><span>Weekly sprint report<small>Sent every Monday at 9:00</small></span><i class="sw off"></i></div>
+      <div class="acts"><a class="btn">Cancel</a><a class="btn p">Save changes</a></div>
+    </div>
+  </section>
+</div></body></html>

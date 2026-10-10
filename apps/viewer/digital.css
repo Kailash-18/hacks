@@ -82,8 +82,8 @@
 .tree .tn { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 6px; cursor: pointer; font-size: 13px; }
 .tree .tn:hover { background: var(--surface-2); }
 .tree .tn.sel { background: color-mix(in srgb, var(--accent) 22%, transparent); }
-.tree .tn.ref { box-shadow: inset 2px 0 0 #c084fc; }
-.tree .tn.hit { box-shadow: inset 2px 0 0 var(--danger); }
+.tree .tn.ref { background: color-mix(in srgb, #c084fc 16%, transparent); }
+.tree .tn.hit { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
 .tree .tw { width: 14px; text-align: center; color: var(--muted); font-size: 10px; flex: none; }
 .tree .tl { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tree .tt { font: 10.5px "JetBrains Mono", monospace; color: var(--muted); }
@@ -166,3 +166,17 @@
   .dstage { min-height: 70vh; } .panel { border-left: 0; }
   .compare, .side-by-side { flex-direction: column; }
 }
+
+#side a { color: var(--accent); text-decoration: none; } #side a:hover { text-decoration: underline; }
+
+/* repository mapping */
+.repobar { display: flex; gap: 8px; align-items: center; padding: 8px 14px; flex-wrap: wrap; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); background: color-mix(in srgb, var(--surface) 60%, transparent); }
+.repobar input#repoUrl { min-width: 260px; flex: 0 1 340px; background: var(--surface-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 9px; font: inherit; font-size: 13px; }
+.src-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.src-list li { background: var(--surface-2); border-radius: 6px; padding: 6px 8px; font-size: 12.5px; }
+.src-list code { font: 11.5px "JetBrains Mono", monospace; color: var(--accent); word-break: break-all; }
+.src-list pre { margin: 4px 0 0; font: 11px "JetBrains Mono", monospace; color: var(--muted); white-space: pre-wrap; word-break: break-all; }
+.src-list li.inferred { opacity: .8; border-left: 2px dashed var(--warn); }
+.fw { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0 8px; }
+.fw span { font: 11px "JetBrains Mono", monospace; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--line); }
+.tree .tn .has-src { font: 10px "JetBrains Mono", monospace; color: var(--accent); }

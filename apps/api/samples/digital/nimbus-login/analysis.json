@@ -1,0 +1,557 @@
+{
+  "analysisId": "digital-95ba79724c537b6f",
+  "domain": "digital",
+  "title": "Nimbus Login Page",
+  "source": {
+    "kind": "image",
+    "filename": "login.png"
+  },
+  "assetId": null,
+  "components": [
+    {
+      "id": "left-section",
+      "label": "Testimonial Section",
+      "type": "section",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Blue gradient background on the left"
+      ],
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 0.406,
+        "height": 1.0
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nimbus-logo",
+      "label": "Nimbus Logo",
+      "type": "logo",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Icon and text 'Nimbus' at top left"
+      ],
+      "bbox": {
+        "x": 0.043,
+        "y": 0.071,
+        "width": 0.09,
+        "height": 0.036
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "testimonial-text",
+      "label": "Testimonial Quote",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Quoted text about losing tasks in Slack"
+      ],
+      "bbox": {
+        "x": 0.043,
+        "y": 0.766,
+        "width": 0.303,
+        "height": 0.115
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "testimonial-author",
+      "label": "Priya Raman, Engineering Lead at Fernway",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Author attribution text"
+      ],
+      "bbox": {
+        "x": 0.043,
+        "y": 0.909,
+        "width": 0.223,
+        "height": 0.019
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "right-section",
+      "label": "Login Form Section",
+      "type": "section",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "White background area on the right"
+      ],
+      "bbox": {
+        "x": 0.406,
+        "y": 0.0,
+        "width": 0.594,
+        "height": 1.0
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "login-heading",
+      "label": "Log in to Nimbus",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Large bold text 'Log in to Nimbus'"
+      ],
+      "bbox": {
+        "x": 0.547,
+        "y": 0.204,
+        "width": 0.183,
+        "height": 0.039
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "login-subheading",
+      "label": "Welcome back. Pick up where your team left off.",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Subtext below heading"
+      ],
+      "bbox": {
+        "x": 0.547,
+        "y": 0.256,
+        "width": 0.267,
+        "height": 0.02
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "login-form",
+      "label": "Login Form",
+      "type": "form",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Contains email and password inputs"
+      ],
+      "bbox": {
+        "x": 0.547,
+        "y": 0.315,
+        "width": 0.312,
+        "height": 0.319
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "email-label",
+      "label": "Work email",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Label text 'Work email'"
+      ],
+      "bbox": {
+        "x": 0.547,
+        "y": 0.315,
+        "width": 0.059,
+        "height": 0.018
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "email-input",
+      "label": "Email Input Field",
+      "type": "input",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Input box with placeholder you@company.com"
+      ],
+      "bbox": {
+        "x": 0.547,
+        "y": 0.341,
+        "width": 0.312,
+        "height": 0.057
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "password-label",
+      "label": "Password",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Label text 'Password'"
+      ],
+      "bbox": {
+        "x": 0.547,
+        "y": 0.423,
+        "width": 0.051,
+        "height": 0.019
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "password-input",
+      "label": "Password Input Field",
+      "type": "input",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Input box with masked password dots"
+      ],
+      "bbox": {
+        "x": 0.547,
+        "y": 0.449,
+        "width": 0.312,
+        "height": 0.058
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "remember-me-checkbox",
+      "label": "Remember me",
+      "type": "checkbox",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Checkbox and label 'Remember me'"
+      ],
+      "bbox": {
+        "x": 0.547,
+        "y": 0.525,
+        "width": 0.093,
+        "height": 0.021
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "forgot-password-link",
+      "label": "Forgot password?",
+      "type": "link",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Blue link text 'Forgot password?'"
+      ],
+      "bbox": {
+        "x": 0.764,
+        "y": 0.527,
+        "width": 0.095,
+        "height": 0.019
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "login-button",
+      "label": "Log in",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Purple button with text 'Log in'"
+      ],
+      "bbox": {
+        "x": 0.547,
+        "y": 0.574,
+        "width": 0.312,
+        "height": 0.06
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "divider",
+      "label": "or divider",
+      "type": "divider",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Horizontal lines with 'or' in the middle"
+      ],
+      "bbox": {
+        "x": 0.547,
+        "y": 0.66,
+        "width": 0.312,
+        "height": 0.016
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "google-login-button",
+      "label": "Continue with Google",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "White button with Google icon and text"
+      ],
+      "bbox": {
+        "x": 0.547,
+        "y": 0.691,
+        "width": 0.312,
+        "height": 0.06
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "signup-prompt",
+      "label": "New to Nimbus? Create an account",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text at the bottom with a link to create an account"
+      ],
+      "bbox": {
+        "x": 0.611,
+        "y": 0.783,
+        "width": 0.184,
+        "height": 0.019
+      },
+      "modelNodeId": null,
+      "transform": null
+    }
+  ],
+  "relationships": [
+    {
+      "id": "left-section--contains--nimbus-logo",
+      "from": "left-section",
+      "to": "nimbus-logo",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "left-section--contains--testimonial-text",
+      "from": "left-section",
+      "to": "testimonial-text",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "left-section--contains--testimonial-author",
+      "from": "left-section",
+      "to": "testimonial-author",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "right-section--contains--login-heading",
+      "from": "right-section",
+      "to": "login-heading",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "right-section--contains--login-subheading",
+      "from": "right-section",
+      "to": "login-subheading",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "right-section--contains--login-form",
+      "from": "right-section",
+      "to": "login-form",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "login-form--contains--email-label",
+      "from": "login-form",
+      "to": "email-label",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "login-form--contains--email-input",
+      "from": "login-form",
+      "to": "email-input",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "login-form--contains--password-label",
+      "from": "login-form",
+      "to": "password-label",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "login-form--contains--password-input",
+      "from": "login-form",
+      "to": "password-input",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "login-form--contains--remember-me-checkbox",
+      "from": "login-form",
+      "to": "remember-me-checkbox",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "login-form--contains--forgot-password-link",
+      "from": "login-form",
+      "to": "forgot-password-link",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "login-form--contains--login-button",
+      "from": "login-form",
+      "to": "login-button",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "right-section--contains--divider",
+      "from": "right-section",
+      "to": "divider",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "right-section--contains--google-login-button",
+      "from": "right-section",
+      "to": "google-login-button",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "right-section--contains--signup-prompt",
+      "from": "right-section",
+      "to": "signup-prompt",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "email-label--label_for--email-input",
+      "from": "email-label",
+      "to": "email-input",
+      "type": "label_for",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "'Work email' is positioned directly above the email input field"
+      ]
+    },
+    {
+      "id": "password-label--label_for--password-input",
+      "from": "password-label",
+      "to": "password-input",
+      "type": "label_for",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "'Password' is positioned directly above the password input field"
+      ]
+    },
+    {
+      "id": "remember-me-checkbox--visually_aligned_with--forgot-password-link",
+      "from": "remember-me-checkbox",
+      "to": "forgot-password-link",
+      "type": "visually_aligned_with",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Checkbox and link are on the same horizontal line"
+      ]
+    }
+  ],
+  "summary": "A split-screen login page for Nimbus. The left side features a testimonial and branding on a blue gradient background, while the right side contains the login form with email, password, and social login options.",
+  "limitations": [
+    "A single screenshot shows layout and visible text only; it does not reveal event handlers, API calls, data sources or where any control navigates.",
+    "Bounding boxes are model estimates and may be offset slightly from the true element edges.",
+    "confidence is null because the model does not produce calibrated probabilities."
+  ],
+  "provider": {
+    "name": "google-gemini",
+    "model": "gemini-3-flash-preview"
+  }
+}

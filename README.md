@@ -28,6 +28,10 @@ Everything shown is labelled **seen in photo** or **inferred**. The 3D view is a
 4. **Grounded chat:** questions are answered only from the extracted graph; cited ids are verified and behaviour questions get an explicit caveat.
 5. **Measured, not claimed:** `scripts/eval_digital.py` scores live output against ground truth from three team-made mock screens (recall at IoU ≥ 0.5, mean IoU, type agreement). On 10 Oct with gemini-3.8-flash: recall 1.0 on all three screens, mean IoU 0.89–0.95. Three synthetic screens are a sanity check, not a benchmark.
 
+## Digital explorer (Explore · Workflow · Compare · Rebuild)
+
+Open `/digital`. Upload several screens to map the **workflow** (hypothesised transitions labelled with the control that triggers them), two versions to **compare** (added / removed / moved / reworded, plus optional AI style check), or one screen to **rebuild** it as a starter HTML/React draft with measured design tokens and generated docs. Click any component for its tree position, evidence and a **what-if** (same engine shape as the Physical Lab). Details: `docs/DIGITAL_LAB.md`.
+
 ## Run locally
 
 ```bash
@@ -52,6 +56,7 @@ Both labs share one vision client: Gemini first, switching Flash models when a f
 | GET | `/api/physical/samples` | Saved results of earlier real analyses (sample mode) |
 | POST | `/api/digital/analyze` | multipart `image` (screenshot) → `SystemAnalysis` (domain `digital`) |
 | GET | `/api/digital/samples` | Saved real Digital Lab results (+ `/{id}`, `/{id}/image`) |
+| POST | `/api/digital/whatif` · `/workflow` · `/diff` · `/reconstruct` | Digital explorer (see `docs/DIGITAL_LAB.md`) |
 | GET | `/api/analysis/{analysisId}` | Any stored analysis (either lab) |
 | POST | `/api/analysis/{analysisId}/chat` | `{question, selectedComponentIds}` → grounded answer with cited ids |
 

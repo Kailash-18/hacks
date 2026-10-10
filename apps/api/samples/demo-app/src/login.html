@@ -1,0 +1,37 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Log in · Nimbus</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1280px;height:800px;overflow:hidden;font-family:Inter,system-ui,sans-serif;color:#0f172a;background:#f1f5f9;display:flex}
+.side{width:520px;background:linear-gradient(160deg,#4f46e5,#0e7490);color:#fff;padding:56px;display:flex;flex-direction:column}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px}
+.logo i{width:30px;height:30px;border-radius:9px;background:rgba(255,255,255,.9);display:block}
+.side blockquote{margin-top:auto;font-size:24px;line-height:1.4;font-weight:500}
+.side small{display:block;margin-top:16px;font-size:14px;opacity:.8}
+.main{flex:1;display:flex;align-items:center;justify-content:center}
+.box{width:400px}
+h1{font-size:30px;letter-spacing:-.6px}
+.sub{color:#64748b;margin:8px 0 28px;font-size:15px}
+label{display:block;font-size:14px;font-weight:600;margin-bottom:6px}
+.in{height:46px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;margin-bottom:18px;padding:0 14px;display:flex;align-items:center;color:#94a3b8;font-size:15px}
+.row{display:flex;justify-content:space-between;align-items:center;font-size:14px;margin:-4px 0 22px}
+.row a{color:#4f46e5;font-weight:600}.chk{display:flex;gap:8px;align-items:center;color:#475569}.chk i{width:16px;height:16px;border:1px solid #94a3b8;border-radius:4px;display:block}
+.btn{height:48px;border-radius:10px;font:600 15px Inter;display:flex;align-items:center;justify-content:center;width:100%}
+.p{background:#4f46e5;color:#fff}
+.g{background:#fff;border:1px solid #cbd5e1;margin-top:12px;gap:10px}.g i{width:18px;height:18px;border-radius:50%;background:conic-gradient(#ea4335 0 25%,#fbbc05 0 50%,#34a853 0 75%,#4285f4 0);display:block}
+.or{display:flex;align-items:center;gap:12px;color:#94a3b8;font-size:13px;margin:18px 0 6px}.or:before,.or:after{content:"";flex:1;height:1px;background:#e2e8f0}
+.alt{text-align:center;margin-top:24px;font-size:14px;color:#64748b}.alt a{color:#4f46e5;font-weight:600}
+</style></head><body>
+<aside class="side"><div class="logo"><i></i>Nimbus</div>
+  <blockquote>“We stopped losing tasks in Slack threads the week we moved to Nimbus.”<small>Priya Raman, Engineering Lead at Fernway</small></blockquote></aside>
+<main class="main"><div class="box">
+  <h1>Log in to Nimbus</h1><p class="sub">Welcome back. Pick up where your team left off.</p>
+  <label>Work email</label><div class="in">you@company.com</div>
+  <label>Password</label><div class="in">••••••••••</div>
+  <div class="row"><span class="chk"><i></i>Remember me</span><a>Forgot password?</a></div>
+  <a class="btn p">Log in</a>
+  <div class="or">or</div>
+  <a class="btn g"><i></i>Continue with Google</a>
+  <p class="alt">New to Nimbus? <a>Create an account</a></p>
+</div></main>
+</body></html>

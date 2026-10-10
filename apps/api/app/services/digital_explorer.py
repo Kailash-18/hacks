@@ -312,7 +312,12 @@ def build_workflow(analyses: list[SystemAnalysis], client: Any | None = None) ->
     elif client is None:
         notes.append("No model call: transitions come from matching control labels to screen titles.")
 
-    if entry is None:  # heuristic entry: a login/landing screen, else the first upload
+    if entry is None:  # heuristic entry: a source screen (leads somewhere, nothing leads to it)
+        has_in = {r.to for r in rels.values()}
+        has_out = {r.from_ for r in rels.values()}
+        sources = [sid for sid in sids if sid in has_out and sid not in has_in]
+        entry = sources[0] if len(sources) == 1 else None
+    if entry is None:  # then a login/landing screen, else the first upload
         for sid, a in by_sid.items():
             if _words(a.title) & {"login", "signup", "landing", "welcome", "onboarding"}:
                 entry = sid
@@ -569,17 +574,31 @@ def extract_tokens(analysis: SystemAnalysis, image_bytes: bytes) -> dict[str, An
     vivid = lambda p: _sat(p) * max(p) / 255  # saturated AND bright, so dark navy text does not win
     primary = Counter(sat_btn).most_common(1)[0][0] if sat_btn else max((p for p, share in page if share > 0.003),
                                                                        key=vivid, default=(37, 99, 235))
-    # text = highest-contrast colour inside headings; muted = typical colour inside body text
+    # text ink = median colour of pixels that clearly contrast with the local background
+    import numpy as np
+
     def ink(c: Component):
-        cols = [col for col, share in _dominant(img, c.bbox, k=4) if share > 0.008]
-        return max(cols or [background], key=lambda col: _contrast(col, background))
-    head_ink = [ink(c) for c in by_type.get("heading", [])[:10]]
-    body_ink = [ink(c) for t in ("text", "paragraph") for c in by_type.get(t, [])[:12]]
+        w_, h_ = img.size
+        b = c.bbox
+        crop = img.crop((int(b.x * w_), int(b.y * h_), max(int(b.x * w_) + 1, int((b.x + b.width) * w_)),
+                         max(int(b.y * h_) + 1, int((b.y + b.height) * h_))))
+        px = np.asarray(crop, dtype=np.float32).reshape(-1, 3)
+        if len(px) == 0:
+            return None
+        local_bg = np.median(px, axis=0)
+        dist = np.abs(px - local_bg).sum(axis=1)
+        strong = px[dist > max(120.0, np.percentile(dist, 90) * 0.8)]
+        if len(strong) < 6:
+            return None
+        return tuple(int(v) for v in np.median(strong, axis=0))
+    head_ink = [x for x in (ink(c) for c in by_type.get("heading", [])[:10]) if x]
+    body_ink = [x for x in (ink(c) for t in ("text", "paragraph") for c in by_type.get(t, [])[:12]) if x]
     pool = head_ink or body_ink
     text = max(pool, key=lambda col: _contrast(col, background)) if pool else \
         max((p for p, _ in page), key=lambda p: _contrast(p, background))
-    muted = Counter(body_ink).most_common(1)[0][0] if body_ink else text
-    muted_cands = [muted] if muted != text and _contrast(muted, background) < _contrast(text, background) else []
+    body_sorted = sorted((c for c in body_ink if _sat(c) < 0.3), key=lambda col: _contrast(col, background))
+    muted = body_sorted[len(body_sorted) // 2] if body_sorted else text
+    muted_cands = [muted] if _contrast(muted, background) + 0.5 < _contrast(text, background) else []
     surfaces = [fill_of(c) for t in ("card", "sidebar", "navbar", "section", "modal") for c in by_type.get(t, [])[:6]]
     surface = Counter(s for s in surfaces if s != background).most_common(1)
     accent_pool = [p for p, share in page if share > 0.003 and _sat(p) > 0.35 and p != primary]
@@ -677,20 +696,59 @@ _TAG = {"navbar": "nav", "header": "header", "footer": "footer", "sidebar": "asi
 _VOID_INPUTS = {"input", "search", "checkbox", "radio", "toggle"}
 
 
-def _children_layout(kids: list[Component]) -> str:
-    """'row' if siblings sit side by side more than stacked, else 'column'."""
-    boxed = [k for k in kids if k.bbox]
-    if len(boxed) < 2:
-        return "column"
-    row_votes = col_votes = 0
-    s = sorted(boxed, key=lambda k: k.bbox.x)
-    for p, q in zip(s, s[1:]):
-        overlap_y = min(p.bbox.y + p.bbox.height, q.bbox.y + q.bbox.height) - max(p.bbox.y, q.bbox.y)
-        if overlap_y > 0.5 * min(p.bbox.height, q.bbox.height):
-            row_votes += 1
+def _split(items: list[Component], axis: str, tol: float = 0.004) -> list[list[Component]]:
+    """Split boxes into groups separated by a clean gap along one axis ('y' = stacked bands, 'x' = columns)."""
+    pos = (lambda b: (b.y, b.y + b.height)) if axis == "y" else (lambda b: (b.x, b.x + b.width))
+    groups: list[list[Component]] = []
+    end = -1.0
+    for k in sorted(items, key=lambda k: pos(k.bbox)[0]):
+        a, b = pos(k.bbox)
+        if groups and a < end - tol:
+            groups[-1].append(k)
         else:
-            col_votes += 1
-    return "row" if row_votes > col_votes else "column"
+            groups.append([k])
+        end = max(end, b) if groups[-1] is not None and len(groups[-1]) > 1 else b
+    return groups
+
+
+def xy_layout(kids: list[Component]) -> tuple[str, list]:
+    """Recursive XY-cut: ('col'|'row', [Component | (dir, [...])]). Stacked bands first, else columns."""
+    boxed = [k for k in kids if k.bbox]
+    loose = [k for k in kids if not k.bbox]
+    if len(boxed) <= 1:
+        return "col", boxed + loose
+
+    def rec(items: list[Component], depth: int):
+        if len(items) == 1 or depth > 6:
+            return items[0] if len(items) == 1 else ("col", sorted(items, key=_reading_order))
+        bands = _split(items, "y")
+        if len(bands) > 1:
+            return ("col", [rec(g, depth + 1) for g in bands])
+        cols = _split(items, "x")
+        if len(cols) > 1:
+            return ("row", [rec(g, depth + 1) for g in cols])
+        return ("col", sorted(items, key=_reading_order))
+
+    top = rec(boxed, 0)
+    if not isinstance(top, tuple):
+        top = ("col", [top])
+    return top[0], top[1] + loose
+
+
+def _extent(node) -> float:
+    """Width of a layout node (component or group)."""
+    if isinstance(node, Component):
+        return node.bbox.width if node.bbox else 0.0
+    items = node[1]
+    xs = [c for c in _flatten(items) if c.bbox]
+    return (max(c.bbox.x + c.bbox.width for c in xs) - min(c.bbox.x for c in xs)) if xs else 0.0
+
+
+def _flatten(items) -> list[Component]:
+    out: list[Component] = []
+    for it in items:
+        out += [it] if isinstance(it, Component) else _flatten(it[1])
+    return out
 
 
 def find_repeated(analysis: SystemAnalysis) -> list[dict[str, Any]]:
@@ -730,20 +788,69 @@ def build_prototype(analysis: SystemAnalysis, tokens: dict[str, Any] | None = No
     gap = (tokens or {}).get("spacing", [8, 16])
     gap_px = gap[min(1, len(gap) - 1)] if gap else 16
 
-    def el(c: Component, depth: int, jsx: bool) -> list[str]:
+    def sty(jsx: bool, props: dict[str, str]) -> str:
+        if not props:
+            return ""
+        if jsx:
+            camel = lambda k: re.sub(r"-([a-z])", lambda m: m.group(1).upper(), k)
+            return " style={{" + ", ".join(f'{camel(k)}: "{v}"' for k, v in props.items()) + "}}"
+        return ' style="' + ";".join(f"{k}:{v}" for k, v in props.items()) + '"'
+
+    BIG = {"card", "section", "container", "image", "chart", "form", "table", "hero", "video", "map", "sidebar", "list"}
+
+    def grow_props(it, total: float) -> dict[str, str]:
+        w = round(100 * _extent(it) / total) if total else 0
+        return {"flex": f"{w} 1 0"} if w > 0 else {}
+
+    def group_html(direction: str, items: list, depth: int, jsx: bool, bar: bool, wrap: bool, own: dict | None = None) -> list[str]:
         ind = "  " * depth
         cls = "className" if jsx else "class"
-        children = sorted(kids.get(c.id, []), key=_reading_order)
+        if direction == "col" and not wrap:
+            out: list[str] = []
+            for it in items:
+                out += node_html(it, depth, jsx, bar, {})
+            return out
+        if direction == "row":
+            props = {"display": "flex", "gap": f"{gap_px}px", "align-items": "flex-start" if not bar else "center",
+                     "justify-content": "space-between" if bar else "flex-start", "flex-wrap": "wrap"}
+            total = sum(_extent(it) for it in items)
+            sized = not bar and any(not isinstance(it, Component) or it.type in BIG for it in items)
+        else:
+            props, total, sized = {"display": "flex", "flex-direction": "column", "gap": f"{gap_px}px"}, 0.0, False
+        props.update(own or {})
+        out = [f'{ind}<div {cls}="vre-{"row" if direction == "row" else "stack"}"{sty(jsx, props)}>']
+        for it in items:
+            out += node_html(it, depth + 1, jsx, bar, grow_props(it, total) if sized else {})
+        out.append(f"{ind}</div>")
+        return out
+
+    def node_html(it, depth: int, jsx: bool, bar: bool, own: dict) -> list[str]:
+        if isinstance(it, Component):
+            return el(it, depth, jsx, sty(jsx, own))
+        return group_html(it[0], it[1], depth, jsx, bar, wrap=True, own=own)
+
+    def children_html(children: list[Component], depth: int, jsx: bool, bar: bool) -> list[str]:
+        direction, items = xy_layout(children)
+        return group_html(direction, items, depth, jsx, bar, wrap=direction == "row")
+
+    def el(c: Component, depth: int, jsx: bool, extra_style: str = "") -> list[str]:
+        ind = "  " * depth
+        cls = "className" if jsx else "class"
+        children = kids.get(c.id, [])
         label = html.escape(c.label)
         if jsx:
             label = label.replace("{", "&#123;").replace("}", "&#125;")
-        attr = f' {cls}="vre-{c.type.replace("_", "-")}" data-id="{html.escape(c.id)}"'
+        attr = f' {cls}="vre-{c.type.replace("_", "-")}" data-id="{html.escape(c.id)}"{extra_style}'
         if c.type in _VOID_INPUTS and not children:
             kind = {"checkbox": "checkbox", "radio": "radio", "toggle": "checkbox", "search": "search"}.get(c.type, "text")
             close = " />" if jsx else ">"
             return [f'{ind}<input{attr} type="{kind}" placeholder="{label}" aria-label="{label}"{close}']
-        if c.type in {"image", "video", "map", "chart", "avatar", "logo", "icon"} and not children:
-            return [f'{ind}<div{attr} role="img" aria-label="{label}">{label}</div>']
+        is_media = c.type in {"image", "video", "map", "chart", "avatar", "logo", "icon"} or (
+            c.type in {"container", "section", "unknown", "banner"} and not children
+            and re.search(r"image|media|placeholder|illustration|photo|graphic|visual|banner", c.label, re.I))
+        if is_media and not children:
+            h = f' data-h="{round(c.bbox.height * 100)}"' if c.bbox else ""
+            return [f'{ind}<div{attr} role="img" aria-label="{label}"{h}>{label}</div>']
         if c.type in {"dropdown", "select"} and not children:
             return [f"{ind}<select{attr} aria-label=\"{label}\"><option>{label}</option></select>"]
         tag = _TAG.get(c.type, "div")
@@ -752,20 +859,16 @@ def build_prototype(analysis: SystemAnalysis, tokens: dict[str, Any] | None = No
         extra = ' href="#"' if tag == "a" else (' type="button"' if tag == "button" else "")
         if not children:
             return [f"{ind}<{tag}{attr}{extra}>{label}</{tag}>"]
-        layout = _children_layout(children)
-        style = (f' style={{{{display: "flex", flexDirection: "{layout}", gap: {gap_px}}}}}' if jsx
-                 else f' style="display:flex;flex-direction:{layout};gap:{gap_px}px"')
-        lines = [f"{ind}<{tag}{attr}{extra}{style}>"]
+        lines = [f"{ind}<{tag}{attr}{extra}>"]
         if c.type in {"card", "section", "hero", "form", "modal"} and not any(k.label == c.label for k in children):
             lines.append(f"{ind}  {'{/* ' + label + ' */}' if jsx else '<!-- ' + label + ' -->'}")
-        for k in children:
-            lines += el(k, depth + 1, jsx)
+        lines += children_html(children, depth + 1, jsx, bar=c.type in {"navbar", "header", "toolbar", "footer"})
         lines.append(f"{ind}</{tag}>")
         return lines
 
-    roots = sorted(kids[None], key=_reading_order)
-    body = [l for r in roots for l in el(r, 2, False)]
-    jsx_body = [l for r in roots for l in el(r, 3, True)]
+    roots = kids[None]
+    body = children_html(roots, 2, False, bar=False)
+    jsx_body = children_html(roots, 3, True, bar=False)
     t = tokens or {}
     css_vars = t.get("css") or ":root {\n  --color-background: #ffffff;\n  --color-text: #111111;\n  --color-primary: #2563eb;\n}"
     css = css_vars + """
@@ -790,6 +893,11 @@ input[class^="vre-"], select[class^="vre-"] { min-height: var(--size-input-heigh
 [role="img"] { display: grid; place-items: center; min-height: 80px; background: color-mix(in srgb, var(--color-text) 6%%, transparent);
        border-radius: 8px; color: var(--color-text-muted, #666); font-size: 12px; }
 .vre-logo, .vre-icon, .vre-avatar { min-height: 32px; min-width: 32px; }
+.vre-hero, .vre-section, .vre-container, .vre-form, .vre-card, .vre-sidebar, .vre-modal { display: flex; flex-direction: column; gap: var(--space-1, 12px); }
+.vre-row > * { min-width: 0; }
+.vre-hero > .vre-row { align-items: stretch !important; }
+[role="img"][data-h] { min-height: 160px; }
+.vre-hero [role="img"] { min-height: 280px; background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 55%%, white), var(--color-primary)); color: transparent; }
 ul.vre-list, ul.vre-menu { list-style: none; margin: 0; padding: 0; }
 """ % {"w": (t.get("imageSize") or {}).get("width", 1200)}
     title = html.escape(analysis.title)

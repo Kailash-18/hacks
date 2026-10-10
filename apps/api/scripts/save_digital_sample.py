@@ -44,6 +44,9 @@ def main(argv: list[str] | None = None, samples_dir: Path = SAMPLES_DIR, out_dir
     ap.add_argument("--id", help="sample id (default: image file name)")
     ap.add_argument("--title", help="title shown in the UI (default: analysis title)")
     ap.add_argument("--live", action="store_true", help="ignore out/ and analyse the image again")
+    ap.add_argument("--set", dest="sample_set", help="group screens of one app (the UI loads a set together)")
+    ap.add_argument("--order", type=int, help="position of this screen inside its set")
+    ap.add_argument("--compare-with", help="sample id of the earlier version (Compare pre-selects the pair)")
     args = ap.parse_args(argv)
 
     if args.image.suffix.lower() not in IMAGE_TYPES or not args.image.is_file():
@@ -81,6 +84,12 @@ def main(argv: list[str] | None = None, samples_dir: Path = SAMPLES_DIR, out_dir
     (dest / "analysis.json").write_text(json.dumps(analysis.to_api(), indent=2) + "\n", encoding="utf-8")
     meta = {"title": args.title or analysis.title, "savedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "note": f"Saved result of a real {analysis.provider.name}/{analysis.provider.model} run."}
+    if args.sample_set:
+        meta["set"] = slug(args.sample_set)
+    if args.order is not None:
+        meta["order"] = args.order
+    if args.compare_with:
+        meta["compareWith"] = slug(args.compare_with)
     (dest / "meta.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
     print(f"Saved sample '{sample_id}' -> {dest}")
     return 0

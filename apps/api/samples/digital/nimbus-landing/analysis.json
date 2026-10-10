@@ -1,0 +1,731 @@
+{
+  "analysisId": "digital-787a03e1dff055c8",
+  "domain": "digital",
+  "title": "Nimbus Landing Page",
+  "source": {
+    "kind": "image",
+    "filename": "landing.png"
+  },
+  "assetId": null,
+  "components": [
+    {
+      "id": "navbar",
+      "label": "Header navigation bar",
+      "type": "navbar",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Contains logo, navigation links, and action buttons"
+      ],
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1.0,
+        "height": 0.085
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "logo",
+      "label": "Nimbus Logo",
+      "type": "logo",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible icon and text 'Nimbus'"
+      ],
+      "bbox": {
+        "x": 0.043,
+        "y": 0.024,
+        "width": 0.091,
+        "height": 0.038
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-features",
+      "label": "Features",
+      "type": "link",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible link text: Features"
+      ],
+      "bbox": {
+        "x": 0.178,
+        "y": 0.032,
+        "width": 0.048,
+        "height": 0.02
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-pricing",
+      "label": "Pricing",
+      "type": "link",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible link text: Pricing"
+      ],
+      "bbox": {
+        "x": 0.25,
+        "y": 0.032,
+        "width": 0.039,
+        "height": 0.024
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-customers",
+      "label": "Customers",
+      "type": "link",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible link text: Customers"
+      ],
+      "bbox": {
+        "x": 0.314,
+        "y": 0.032,
+        "width": 0.06,
+        "height": 0.02
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-docs",
+      "label": "Docs",
+      "type": "link",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible link text: Docs"
+      ],
+      "bbox": {
+        "x": 0.399,
+        "y": 0.032,
+        "width": 0.028,
+        "height": 0.02
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-login",
+      "label": "Log in",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Button labeled 'Log in'"
+      ],
+      "bbox": {
+        "x": 0.783,
+        "y": 0.018,
+        "width": 0.061,
+        "height": 0.05
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-start-trial",
+      "label": "Start free trial",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Purple button labeled 'Start free trial'"
+      ],
+      "bbox": {
+        "x": 0.854,
+        "y": 0.018,
+        "width": 0.102,
+        "height": 0.05
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "hero-section",
+      "label": "Hero section",
+      "type": "hero",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Main landing section containing headline, CTA buttons, and graphic overview"
+      ],
+      "bbox": {
+        "x": 0.0,
+        "y": 0.085,
+        "width": 1.0,
+        "height": 0.543
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "badge-sprint-reports",
+      "label": "New \u00b7 Sprint reports",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Pill badge text: 'New \u00b7 Sprint reports'"
+      ],
+      "bbox": {
+        "x": 0.043,
+        "y": 0.18,
+        "width": 0.118,
+        "height": 0.038
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "hero-headline",
+      "label": "Plan projects your team actually finishes.",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Large bold text: 'Plan projects your team actually finishes.'"
+      ],
+      "bbox": {
+        "x": 0.043,
+        "y": 0.247,
+        "width": 0.405,
+        "height": 0.125
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "hero-subheading",
+      "label": "Nimbus keeps tasks, deadlines and progress in one shared board...",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Subtext under main title"
+      ],
+      "bbox": {
+        "x": 0.043,
+        "y": 0.4,
+        "width": 0.393,
+        "height": 0.061
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "cta-start-trial",
+      "label": "Start free trial",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Primary purple button labeled 'Start free trial'"
+      ],
+      "bbox": {
+        "x": 0.043,
+        "y": 0.5,
+        "width": 0.124,
+        "height": 0.062
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "cta-book-demo",
+      "label": "Book a demo",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Secondary outlined button labeled 'Book a demo'"
+      ],
+      "bbox": {
+        "x": 0.177,
+        "y": 0.5,
+        "width": 0.116,
+        "height": 0.062
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "hero-graphic-kanban",
+      "label": "Kanban board preview",
+      "type": "image",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card showing columns TO DO, IN PROGRESS, DONE with task cards"
+      ],
+      "bbox": {
+        "x": 0.504,
+        "y": 0.168,
+        "width": 0.452,
+        "height": 0.41
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "features-section",
+      "label": "Feature cards grid",
+      "type": "section",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Row of three feature cards"
+      ],
+      "bbox": {
+        "x": 0.043,
+        "y": 0.628,
+        "width": 0.913,
+        "height": 0.203
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "card-shared-boards",
+      "label": "Shared boards",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card containing title 'Shared boards' and description"
+      ],
+      "bbox": {
+        "x": 0.043,
+        "y": 0.628,
+        "width": 0.294,
+        "height": 0.203
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "card-deadline-alerts",
+      "label": "Deadline alerts",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card containing title 'Deadline alerts' and description"
+      ],
+      "bbox": {
+        "x": 0.353,
+        "y": 0.628,
+        "width": 0.294,
+        "height": 0.203
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "card-sprint-reports",
+      "label": "Sprint reports",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card containing title 'Sprint reports' and description"
+      ],
+      "bbox": {
+        "x": 0.663,
+        "y": 0.628,
+        "width": 0.293,
+        "height": 0.203
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "footer",
+      "label": "Footer",
+      "type": "footer",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Bottom section with copyright and legal/contact links"
+      ],
+      "bbox": {
+        "x": 0.0,
+        "y": 0.935,
+        "width": 1.0,
+        "height": 0.065
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "copyright",
+      "label": "\u00a9 2026 Nimbus Labs",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Copyright notice text"
+      ],
+      "bbox": {
+        "x": 0.043,
+        "y": 0.96,
+        "width": 0.104,
+        "height": 0.017
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "footer-privacy",
+      "label": "Privacy",
+      "type": "link",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Privacy link in footer"
+      ],
+      "bbox": {
+        "x": 0.815,
+        "y": 0.96,
+        "width": 0.037,
+        "height": 0.017
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "footer-terms",
+      "label": "Terms",
+      "type": "link",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Terms link in footer"
+      ],
+      "bbox": {
+        "x": 0.87,
+        "y": 0.96,
+        "width": 0.03,
+        "height": 0.017
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "footer-contact",
+      "label": "Contact",
+      "type": "link",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Contact link in footer"
+      ],
+      "bbox": {
+        "x": 0.918,
+        "y": 0.96,
+        "width": 0.038,
+        "height": 0.017
+      },
+      "modelNodeId": null,
+      "transform": null
+    }
+  ],
+  "relationships": [
+    {
+      "id": "navbar--contains--logo",
+      "from": "navbar",
+      "to": "logo",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "navbar--contains--nav-features",
+      "from": "navbar",
+      "to": "nav-features",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "navbar--contains--nav-pricing",
+      "from": "navbar",
+      "to": "nav-pricing",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "navbar--contains--nav-customers",
+      "from": "navbar",
+      "to": "nav-customers",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "navbar--contains--nav-docs",
+      "from": "navbar",
+      "to": "nav-docs",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "navbar--contains--nav-login",
+      "from": "navbar",
+      "to": "nav-login",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "navbar--contains--nav-start-trial",
+      "from": "navbar",
+      "to": "nav-start-trial",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "hero-section--contains--badge-sprint-reports",
+      "from": "hero-section",
+      "to": "badge-sprint-reports",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "hero-section--contains--hero-headline",
+      "from": "hero-section",
+      "to": "hero-headline",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "hero-section--contains--hero-subheading",
+      "from": "hero-section",
+      "to": "hero-subheading",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "hero-section--contains--cta-start-trial",
+      "from": "hero-section",
+      "to": "cta-start-trial",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "hero-section--contains--cta-book-demo",
+      "from": "hero-section",
+      "to": "cta-book-demo",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "hero-section--contains--hero-graphic-kanban",
+      "from": "hero-section",
+      "to": "hero-graphic-kanban",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "features-section--contains--card-shared-boards",
+      "from": "features-section",
+      "to": "card-shared-boards",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "features-section--contains--card-deadline-alerts",
+      "from": "features-section",
+      "to": "card-deadline-alerts",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "features-section--contains--card-sprint-reports",
+      "from": "features-section",
+      "to": "card-sprint-reports",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "footer--contains--copyright",
+      "from": "footer",
+      "to": "copyright",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "footer--contains--footer-privacy",
+      "from": "footer",
+      "to": "footer-privacy",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "footer--contains--footer-terms",
+      "from": "footer",
+      "to": "footer-terms",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "footer--contains--footer-contact",
+      "from": "footer",
+      "to": "footer-contact",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "badge-sprint-reports--appears_related_to--hero-headline",
+      "from": "badge-sprint-reports",
+      "to": "hero-headline",
+      "type": "appears_related_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Badge sits directly above the hero headline"
+      ]
+    },
+    {
+      "id": "hero-headline--appears_related_to--hero-subheading",
+      "from": "hero-headline",
+      "to": "hero-subheading",
+      "type": "appears_related_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Subheading provides elaboration on headline"
+      ]
+    },
+    {
+      "id": "cta-start-trial--visually_aligned_with--cta-book-demo",
+      "from": "cta-start-trial",
+      "to": "cta-book-demo",
+      "type": "visually_aligned_with",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Side-by-side call-to-action buttons"
+      ]
+    },
+    {
+      "id": "card-shared-boards--visually_aligned_with--card-deadline-alerts",
+      "from": "card-shared-boards",
+      "to": "card-deadline-alerts",
+      "type": "visually_aligned_with",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Horizontally aligned feature cards"
+      ]
+    },
+    {
+      "id": "card-deadline-alerts--visually_aligned_with--card-sprint-reports",
+      "from": "card-deadline-alerts",
+      "to": "card-sprint-reports",
+      "type": "visually_aligned_with",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Horizontally aligned feature cards"
+      ]
+    }
+  ],
+  "summary": "This is a landing page for Nimbus, a project management tool. It features a top navigation bar, a hero section with a headline, call-to-action buttons, and an illustrative kanban board graphic, followed by a three-card feature overview section and a minimal footer.",
+  "limitations": [
+    "A single screenshot shows layout and visible text only; it does not reveal event handlers, API calls, data sources or where any control navigates.",
+    "Bounding boxes are model estimates and may be offset slightly from the true element edges.",
+    "confidence is null because the model does not produce calibrated probabilities."
+  ],
+  "provider": {
+    "name": "google-gemini",
+    "model": "gemini-3.6-flash"
+  }
+}
