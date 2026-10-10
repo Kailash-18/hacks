@@ -19,3 +19,6 @@ __pycache__/
 
 # Local eval output
 apps/api/out/
+
+# Local analysis cache
+apps/api/.cache/

@@ -3,6 +3,7 @@
     cd apps/api
     python scripts/eval_digital.py                 # 3 mock screens, scored against ground truth
     python scripts/eval_digital.py path/to/any.png # any screenshot, overlay only (no ground truth)
+    python scripts/eval_digital.py --chat          # also ask one grounded question per screen (1 extra call each)
 
 Needs GEMINI_API_KEY in apps/api/.env. Refuses fixture mode, so the numbers are always live.
 Writes to apps/api/out/ (gitignored): <name>.analysis.json, <name>.overlay.png, eval_summary.json.
@@ -59,7 +60,12 @@ def draw_overlay(png: Path, analysis: dict, gt: list[dict] | None, dest: Path) -
     img.save(dest)
 
 
+CHAT_QUESTION = "Which element is the main call to action, and what happens when it is clicked?"
+
+
 def main(paths: list[str]) -> int:
+    ask_chat = "--chat" in paths
+    paths = [p for p in paths if p != "--chat"]
     try:
         client = get_vision_client()
     except VisionProviderError as exc:
@@ -81,7 +87,8 @@ def main(paths: list[str]) -> int:
         img = validate_image(png.read_bytes(), png.name)
         t0 = time.perf_counter()
         try:
-            analysis = analyze_digital_image(img.data, img.filename, client, img.mime).to_api()
+            analysis_obj = analyze_digital_image(img.data, img.filename, client, img.mime)
+            analysis = analysis_obj.to_api()
         except VisionProviderError as exc:
             failures += 1
             print(f"{png.name}: FAILED {exc.code}: {exc.message}")
@@ -105,6 +112,18 @@ def main(paths: list[str]) -> int:
         if call:
             print(f"    tokens: prompt={call.get('promptTokens')} output={call.get('outputTokens')} "
                   f"thinking={call.get('thinkingTokens')} | thinking_level sent={call.get('thinkingSent')}")
+        if ask_chat:
+            from app.contract import ChatRequest
+            from app.services.grounded_chat import answer_question
+
+            try:
+                resp = answer_question(analysis_obj, ChatRequest(question=CHAT_QUESTION), client)
+                row["chat"] = {"question": CHAT_QUESTION, **resp.model_dump()}
+                print(f"    chat: {resp.answer}")
+                print(f"    cited: {resp.referencedComponentIds} | caveats: {len(resp.limitations)}")
+            except VisionProviderError as exc:
+                failures += 1
+                print(f"    chat FAILED {exc.code}: {exc.message}")
         summary["screens"].append(row)
 
     (OUT / "eval_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")

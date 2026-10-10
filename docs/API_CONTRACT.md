@@ -87,11 +87,17 @@ All errors: `{"error": {"code": "stable_code", "message": "human readable"}}`.
 | POST | `/api/physical/whatif` | Samvit | `{"analysisId","removedComponentId"}` | affected parts + path |
 | GET | `/api/physical/samples`, `/api/physical/samples/{id}` | Samvit | – | saved real results (sample mode) |
 | POST | `/api/digital/analyze` | Krishna | multipart `image` | `SystemAnalysis` (digital, no `scene`) |
+| GET | `/api/digital/samples` | Krishna | – | list of saved real results (`id, title, imageUrl, analysisId, ...`) |
+| GET | `/api/digital/samples/{id}` | Krishna | – | `SystemAnalysis` + `sample` block |
+| GET | `/api/digital/samples/{id}/image` | Krishna | – | the sample's screenshot |
 | GET | `/api/analysis/{analysisId}` | Krishna | – | `SystemAnalysis` |
 | POST | `/api/analysis/{analysisId}/chat` | Krishna | `ChatRequest` | `ChatResponse` |
 
 Uploads (both labs): field name `image`, ≤ 8 MB, JPEG/PNG/WebP (checked by file signature), ≥ 32 px per side.
-Results are cached by image SHA-256, so the same image never costs a second model call.
+Results are cached by image SHA-256 in memory and on disk (`apps/api/.cache/`, gitignored), so the same image never costs a second model call, even after a restart. Identical uploads that arrive while a call is running share that call. At most `VRE_MAX_CONCURRENT_CALLS` (default 2) model calls run at once; extra requests wait.
+
+### Digital samples
+Saved results of real model runs, in `apps/api/samples/digital/<id>/` (`analysis.json`, `image.png`, `meta.json`). Responses add an additive `sample` field: `{"id","title","savedAt","note","imageUrl"}`. Samples are loaded into the store at start-up, so chat works on them and re-uploading a sample's image is instant. Create one from a real run with `python scripts/save_digital_sample.py <image> --title "..."` (reuses `out/<stem>.analysis.json` from the eval if present; refuses fixture output). Committed samples: `landing-page`, `ops-dashboard`, `mobile-login` (gemini-3.8-flash, 10 Oct, on the team-made mock screens).
 
 ### Chat
 ```json
@@ -109,7 +115,7 @@ Results are cached by image SHA-256, so the same image never costs a second mode
 | HTTP | code |
 |---|---|
 | 400 | `empty_file`, `corrupt_image`, `image_too_small`, `image_too_large`, `unknown_selection` |
-| 404 | `analysis_not_found` |
+| 404 | `analysis_not_found`, `sample_not_found` |
 | 413 | `file_too_large` |
 | 415 | `unsupported_media_type` |
 | 422 | `invalid_request`, `provider_rejected_input` |
@@ -126,6 +132,8 @@ from app.errors import register_error_handlers
 app.include_router(digital_router)
 register_error_handlers(app)
 ```
+TypeScript types for the frontend: `contracts/system-analysis.ts`; UI guidance: `docs/FRONTEND_HANDOFF.md`.
+
 Vision client interface (shared): `.name`, `.model`, `.generate_json(image_bytes | None, mime | None, prompt) -> str`.
 `image_bytes=None` means a text-only call (chat). If Samvit's Gemini client supports that, `get_vision_client()` should return his client and `GeminiVisionClient` can be deleted.
 
@@ -138,10 +146,12 @@ Vision client interface (shared): `.name`, `.model`, `.generate_json(image_bytes
 | `GEMINI_THINKING_LEVEL` | `low` (default, fastest), `medium`, `high`; dropped automatically if the model rejects it |
 | `GEMINI_TIMEOUT_S` | Seconds per model call (default 90) |
 | `CORS_ORIGINS` | Comma-separated allowed frontend origins |
+| `VRE_CACHE_DIR` | Analysis cache folder (default `apps/api/.cache`; `off` disables) |
+| `VRE_MAX_CONCURRENT_CALLS` | Max simultaneous model calls (default 2) |
 | `VRE_FIXTURE_MODE=1` | Dev only: recorded responses labelled `provider.name="fixture"`; not live inference |
 
 ## Limits
-- Analysis store is in-memory: lost on restart, not shared across workers. Raw images are never stored.
+- Analysis store is in memory plus a local disk cache; not shared across multiple server processes. Raw uploaded images are never stored (only committed sample images are).
 - Box coordinates are model estimates. `confidence` is not calibrated, so it is always `null`.
 
 ## Run the digital API locally (before Samvit's `main.py` is merged)

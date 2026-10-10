@@ -145,3 +145,23 @@ def test_gemini_client_records_call_diagnostics():
     c.generate_json(None, None, "p")
     assert c.last_call["thinkingTokens"] == 3000 and c.last_call["thinkingSent"] is True
     assert c.last_call["outputTokens"] == 900 and c.last_call["seconds"] >= 0
+
+
+def test_eval_chat_flag_asks_one_grounded_question(tmp_path, monkeypatch):
+    spec = importlib.util.spec_from_file_location("eval_digital3", API / "scripts" / "eval_digital.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    class WithChat(PerfectFake):
+        def generate_json(self, image_bytes, mime, prompt):
+            if image_bytes is None:
+                return json.dumps({"answer": "The button.", "referencedComponentIds": ["hero-cta", "made-up"],
+                                   "referencedRelationshipIds": [], "limitations": []})
+            return super().generate_json(image_bytes, mime, prompt)
+
+    monkeypatch.setattr(mod, "get_vision_client", lambda: WithChat())
+    monkeypatch.setattr(mod, "OUT", tmp_path)
+    assert mod.main(["--chat", str(SCREENS / "landing.png")]) == 0
+    row = json.loads((tmp_path / "eval_summary.json").read_text(encoding="utf-8"))["screens"][0]
+    assert row["chat"]["referencedComponentIds"] == ["hero-cta"]  # invented id filtered out
+    assert any("runtime behaviour" in x for x in row["chat"]["limitations"])  # "clicked" -> caveat added
