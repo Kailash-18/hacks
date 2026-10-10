@@ -1,6 +1,31 @@
-# Digital Lab — explorer, workflow, diff, rebuild
+# Digital Lab — build from a screenshot, explorer, workflow, diff
 
-Open `http://localhost:8000/digital` (the Physical | Digital switch is in the top bar of both labs).
+## Main view: `/digital` (screenshot → code)
+
+Paste (Ctrl+V), drop or choose one screenshot, or click an example. Three tabs:
+
+| Tab | What you get | Model calls |
+|---|---|---|
+| Rebuilt code | Working single-file HTML + Tailwind (or a React component), shown live over the original with a **wipe slider** (drag to compare), side by side, or as code. Copy / download / open. **Change it**: describe a change ("dark theme", "mobile friendly") and get a new version; every version is kept. | 1 per version (cached) |
+| How to build it | Stack, step-by-step plan, components with props, behaviour the screenshot cannot show, data needed, effort, measured design tokens | 1 (cached) |
+| Structure | Detected parts as boxes on the screenshot + the component tree; ask questions about the screen | 0 (+1 per question) |
+
+How the code is grounded: the screenshot itself, plus the analysis' component labels and boxes
+(text is copied verbatim) and pixel-measured colours / font sizes. The answer comes back as a fenced
+code block (not JSON), so long pages are not broken by escaping; output is cleaned (only the Tailwind
+CDN and Google Fonts may load, nothing else external) and previewed in a sandboxed iframe. If the
+model is unavailable, the deterministic layout draft is shown and labelled.
+Results are cached by screenshot + request; the examples' results are saved in
+`apps/api/samples/digital/<id>/build/` (`python scripts/save_build_samples.py`), so they open instantly.
+
+Code: `apps/api/app/services/codegen.py`, `apps/api/app/routes_build.py`, `apps/viewer/build.{html,js,css}`.
+API: `POST /api/digital/code` (multipart `image`, `target=html|react`, optional `change`, `baseCode`, `force`),
+`POST /api/digital/guide` (multipart `image`, optional `force`).
+
+## Multi-screen explorer: `/digital/explorer`
+
+
+For several screens of one product: user workflow, version compare, linking to source code.
 
 **Demo path:** *Load samples* opens **Nimbus**, a team-made project-tracker app (landing → log in →
 dashboard → settings, plus a v2 redesign of the dashboard). Every screen is a saved result of a real

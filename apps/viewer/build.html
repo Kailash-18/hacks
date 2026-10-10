@@ -45,7 +45,9 @@
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="code" aria-selected="true">Rebuilt code</button>
     <button role="tab" data-tab="guide">How to build it</button>
-    <button role="tab" data-tab="structure">Structure</button>
+    <button role="tab" data-tab="structure">Inspect</button>
+    <button role="tab" data-tab="backend">Backend</button>
+    <button role="tab" data-tab="a11y">Accessibility</button>
   </nav>
 
   <p id="status" class="status" role="status"></p>
@@ -57,11 +59,17 @@
         <div class="tools">
           <div class="seg" id="viewSeg"><button data-v="wipe" class="on">Compare</button><button data-v="side">Side by side</button><button data-v="code">Code</button></div>
           <div class="seg" id="targetSeg"><button data-t="html" class="on">HTML</button><button data-t="react">React</button></div>
+          <div class="acc" id="acc" hidden title="How closely the rebuilt page matches the screenshot, measured pixel by pixel">
+            <span class="acc-ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" class="trk"/><circle cx="18" cy="18" r="15" class="bar" id="accBar"/></svg></span>
+            <span class="acc-txt"><b id="accPct">–</b><small id="accLbl">visual match</small></span>
+            <label class="acc-heat"><input type="checkbox" id="accHeat" /> Show differences</label>
+          </div>
         </div>
         <div id="stage" class="stage">
           <div class="wipe" id="wipe">
             <div class="layer rebuilt"><iframe id="frame" title="Rebuilt page" sandbox="allow-scripts"></iframe></div>
             <div class="layer original" id="origLayer"><img id="origImg" alt="Original screenshot" /></div>
+            <canvas id="heat" class="heat" hidden></canvas>
             <div class="catch" aria-hidden="true"></div>
             <div class="handle" id="handle" role="slider" tabindex="0" aria-label="Compare original and rebuilt" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><span></span></div>
             <span class="tag left">Original</span><span class="tag right">Rebuilt</span>
@@ -102,19 +110,63 @@
     <article id="guide" class="guide"></article>
   </section>
 
-  <!-- structure -->
+  <!-- inspect: dev-mode for a screenshot -->
   <section id="tab-structure" class="tab" hidden>
+    <p class="muted small ins-lede">Click any element to get its measurements, colours, spacing, Tailwind classes and the code for just that piece. Hover to see sizes.</p>
     <div class="struct">
-      <div class="shot"><img id="structImg" alt="Screenshot with detected parts" /><div id="boxes" class="boxes"></div></div>
+      <div class="shot ins-shot" id="insShot">
+        <img id="structImg" alt="Screenshot with detected parts" />
+        <div id="boxes" class="boxes"></div>
+        <div id="redlines" class="redlines"></div>
+        <div id="insHover" class="ins-hover" hidden></div>
+      </div>
       <div class="tree-col">
-        <h3>Parts found <span id="partCount" class="muted"></span></h3>
-        <ul id="tree" class="tree"></ul>
+        <div id="inspect" class="inspect"><p class="muted">Click an element on the screenshot.</p></div>
+        <details class="parts-d"><summary>All parts <span id="partCount" class="muted"></span></summary><ul id="tree" class="tree"></ul></details>
         <form id="askForm" class="ask">
           <label for="ask">Ask about this screen</label>
           <div class="ask-row"><input id="ask" placeholder="What does the search bar do?" autocomplete="off" /><button class="btn">Ask</button></div>
           <div id="answer" class="answer"></div>
         </form>
       </div>
+    </div>
+  </section>
+
+
+  <!-- back end, reverse-engineered -->
+  <section id="tab-backend" class="tab" hidden>
+    <div class="be">
+      <div class="be-head">
+        <div>
+          <h2>The system behind this screen</h2>
+          <p class="muted" id="beSummary">Inferring the data model and API from what the screen shows…</p>
+        </div>
+        <div class="be-actions">
+          <button class="btn" id="beSql" disabled>Download SQL</button>
+          <button class="btn" id="beOpenApi" disabled>Download OpenAPI</button>
+        </div>
+      </div>
+      <p class="be-badge" id="beBadge"></p>
+      <div class="be-grid">
+        <div class="be-er"><h3>Data model</h3><svg id="beEr" role="img" aria-label="Entity relationship diagram"></svg></div>
+        <div class="be-shot"><h3>Where it shows</h3><div class="shot mini"><img id="beImg" alt="Screenshot" /><div id="beBoxes" class="boxes"></div></div></div>
+      </div>
+      <h3>API endpoints</h3>
+      <div id="beEndpoints" class="be-eps"></div>
+      <div id="beNotes" class="notes"></div>
+    </div>
+  </section>
+
+  <!-- accessibility -->
+  <section id="tab-a11y" class="tab" hidden>
+    <div class="ax">
+      <div class="ax-shot shot"><img id="axImg" alt="Screenshot with accessibility findings" /><div id="axMarks" class="boxes"></div></div>
+      <aside class="ax-side">
+        <div class="ax-score"><div class="ax-grade" id="axGrade">–</div><div><b id="axScoreTxt">Checking…</b><p class="muted small" id="axCounts"></p></div></div>
+        <button class="btn primary" id="axFix" disabled>Fix these in the code</button>
+        <ol id="axList" class="ax-list"></ol>
+        <p class="muted small" id="axMethod"></p>
+      </aside>
     </div>
   </section>
 </main>

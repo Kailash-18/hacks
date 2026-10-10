@@ -4,7 +4,7 @@
 
 Photograph any object. The **Physical Lab** finds its parts, cuts each one out, estimates depth, and builds an interactive exploded diagram you can rotate, pull apart, inspect part by part, and question with "what if I remove this?".
 
-Screenshot any software interface. The **Digital Lab** turns it into a component tree with boxes on the screenshot, a graph of visual relationships, and answers to questions grounded in what was actually seen.
+Paste a screenshot of any website or app. The **Digital Lab** rebuilds it as working HTML or React (compare it with the original using a wipe slider, then ask for changes), writes a step-by-step plan for building it for real, and shows the component structure behind it. A multi-screen explorer maps user workflows between screens and compares versions.
 
 Both labs produce the same `SystemAnalysis` shape: components, relationships, evidence and an observed / inferred status for every item.
 

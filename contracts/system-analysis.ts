@@ -30,6 +30,12 @@ export interface Component {
   bbox: BBox | null;
   modelNodeId: string | null;
   transform: Transform | null;
+  /** Physical only (AI estimate, may be ""): what the part does. */
+  function?: string;
+  /** Physical only (AI estimate, may be ""): what stops working without it. */
+  ifRemoved?: string;
+  /** Physical only: 0–1, how much the object's main function depends on it (null = unknown). */
+  importance?: number | null;
 }
 
 /** Edge rule: from -> to means "to depends on from" (e.g. hero-section --contains--> hero-cta). */
@@ -68,13 +74,28 @@ export interface SceneView {
   layers: SceneLayer[];
 }
 
-/** Model-stated identification; only as reliable as the visible logos/text. */
+/** Exact-product identification (AI match; web-checked when Google Search grounding was available). */
 export interface Product {
   category: string;
   brand: string | null;
   model: string | null;
   searchQuery: string;
+  /** why: logo, label text, shape match ... */
   identifiedFrom: string;
+  /** 0–1 model confidence (null = old result without the identification step) */
+  confidence?: number | null;
+  /** label/logo text the model could actually read */
+  visibleText?: string;
+  /** real published size [w, h, d] mm, fed into the 3D proportions */
+  dimensionsMm?: number[] | null;
+  /** other likely models: show as "Not it? Maybe:" buttons */
+  candidates?: { brand: string | null; model: string; confidence: number }[];
+  /** web sources (only when web search was used) */
+  sources?: { title: string; url: string }[];
+  /** model name the user typed/picked (sent back as form field model_hint) */
+  userHint?: string;
+  /** true only when the answer is backed by web sources */
+  webChecked?: boolean;
 }
 
 /** One part as a simple solid (model estimate). mm; x right, y up, z front; origin = object centre. */
@@ -90,12 +111,28 @@ export interface AssemblyPart {
   explodeDist: number;
 }
 
+/** Small surface feature (screw, vent, port, LED, label...) that moves with its parent part. */
+export interface AssemblyDetail {
+  parentId: string;
+  /** part shapes plus "cross" and "slots" */
+  shape: string;
+  size: number[];
+  /** absolute, same frame as parts */
+  position: number[];
+  rotation: number[];
+  color: string;
+  material: string;
+  /** "slots": number of parallel slots */
+  count: number;
+}
+
 /** Simplified 3D model for the 360-degree exploded view. */
 export interface Assembly {
   kind: "primitive-assembly";
   units: string;
   overallSize: number[];
   parts: AssemblyPart[];
+  details?: AssemblyDetail[];
 }
 
 export interface Scene {
@@ -157,6 +194,39 @@ export interface ChatResponse {
   referencedComponentIds: string[];
   referencedRelationshipIds: string[];
   limitations: string[];
+}
+
+/** POST /api/physical/whatif  body: { analysisId, removedComponentId, components?, relationships? } */
+export interface WhatIfAffected {
+  componentId: string;
+  label: string;
+  /** steps from the removed part (use it to time a cascade animation) */
+  hops: number;
+  path: string[];
+  viaRelationshipIds: string[];
+  /** e.g. "Main PCB --powers--> Optical sensor" */
+  explanation: string;
+  /** true when any link on the path is inferred */
+  uncertain: boolean;
+  /** "loses power" | "loses its control signal" | "stops moving" | "comes loose" | ... */
+  impact: string;
+  /** fails = stops working; loose = falls off / comes loose */
+  severity: "fails" | "loose";
+  /** evidence of the last link */
+  why: string;
+}
+
+export interface WhatIfResponse {
+  removedComponentId: string;
+  /** removed part's ifRemoved text ("" if unknown) */
+  consequence: string;
+  /** 0–100 share of the object's function still working (graph estimate, not physics) */
+  health: number;
+  verdict: "dead" | "degraded" | "works";
+  affected: WhatIfAffected[];
+  unaffectedComponentIds: string[];
+  summary: string;
+  method: string;
 }
 
 export interface ApiErrorBody {
