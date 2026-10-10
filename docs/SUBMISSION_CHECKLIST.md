@@ -11,6 +11,8 @@ Status as of 10 Oct, 10:40 IST. Owner in brackets. Tick in the PR that completes
 ## Required by the rules
 - [ ] [Team] Public GitHub repo with in-window commits. Canonical repo: `samvit-srivastava/hacks` (Krishna works on the fork `Krishnasingh94/hacks` and merges via PR). Make sure the repo is public and submit this one.
 - [ ] [Kailash] Working live URL (judges may try it). Server needs `GEMINI_API_KEY` set as a host secret, never in the repo.
+  - [x] [Krishna] Container + host config: `Dockerfile`, `render.yaml`, steps in `docs/DEPLOY.md`.
+  - [ ] [Kailash/Krishna] Build the image once locally (not built in the authoring environment) and deploy.
 - [ ] [Team] Public YouTube video, ≤ 3:00 — script in `docs/DEMO_SCRIPT.md`.
 - [ ] [Krishna] Devpost write-up ≤ 500 words — `docs/DEVPOST_WRITEUP.md` (482 words now).
 - [ ] [Team] Project name, all team members added on Devpost.

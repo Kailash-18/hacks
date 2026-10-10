@@ -42,7 +42,7 @@ cp .env.example .env                               # add your free key from aist
 uvicorn app.main:app --reload --port 8000
 ```
 
-Open http://localhost:8000 and upload a photo. Tests: `cd apps/api && pytest -q`. Live Digital Lab check (uses your key): `python scripts/eval_digital.py --chat`.
+Open http://localhost:8000 and upload a photo. Deploying (Docker, Render or Hugging Face Spaces): `docs/DEPLOY.md`. Tests: `cd apps/api && pytest -q`. Live Digital Lab check (uses your key): `python scripts/eval_digital.py --chat`.
 
 Both labs share one vision client: Gemini first, switching Flash models when a free daily quota runs out, then a local LM Studio model (`VISION_PROVIDER=auto`). Results are cached by image hash, so the same image never costs a second call. Frontend types: `contracts/system-analysis.ts`; full contract: `docs/API_CONTRACT.md`.
 

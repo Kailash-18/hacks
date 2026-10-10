@@ -1,0 +1,22 @@
+# Never ship secrets or local state
+**/.env
+**/.env.*
+!**/.env.example
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+apps/api/.cache
+apps/api/out
+apps/viewer/testdata
+*.bundle
+
+# Not needed at runtime
+.git
+apps/api/tests
+apps/api/scripts
+docs
+/AGENT_*.md
+/MASTER_PROJECT_BRIEF.md
+/API_CONTRACT.md
+node_modules
