@@ -276,5 +276,5 @@ details summary { cursor: pointer; font-weight: 600; color: var(--muted); }
 .leaders3d .leader.sel circle { fill: #8fb4ff; r: 4; }
 .leaders3d .leader.hit path { stroke: #ff6b5b; stroke-width: 1.6; }
 .leaders3d .leader.hit circle { fill: #ff6b5b; filter: drop-shadow(0 0 5px #ff6b5b); }
-.labels3d .lbl { margin-bottom: 0; transition: opacity .15s, transform .12s ease-out; }
+.labels3d .lbl { margin-bottom: 0; transition: opacity .15s; }
 

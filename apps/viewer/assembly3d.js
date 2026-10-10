@@ -115,6 +115,7 @@ export class AssemblyView {
 
   build(assembly, components, views = [], relationships = []) {
     for (const p of this.parts) { this.root.remove(p.group); p.label.element.remove(); }
+    if (this._leaderEls) { for (const g of this._leaderEls.values()) g.remove(); this._leaderEls.clear(); }
     this.parts = []; this.whatif = null; this.intro = null;
     for (const sp of this.sparks || []) this.root.remove(sp.s);
     this.sparks = [];
@@ -688,44 +689,68 @@ export class AssemblyView {
       this._leaders = document.createElementNS(NS, "svg");
       this._leaders.setAttribute("class", "leaders3d");
       this.labels.domElement.prepend(this._leaders);
+      this._leaderEls = new Map();
     }
     const svg = this._leaders;
-    svg.setAttribute("width", w); svg.setAttribute("height", h); svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
-    const TOP = 60, BOTTOM = 76, SIDE = 16, GAP = 6, ELBOW = 18;
-    const v = new THREE.Vector3(), items = [];
+    if (this._svgSize !== w + "x" + h) {
+      this._svgSize = w + "x" + h;
+      svg.setAttribute("width", w); svg.setAttribute("height", h); svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+      this._frameN = 0; // re-measure the overlays after a resize
+    }
+    // keep the columns clear of the overlays on the stage (view tabs at the top, controls panel at the bottom);
+    // measured every 30 frames, not every frame, to keep rendering cheap
+    if (!this._clear || (this._frameN = (this._frameN || 0) + 1) % 30 === 1) {
+      const stageBox = this.stage.getBoundingClientRect();
+      const tabs = this.stage.querySelector(".tabs")?.getBoundingClientRect();
+      const ctrl = this.stage.querySelector(".controls")?.getBoundingClientRect();
+      this._clear = {
+        top: Math.max(16, tabs && tabs.height ? tabs.bottom - stageBox.top + 10 : 60),
+        bottom: Math.max(16, ctrl && ctrl.height ? stageBox.bottom - ctrl.top + 10 : 76),
+      };
+    }
+    const TOP = this._clear.top, BOTTOM = this._clear.bottom, SIDE = 16, GAP = 6, ELBOW = 18;
+    const v = new THREE.Vector3(), items = [], live = new Set();
     for (const p of this.parts) {
       const e = p.label.element;
-      e.classList.remove("collide");
       if (!p.label.visible || !p.group.visible || p.fx.scale <= 0.3 || e.style.display === "none") continue;
       v.copy(this.centerOf(p)).project(this.camera);
       if (v.z > 1) { e.style.visibility = "hidden"; continue; } // behind the camera
-      items.push({ p, e, ax: (v.x + 1) / 2 * w, ay: (1 - v.y) / 2 * h, lw: e.offsetWidth, lh: e.offsetHeight });
+      if (!p._lw) { p._lw = e.offsetWidth; p._lh = e.offsetHeight; } // label size is measured once
+      items.push({ p, e, ax: (v.x + 1) / 2 * w, ay: (1 - v.y) / 2 * h, lw: p._lw, lh: p._lh });
     }
-    if (!items.length) { svg.innerHTML = ""; return; }
-    // split around the model's on-screen centre, then balance so neither column is overloaded
-    const cx = items.reduce((s, i) => s + i.ax, 0) / items.length;
-    let left = items.filter((i) => i.ax < cx), right = items.filter((i) => i.ax >= cx);
-    const move = (from, to, pick) => { from.sort(pick); to.push(from.shift()); };
-    while (left.length - right.length > 1) move(left, right, (a, b) => b.ax - a.ax);
-    while (right.length - left.length > 1) move(right, left, (a, b) => a.ax - b.ax);
-    let paths = "";
-    for (const [col, side] of [[left, "L"], [right, "R"]]) {
-      const row = (i) => Math.round(i.ay / 14); // same row: the lower label goes to the part farther away, so lines never cross
-      col.sort((a, b) => row(a) - row(b) || (side === "L" ? a.ax - b.ax : b.ax - a.ax));
-      let y = TOP; // top-down pass: as close to the part's height as possible, no overlap
-      for (const i of col) { i.y = Math.max(i.ay - i.lh / 2, y); y = i.y + i.lh + GAP; }
-      let limit = h - BOTTOM; // bottom-up pass: pull back inside the view if the column overflows
-      for (let k = col.length - 1; k >= 0; k--) { col[k].y = Math.max(TOP, Math.min(col[k].y, limit - col[k].lh)); limit = col[k].y - GAP; }
-      for (const i of col) {
-        i.x = side === "L" ? SIDE : w - SIDE - i.lw;
-        i.e.style.transform = `translate(${Math.round(i.x)}px, ${Math.round(i.y)}px)`;
-        const sx = side === "L" ? i.x + i.lw : i.x, sy = i.y + i.lh / 2, ex = sx + (side === "L" ? ELBOW : -ELBOW);
-        const cls = "leader" + (i.p.inferred ? " inf" : "") + (i.e.classList.contains("sel") ? " sel" : "") + (i.e.classList.contains("hit") ? " hit" : "");
-        paths += `<g class="${cls}"><path d="M${sx.toFixed(1)},${sy.toFixed(1)} L${ex.toFixed(1)},${sy.toFixed(1)} L${i.ax.toFixed(1)},${i.ay.toFixed(1)}"/>` +
-          `<circle cx="${i.ax.toFixed(1)}" cy="${i.ay.toFixed(1)}" r="3"/></g>`;
+    if (items.length) {
+      // split around the model's on-screen centre, then balance so neither column is overloaded
+      const cx = items.reduce((sum, i) => sum + i.ax, 0) / items.length;
+      const left = items.filter((i) => i.ax < cx), right = items.filter((i) => i.ax >= cx);
+      const move = (from, to, pick) => { from.sort(pick); to.push(from.shift()); };
+      while (left.length - right.length > 1) move(left, right, (a, b) => b.ax - a.ax);
+      while (right.length - left.length > 1) move(right, left, (a, b) => a.ax - b.ax);
+      for (const [col, side] of [[left, "L"], [right, "R"]]) {
+        const row = (i) => Math.round(i.ay / 14); // same row: the lower label goes to the part farther away, so lines never cross
+        col.sort((a, b) => row(a) - row(b) || (side === "L" ? a.ax - b.ax : b.ax - a.ax));
+        let y = TOP; // top-down: as close to the part's height as possible, no overlap
+        for (const i of col) { i.y = Math.max(i.ay - i.lh / 2, y); y = i.y + i.lh + GAP; }
+        let limit = h - BOTTOM; // bottom-up: pull back inside the free area if the column overflows
+        for (let k = col.length - 1; k >= 0; k--) { col[k].y = Math.max(TOP, Math.min(col[k].y, limit - col[k].lh)); limit = col[k].y - GAP; }
+        for (const i of col) {
+          i.x = side === "L" ? SIDE : w - SIDE - i.lw;
+          i.e.style.transform = `translate(${Math.round(i.x)}px, ${Math.round(i.y)}px)`;
+          const sx = side === "L" ? i.x + i.lw : i.x, sy = i.y + i.lh / 2, ex = sx + (side === "L" ? ELBOW : -ELBOW);
+          let g = this._leaderEls.get(i.p.id);
+          if (!g) {
+            g = document.createElementNS(NS, "g");
+            g.append(document.createElementNS(NS, "path"), document.createElementNS(NS, "circle"));
+            g.lastChild.setAttribute("r", "3");
+            svg.append(g); this._leaderEls.set(i.p.id, g);
+          }
+          g.setAttribute("class", "leader" + (i.p.inferred ? " inf" : "") + (i.e.classList.contains("sel") ? " sel" : "") + (i.e.classList.contains("hit") ? " hit" : ""));
+          g.firstChild.setAttribute("d", `M${sx.toFixed(1)},${sy.toFixed(1)} L${ex.toFixed(1)},${sy.toFixed(1)} L${i.ax.toFixed(1)},${i.ay.toFixed(1)}`);
+          g.lastChild.setAttribute("cx", i.ax.toFixed(1)); g.lastChild.setAttribute("cy", i.ay.toFixed(1));
+          g.style.display = ""; live.add(i.p.id);
+        }
       }
     }
-    svg.innerHTML = paths;
+    for (const [id, g] of this._leaderEls) if (!live.has(id)) g.style.display = "none";
   }
 
   // ---------------------------------------------------------------- wiring x-ray: the relationship graph, in 3D
