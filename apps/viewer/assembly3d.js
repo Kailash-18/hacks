@@ -4,6 +4,19 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+
+function backdropTexture() { // deep navy studio gradient with a soft glow behind the model
+  const c = document.createElement("canvas"); c.width = 1024; c.height = 1024;
+  const g = c.getContext("2d");
+  const r = g.createRadialGradient(512, 430, 40, 512, 520, 760);
+  r.addColorStop(0, "#22324d"); r.addColorStop(0.45, "#111a2b"); r.addColorStop(1, "#05070c");
+  g.fillStyle = r; g.fillRect(0, 0, 1024, 1024);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
 
 const TARGET_SIZE = 6; // largest object dimension in world units
 
@@ -52,20 +65,37 @@ export class AssemblyView {
     keyL.shadow.radius = 6; keyL.shadow.bias = -0.0004; this.lights.add(keyL, keyL.target);
     this.lights.add(new THREE.HemisphereLight(0xdfe8ff, 0x1a1d24, 0.9));
     const fill = new THREE.DirectionalLight(0xbcd0ff, 0.6); fill.position.set(-6, 3, -5); this.lights.add(fill);
-    this.floor = new THREE.Mesh(new THREE.CircleGeometry(14, 64), new THREE.ShadowMaterial({ opacity: 0.32 }));
+    // rim lights: cool cyan from back-left, warm from back-right, for glowing silhouettes
+    const rimC = new THREE.DirectionalLight(0x59d8ff, 1.5); rimC.position.set(-7, 4, -6); this.lights.add(rimC);
+    const rimW = new THREE.DirectionalLight(0xff9b54, 0.7); rimW.position.set(7, 2, -5); this.lights.add(rimW);
+    this.grid = new THREE.GridHelper(40, 80, 0x3d5f8f, 0x1e2d45);
+    this.grid.material.transparent = true; this.grid.material.opacity = 0.45; this.grid.material.depthWrite = false;
+    this.root.add(this.grid);
+    this.background = backdropTexture();
+    this.fog = new THREE.Fog(0x070b13, 12, 34);
+    this.floor = new THREE.Mesh(new THREE.CircleGeometry(14, 64), new THREE.ShadowMaterial({ opacity: 0.45 }));
     this.floor.rotation.x = -Math.PI / 2; this.floor.receiveShadow = true; this.root.add(this.floor);
     // labels
     this.labels = new CSS2DRenderer(); this.labels.domElement.className = "labels3d"; stage.append(this.labels.domElement);
     this.stage = stage;
+    // post-processing: gentle bloom makes highlights, selections and metal glints glow
+    this.composer = new EffectComposer(renderer);
+    this.composer.addPass(new RenderPass(scene, camera));
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.18, 0.4, 0.97);
+    this.composer.addPass(this.bloom);
+    this.composer.addPass(new OutputPass());
+    this._size = "";
   }
 
   setActive(on) {
     this.root.visible = on; this.labels.domElement.hidden = !on;
     this.stage.classList.toggle("studio", on);
+    this.scene.background = on ? this.background : null;
+    this.scene.fog = on ? this.fog : null;
     this.scene.environment = on ? this.env : null;
     this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = on ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
-    this.renderer.toneMappingExposure = 0.95;
+    this.renderer.toneMappingExposure = 1.0;
     const c = this.controls;
     if (on) { c.minAzimuthAngle = -Infinity; c.maxAzimuthAngle = Infinity; c.minPolarAngle = 0.05; c.maxPolarAngle = Math.PI - 0.05; c.minDistance = 2; c.maxDistance = 60; }
   }
@@ -272,6 +302,7 @@ export class AssemblyView {
     let minY = Infinity;
     for (const p of this.parts) { if (!p.group.visible) continue; p.group.updateMatrixWorld(true); minY = Math.min(minY, new THREE.Box3().setFromObject(p.mesh).min.y); }
     this.floor.position.y = (isFinite(minY) ? minY : -3) - 0.02;
+    this.grid.position.y = this.floor.position.y - 0.005;
     this.lights.children[0].target.position.set(0, this.floor.position.y, 0);
     for (const p of this.parts) p.label.visible = t > 0.25 || p.highlight;
   }
@@ -298,6 +329,7 @@ export class AssemblyView {
     const [az, el] = main === 2 ? [0.68, 0.3] : main === 0 ? [0.3, 0.35] : [0.75, 0.3];
     this.camera.position.set(ctr.x + d * Math.sin(az) * Math.cos(el), ctr.y + d * Math.sin(el), ctr.z + d * Math.cos(az) * Math.cos(el));
     this.controls.target.copy(ctr); this.controls.update();
+    this.fog.near = d * 1.6; this.fog.far = d * 4.5; // fog only fades the far floor, never the model
   }
 
   // ---------------------------------------------------------------- hands-on: move / turn / focus parts
@@ -374,6 +406,15 @@ export class AssemblyView {
       p.mat.needsUpdate = true;
     }
     this.setExplode(this.explode);
+  }
+
+  // draws the frame through the bloom composer; returns false when the 3D model view is not active
+  renderScene() {
+    if (!this.root.visible) return false;
+    const c = this.renderer.domElement, w = c.clientWidth, h = c.clientHeight, key = w + "x" + h;
+    if (key !== this._size && w && h) { this._size = key; this.composer.setPixelRatio(this.renderer.getPixelRatio()); this.composer.setSize(w, h); }
+    this.composer.render();
+    return true;
   }
 
   render() {

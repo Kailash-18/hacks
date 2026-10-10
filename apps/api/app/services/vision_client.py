@@ -45,7 +45,8 @@ def _is_rate_limit(t: str) -> bool:
 
 
 def _is_transient(t: str) -> bool:
-    return any(x in t for x in ("503", "UNAVAILABLE", "500 INTERNAL", "overloaded"))
+    return any(x in t for x in ("503", "UNAVAILABLE", "500 INTERNAL", "overloaded", "504", "DEADLINE_EXCEEDED",
+                                "timed out", "Timeout", "ReadTimeout"))
 
 
 def _is_auth(t: str) -> bool:
@@ -215,6 +216,8 @@ class GeminiVisionClient:
                                  "Open a sample, or try again after the daily reset.", 429)
         if _is_rate_limit(t):
             return ProviderError("Gemini free-tier rate limit reached. Wait a minute and retry, or open a sample.", 429)
+        if any(x in t for x in ("503", "UNAVAILABLE", "overloaded", "high demand")):
+            return ProviderError("Google's AI is overloaded right now. Wait a minute and retry, or open a sample.", 503)
         if "timed out" in t.lower() or "timeout" in t.lower() or "DEADLINE" in t:
             return ProviderError("The AI took too long (over 100 s). Try again, or use a simpler photo.", 504)
         if _is_auth(t):

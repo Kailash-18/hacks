@@ -160,6 +160,7 @@ async function build(analysis, { sample = false } = {}) {
   } else await showView(0);
   $("empty").hidden = true; $("controls").hidden = false; $("panel").hidden = false; $("loading").hidden = true;
   introExplode();
+  if (mode === "3d") setTimeout(() => { if (!drag) { controls.autoRotate = true; $("spin").checked = true; } }, 1700); // slow turntable until the user grabs it
 }
 
 function show3D() {
@@ -463,6 +464,9 @@ function renderPanel() {
       a.target = "_blank"; a.rel = "noopener";
       pe.append(a, el("div", "tiny muted", "Save top / bottom / side shots, then use “+ Add photo”. Up to 4 photos."));
     }
+    const tb = el("button", "btn small", "Find teardown photos (iFixit)");
+    tb.onclick = () => showTeardowns(name || pr.searchQuery, tb); // brand + model searches best on iFixit
+    pe.append(tb, Object.assign(el("div", "teardown"), { id: "teardown" }));
     pe.hidden = false;
   } else pe.hidden = true;
   $("providerLine").textContent = `Vision: ${A.provider.name} · ${A.provider.model}. What-if = graph traversal, not physics.`;
@@ -586,21 +590,69 @@ function errText(data, status) { // API errors are {error: {code, message}}; old
   if (Array.isArray(d)) return d.map((x) => x.msg || JSON.stringify(x)).join("; ");
   return `Request failed (${status})`;
 }
+// ---------------------------------------------------------------- iFixit teardown photos (CC BY-NC-SA, credited)
+async function showTeardowns(query, btn) {
+  const box = $("teardown"); box.innerHTML = ""; btn.disabled = true; btn.textContent = "Searching iFixit…";
+  try {
+    const r = await fetch(API + "/api/physical/teardown?q=" + encodeURIComponent(query)); const d = await r.json();
+    if (!r.ok) throw new Error(errText(d, r.status));
+    const guides = d.guides.filter((g) => g.images.length);
+    if (!guides.length) { box.append(el("div", "tiny muted", "No iFixit teardown found for this product.")); return; }
+    const picked = new Set();
+    for (const g of guides.slice(0, 2)) {
+      const head = el("div", "tiny"); const link = el("a", "", g.title); link.href = g.url; link.target = "_blank"; link.rel = "noopener";
+      head.append(link, document.createTextNode(` · by ${g.author}`)); box.append(head);
+      const grid = el("div", "tgrid");
+      for (const im of g.images.slice(0, 12)) {
+        const t = el("img"); t.src = im.thumb; t.alt = im.caption || `Step ${im.step}`; t.title = `Step ${im.step}: ${im.caption}`; t.loading = "lazy";
+        t.onclick = () => {
+          if (picked.has(im.url)) { picked.delete(im.url); t.classList.remove("on"); }
+          else if (picked.size < 3) { picked.add(im.url); t.classList.add("on"); }
+          add.disabled = !picked.size || isSample; add.textContent = `Add ${picked.size || ""} to the model`.replace("  ", " ");
+        };
+        grid.append(t);
+      }
+      box.append(grid);
+    }
+    const add = el("button", "btn small primary", "Add to the model"); add.disabled = true;
+    add.onclick = async () => {
+      add.disabled = true; add.textContent = "Downloading…";
+      const blobs = [];
+      let n = 0;
+      for (const u of picked) {
+        add.textContent = `Downloading ${++n} of ${picked.size}…`;
+        const r = await fetch(API + "/api/physical/teardown/image?u=" + encodeURIComponent(u));
+        if (r.ok) blobs.push(await shrink(new File([await r.blob()], "teardown.jpg", { type: "image/jpeg" })));
+      }
+      add.textContent = `Add ${picked.size} to the model`; add.disabled = false;
+      const all = currentFiles.concat(blobs).slice(0, 4);
+      if (blobs.length) analyze(all, { added: blobs });
+    };
+    box.append(add, el("div", "tiny muted", isSample ? "Sample mode: upload your own photo to add teardown photos." : "Pick up to 3 photos that show the inside. " + d.license));
+  } catch (err) { box.append(el("div", "tiny muted", "iFixit search failed: " + err.message)); }
+  finally { btn.disabled = false; btn.textContent = "Find teardown photos (iFixit)"; }
+}
+
 let currentFiles = []; // shrunk blobs of the current object (re-sent on "Add photo"; server caches each photo)
 
-async function analyze(files) {
+async function analyze(files, { added = null } = {}) {
   try {
     steps(0);
     const fd = new FormData();
     files.forEach((b, i) => fd.append("images", b, `photo${i + 1}.jpg`));
     STEP_NAMES[1] = files.length > 1 ? `AI finding parts in ${files.length} photos` : "AI finding parts & cutting them out";
     steps(1);
-    const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 180000);
+    const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 300000);
     let r;
     try { r = await fetch(API + "/api/physical/analyze", { method: "POST", body: fd, signal: ctl.signal }); }
-    catch (err) { throw new Error(err.name === "AbortError" ? "The analysis took over 3 minutes and was stopped. Please try again." : "Can't reach the server. Is uvicorn running?"); }
+    catch (err) { throw new Error(err.name === "AbortError" ? "The analysis took over 5 minutes and was stopped. Please try again." : "Can't reach the server. Is uvicorn running?"); }
     finally { clearTimeout(timer); }
     const data = await r.json().catch(() => ({}));
+    if (!r.ok && added && data.error && data.error.code === "different_object") {
+      // the added photo is another product: analyse it on its own instead of merging two objects
+      showError("That photo shows a different object, so it gets its own analysis.");
+      return analyze(added);
+    }
     if (!r.ok) throw new Error(errText(data, r.status));
     currentFiles = files;
     await build(data, { sample: false });
@@ -627,7 +679,7 @@ $("addFile").addEventListener("change", async (e) => {
   if (!list.length) return;
   const blobs = await pickFiles(list);
   const all = currentFiles.concat(blobs).slice(0, 4);
-  if (all.length > currentFiles.length) analyze(all);
+  if (all.length > currentFiles.length) analyze(all, { added: blobs.slice(0, 4) });
 });
 
 async function loadSamples() {
@@ -651,5 +703,5 @@ loadSamples();
 // ---------------------------------------------------------------- loop
 $("spin").addEventListener("change", (e) => { controls.autoRotate = e.target.checked; });
 controls.addEventListener("start", () => { if (controls.autoRotate) { controls.autoRotate = false; $("spin").checked = false; } });
-renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene3, camera); asm.render(); });
+renderer.setAnimationLoop(() => { controls.update(); if (!asm.renderScene()) renderer.render(scene3, camera); asm.render(); });
 window.__vre = { build, get state() { return { mode, parts: mode === "3d" ? asm.parts.length : parts.length, ghosts: ghosts.length, selected, removed, affected: [...affected] }; }, select };

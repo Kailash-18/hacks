@@ -86,8 +86,11 @@ Rules:
 - Be honest: do not invent parts you cannot see; put guesses in hidden_parts.
 """
 
-MERGE_PROMPT = """These part lists come from different photos of the SAME object. Decide which labels
-name the same physical part. Return ONLY JSON: {"groups": [["label as given", "other label as given"], ...]}
+MERGE_PROMPT = """These part lists come from different photos that SHOULD show the same object.
+1) Decide whether every photo shows the same object (same kind of product). A mouse and a phone are different.
+2) Decide which labels name the same physical part.
+Return ONLY JSON: {"same_object": true, "odd_photos": [numbers of photos that show a DIFFERENT object than photo 1],
+"groups": [["label as given", "other label as given"], ...]}
 Only group labels that are clearly the same part. Labels not in any group stay separate.
 Lists:
 """
@@ -103,13 +106,14 @@ LIMITATIONS = [
 
 MAX_VIEWS = 4
 LAST_TIMING: dict = {}  # filled per request; exposed as a Server-Timing header for debugging
-PIPELINE_VERSION = "10"  # bump when building logic changes, so saved results are rebuilt (model answers stay cached)
+PIPELINE_VERSION = "11"  # bump when building logic changes, so saved results are rebuilt (model answers stay cached)
 
 
 class AnalysisError(Exception):
-    def __init__(self, message: str, status: int = 422):
+    def __init__(self, message: str, status: int = 422, code: str = "analysis_failed"):
         super().__init__(message)
         self.status = status
+        self.code = code
 
 
 def _slug(text, fallback: str) -> str:
@@ -420,21 +424,39 @@ def _ask_model(image_bytes: bytes, vision_client: VisionClient, cache_dir=None) 
     return raw, img, jpeg
 
 
-def _merge_groups(raws: list[dict], vision_client) -> list[list[str]]:
-    """One cheap text-only call to match part names across photos (falls back to exact names)."""
+def _object_words(raw: dict) -> set[str]:
+    pr = raw.get("product") if isinstance(raw.get("product"), dict) else {}
+    text = " ".join(_str(x, 80) for x in (raw.get("object_name"), pr.get("category"))).lower()
+    return {w.rstrip("s") for w in re.findall(r"[a-z]{3,}", text)} - {"the", "and", "with", "wireless", "computer", "device", "object"}
+
+
+def _odd_photos_heuristic(raws: list[dict]) -> list[int]:
+    """Fallback check: photo i is 'different' when its object name/category shares no word with photo 1."""
+    first = _object_words(raws[0])
+    return [i + 1 for i, r in enumerate(raws[1:], start=1) if first and _object_words(r) and not (first & _object_words(r))]
+
+
+def _merge_groups(raws: list[dict], vision_client) -> tuple[list[list[str]], list[int]]:
+    """One cheap text-only call: which photos show a different object, and which part names match.
+    Falls back to exact names and a word-overlap check if the call fails."""
     fn = getattr(vision_client, "generate_text_json", None)
-    if fn is None or len(raws) < 2:
-        return []
+    if len(raws) < 2:
+        return [], []
+    if fn is None:
+        return [], _odd_photos_heuristic(raws)
     lists = []
     for i, r in enumerate(raws):
         labels = [_str(p.get("label"), 60) for p in _list(r.get("parts")) + _list(r.get("hidden_parts")) if isinstance(p, dict)]
-        lists.append(f"Photo {i + 1}: " + json.dumps([l for l in labels if l]))
+        lists.append(f"Photo {i + 1} (object: {_str(r.get('object_name'), 60)}): " + json.dumps([l for l in labels if l]))
     try:
         data = parse_model_json(fn(MERGE_PROMPT + "\n".join(lists)))
-        return [g for g in _list(data.get("groups")) if isinstance(g, list)]
+        odd = [int(x) for x in _list(data.get("odd_photos")) if isinstance(x, (int, float)) and 2 <= int(x) <= len(raws)]
+        if data.get("same_object") is False and not odd:
+            odd = _odd_photos_heuristic(raws) or list(range(2, len(raws) + 1))
+        return [g for g in _list(data.get("groups")) if isinstance(g, list)], odd
     except Exception as exc:  # merging is best-effort
         log.warning("physical: label merge skipped (%s)", exc)
-        return []
+        return [], _odd_photos_heuristic(raws)
 
 
 def analyze_physical_images(files: list[tuple[bytes, str]], vision_client: VisionClient, cache_dir=None) -> SystemAnalysis:
@@ -446,7 +468,13 @@ def analyze_physical_images(files: list[tuple[bytes, str]], vision_client: Visio
     with ThreadPoolExecutor(max_workers=len(files)) as pool:
         results = list(pool.map(lambda f: _ask_model(f[0], vision_client, cache_dir), files))
     t1 = time.perf_counter()
-    groups = _merge_groups([r for r, _, _ in results], vision_client)
+    groups, odd = _merge_groups([r for r, _, _ in results], vision_client)
+    if odd:  # never merge two different products into one model
+        n = odd[0]
+        raise AnalysisError(
+            f"Photo {n} shows a different object ({_str(results[n - 1][0].get('object_name'), 60) or 'unknown'}) than photo 1 "
+            f"({_str(results[0][0].get('object_name'), 60) or 'unknown'}). Photos are combined only when they show the same object.",
+            409, code="different_object")
     t2 = time.perf_counter()
     image_hash = hashlib.sha256(b"".join(hashlib.sha256(b).digest() for b, _ in files)).hexdigest()
     result = build_analysis_multi([(raw, img, name) for (raw, img, _), (_, name) in zip(results, files)],

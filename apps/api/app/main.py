@@ -107,7 +107,7 @@ async def _provider_error(_, exc: ProviderError):
 
 @app.exception_handler(AnalysisError)
 async def _analysis_error(_, exc: AnalysisError):
-    return _err(exc.status, "analysis_failed", str(exc))
+    return _err(exc.status, getattr(exc, "code", "analysis_failed"), str(exc))
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -197,6 +197,27 @@ def get_sample(sample_id: str):
     analysis = SystemAnalysis.model_validate(json.loads(f.read_text(encoding="utf-8")))
     _remember(analysis)
     return analysis.dump()
+
+
+@app.get("/api/physical/teardown")
+async def physical_teardown(q: str):
+    """Teardown reference photos for an identified product (iFixit public API, CC BY-NC-SA, with credit)."""
+    from .services.teardown import find_teardowns
+    return await run_in_threadpool(find_teardowns, q, CACHE_DIR)
+
+
+@app.get("/api/physical/teardown/image")
+async def physical_teardown_image(u: str):
+    """Small allow-listed proxy so the browser can add an iFixit photo as an extra view (no CORS issues)."""
+    from fastapi.responses import Response
+    from .services.teardown import fetch_image
+    try:
+        data, ctype = await run_in_threadpool(fetch_image, u)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception:
+        raise HTTPException(502, "Could not download that iFixit photo.")
+    return Response(data, media_type=ctype, headers={"Cache-Control": "max-age=86400"})
 
 
 @app.post("/api/physical/whatif")

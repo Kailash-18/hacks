@@ -441,3 +441,51 @@ def test_assembly_details_parsed_and_validated():
     assert [d.parent_id for d in a.details] == ["shell", "shell", "pcb"]
     assert a.details[0].shape == "slots" and a.details[0].count == 6
     assert a.details[2].shape == "rounded_box" and a.details[2].size[0] == 3 and a.details[2].count == 24
+
+
+def test_different_objects_are_not_merged(tmp_path):
+    from app.services.physical_analysis import AnalysisError, analyze_physical_images
+
+    class TwoThings(MultiFake):
+        def generate_json(self, image_bytes, mime_type, prompt):
+            img = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
+            r = bottom_response() if img.shape[1] > W else good_response()
+            if img.shape[1] > W:
+                r["object_name"], r["product"] = "Smartphone", {"category": "mobile phone"}
+            return json.dumps(r)
+
+        def generate_text_json(self, prompt):
+            return json.dumps({"same_object": False, "odd_photos": [2], "groups": []})
+
+    with pytest.raises(AnalysisError) as e:
+        analyze_physical_images([(synthetic_device(), "a.png"), (bottom_photo(), "b.png")], TwoThings(), tmp_path)
+    assert e.value.status == 409 and e.value.code == "different_object" and "Photo 2" in str(e.value)
+
+
+def test_odd_photo_heuristic():
+    from app.services.physical_analysis import _odd_photos_heuristic
+    mouse = {"object_name": "Wireless mouse", "product": {"category": "computer mouse"}}
+    phone = {"object_name": "OnePlus phone back", "product": {"category": "smartphone"}}
+    assert _odd_photos_heuristic([mouse, {"object_name": "Mouse bottom"}]) == []
+    assert _odd_photos_heuristic([mouse, phone]) == [2]
+
+
+def test_teardown_image_proxy_is_allow_listed():
+    from app.services.teardown import fetch_image
+    for bad in ("http://guide-images.cdn.ifixit.com/x.jpg", "https://evil.com/x.jpg", "https://ifixit.com.evil.com/a.jpg", "file:///etc/passwd"):
+        with pytest.raises(ValueError):
+            fetch_image(bad)
+
+
+def test_teardown_search_parses_guides(monkeypatch, tmp_path):
+    from app.services import teardown
+    def fake(url, timeout=15):
+        if "/search/" in url:
+            return {"results": [{"guideid": 7, "title": "Mouse Teardown", "url": "https://www.ifixit.com/Teardown/7"}]}
+        return {"title": "Mouse Teardown", "url": "https://www.ifixit.com/Teardown/7", "author": {"username": "kim"},
+                "steps": [{"media": {"type": "image", "data": [{"standard": "https://guide-images.cdn.ifixit.com/a.standard", "thumbnail": "https://guide-images.cdn.ifixit.com/a.thumbnail"}]},
+                           "lines": [{"text_raw": "Remove the [link|x|y] battery cover."}]}]}
+    monkeypatch.setattr(teardown, "_get_json", fake)
+    r = teardown.find_teardowns("Logitech mouse", tmp_path)
+    assert r["guides"][0]["author"] == "kim" and r["guides"][0]["images"][0]["step"] == 1
+    assert "CC BY-NC-SA" in r["license"] and list(tmp_path.glob("ifixit-*.json"))
