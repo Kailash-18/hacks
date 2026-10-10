@@ -117,7 +117,7 @@ class GeminiVisionClient:
         return None
 
     # ------------------------------------------------------------------ core call
-    def _generate(self, contents, cfg: dict) -> str:
+    def _generate(self, contents, cfg: dict, raw: bool = False):
         from google.genai import types
         today = _dt.datetime.utcnow().date().isoformat()
         tried = set()
@@ -134,7 +134,7 @@ class GeminiVisionClient:
                                                            config=types.GenerateContentConfig(**c))
                 if not resp.text:
                     raise ProviderError("Vision provider returned an empty response.", 502)
-                return resp.text
+                return resp if raw else resp.text
             except ProviderError:
                 raise
             except Exception as exc:
@@ -191,6 +191,44 @@ class GeminiVisionClient:
     def generate_json_images(self, images: list[tuple[bytes, str]], prompt: str) -> str:
         from google.genai import types
         return self._generate([types.Part.from_bytes(data=b, mime_type=m) for b, m in images] + [prompt], self._cfg())
+
+    def generate_grounded(self, images: list[tuple[bytes, str]], prompt: str) -> tuple[str, list[dict]]:
+        """Image(s) + prompt with the Google Search tool. Returns (text, web sources).
+
+        Search grounding has its own (small) free quota: try it once on the current model, never switch
+        models over it, and fall back to a plain call (model knowledge only, no sources) when it fails.
+        """
+        from google.genai import types
+        parts = [types.Part.from_bytes(data=b, mime_type=m) for b, m in images] + [prompt]
+        cfg = {"temperature": 0.1, "max_output_tokens": 4000,
+               "tools": [types.Tool(google_search=types.GoogleSearch())]}
+        if self.model.startswith("gemini-3") and self.model not in self._no_thinking:
+            cfg["thinking_config"] = types.ThinkingConfig(thinking_level="low")
+        today = _dt.datetime.utcnow().date().isoformat()
+        if self._search_off != today:
+            try:
+                resp = self._get().models.generate_content(model=self.model, contents=parts,
+                                                           config=types.GenerateContentConfig(**cfg))
+                if resp.text:
+                    sources, seen = [], set()
+                    try:
+                        for ch in (resp.candidates[0].grounding_metadata.grounding_chunks or []):
+                            web = getattr(ch, "web", None)
+                            if web and web.uri and web.uri not in seen:
+                                seen.add(web.uri)
+                                sources.append({"title": (web.title or "")[:100], "url": web.uri})
+                    except (AttributeError, IndexError, TypeError):
+                        pass
+                    return resp.text, sources
+            except Exception as exc:
+                t = str(exc)
+                self._save_error("search grounding: " + t)
+                if "429" in t or "RESOURCE_EXHAUSTED" in t or "400" in t or "403" in t:
+                    self._search_off = today  # out of search quota / unsupported: retry tomorrow
+                log.warning("gemini: web search unavailable (%s); identifying without it", t[:120])
+        return self._generate(parts, self._cfg(max_tokens=4000, temperature=0.1)), []
+
+    _search_off = ""
 
     def generate_text_json(self, prompt: str) -> str:
         return self._generate(prompt, self._cfg(max_tokens=2000, temperature=0))

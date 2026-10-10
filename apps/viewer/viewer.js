@@ -456,8 +456,46 @@ function renderPanel() {
     pe.innerHTML = "";
     const name = (pr.model && pr.brand && pr.model.toLowerCase().startsWith(pr.brand.toLowerCase()) ? pr.model
       : [pr.brand, pr.model].filter(Boolean).join(" ")) || pr.category || A.title;
-    pe.append(el("div", "", `Identified: ${name}` + (pr.model ? "" : " (exact model not readable)")));
-    if (pr.identifiedFrom) pe.append(el("div", "tiny muted", "From: " + pr.identifiedFrom));
+    const conf = pr.confidence == null ? null : Math.round(pr.confidence * 100);
+    const head = el("div", "id-head");
+    head.append(el("strong", "", name));
+    if (conf != null) head.append(el("span", `conf ${conf >= 75 ? "hi" : conf >= 45 ? "mid" : "lo"}`, `${conf}% sure`));
+    pe.append(el("div", "eyebrow", pr.userHint ? "Model you confirmed" : pr.webChecked ? "Identified · checked on the web" : pr.confidence != null ? "AI match · not web-verified" : "Identified from logo/text"), head);
+    if (!pr.model) pe.append(el("div", "tiny muted", "Exact model not found."));
+    if (pr.identifiedFrom) pe.append(el("div", "tiny muted", "Why: " + pr.identifiedFrom));
+    if (pr.visibleText) pe.append(el("div", "tiny muted", "Text read: “" + pr.visibleText + "”"));
+    if (pr.dimensionsMm) pe.append(el("div", "tiny muted", `Real size used for 3D: ${pr.dimensionsMm.map((v) => Math.round(v)).join(" × ")} mm`));
+    if (pr.sources?.length) {
+      const sw = el("div", "tiny muted src", "Sources: ");
+      pr.sources.slice(0, 3).forEach((src, i) => {
+        let host = ""; try { host = new URL(src.url).hostname.replace(/^www\./, ""); } catch { /* ignore */ }
+        const a = el("a", "", src.title || host || `link ${i + 1}`); a.href = src.url; a.target = "_blank"; a.rel = "noopener";
+        sw.append(a, i < Math.min(3, pr.sources.length) - 1 ? ", " : "");
+      });
+      pe.append(sw);
+    }
+    if (!isSample && currentFiles?.length) {
+      const fix = el("div", "id-fix");
+      if (pr.candidates?.length) {
+        fix.append(el("div", "tiny muted", "Not it? Maybe:"));
+        const row = el("div", "cands");
+        pr.candidates.forEach((c) => {
+          const label = c.brand && !c.model.toLowerCase().startsWith(c.brand.toLowerCase()) ? `${c.brand} ${c.model}` : c.model;
+          const b = el("button", "btn small", label + (c.confidence ? ` · ${Math.round(c.confidence * 100)}%` : ""));
+          b.onclick = () => analyze(currentFiles, { hint: label });
+          row.append(b);
+        });
+        fix.append(row);
+      }
+      const form = el("form", "id-input");
+      const inp = Object.assign(el("input"), { placeholder: "Type the exact model, e.g. Logitech M185", value: pr.userHint || "" });
+      const go = el("button", "btn small primary", "Rebuild 3D");
+      form.append(inp, go);
+      form.onsubmit = (e) => { e.preventDefault(); const v = inp.value.trim(); if (v) analyze(currentFiles, { hint: v }); };
+      fix.append(form);
+      if ((conf ?? 0) < 60 && !pr.userHint) fix.append(el("div", "tiny tip", "Tip: flip the object and add a photo of the label underneath (“+ Add photo”); model numbers are usually printed there."));
+      pe.append(fix);
+    }
     if (!isSample) {
       const a = el("a", "btn small", "Find photos of this model ↗");
       a.href = "https://www.google.com/search?tbm=isch&q=" + encodeURIComponent(pr.searchQuery || name);
@@ -635,11 +673,12 @@ async function showTeardowns(query, btn) {
 
 let currentFiles = []; // shrunk blobs of the current object (re-sent on "Add photo"; server caches each photo)
 
-async function analyze(files, { added = null } = {}) {
+async function analyze(files, { added = null, hint = "" } = {}) {
   try {
     steps(0);
     const fd = new FormData();
     files.forEach((b, i) => fd.append("images", b, `photo${i + 1}.jpg`));
+    if (hint) fd.append("model_hint", hint);
     STEP_NAMES[1] = files.length > 1 ? `AI finding parts in ${files.length} photos` : "AI finding parts & cutting them out";
     steps(1);
     const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 300000);

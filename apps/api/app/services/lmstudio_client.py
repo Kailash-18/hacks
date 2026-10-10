@@ -124,3 +124,9 @@ class FallbackVisionClient:
 
     def generate_text_json(self, *a):
         return self._run("generate_text_json", *a)
+
+    def generate_grounded(self, *a):  # web search exists only on Gemini
+        g = next((p for p in self.providers if hasattr(p, "generate_grounded") and getattr(p, "ready", True)), None)
+        if g is None:
+            raise ProviderError("No provider with web search.", 503)
+        return g.generate_grounded(*a)

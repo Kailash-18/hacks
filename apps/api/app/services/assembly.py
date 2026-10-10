@@ -187,11 +187,26 @@ def parse_assembly(raw: dict, component_ids: set[str], types: dict[str, str] | N
     return Assembly(units="mm", overallSize=overall, parts=parts, details=details)
 
 
-def build_assembly(analysis: SystemAnalysis, jpegs: list[bytes], vision_client: VisionClient, cache_dir=None) -> Assembly | None:
+def product_context(product) -> str:
+    """Known product + real dimensions make the 3D proportions match the actual object."""
+    if product is None or not (product.model or product.brand):
+        return ""
+    b, m = product.brand or "", product.model or ""
+    name = m if b and m.lower().startswith(b.lower()) else f"{b} {m}".strip()
+    out = f"\nThe object is identified as: {name}. Use your knowledge of this product's real design and internals."
+    if product.dimensions_mm:
+        w, h, d = product.dimensions_mm
+        out += (f" Its published size is about {w:g} x {h:g} x {d:g} mm: map these onto overall_size "
+                "(x = width, y = height, z = depth for the object resting in normal use).")
+    return out
+
+
+def build_assembly(analysis: SystemAnalysis, jpegs: list[bytes], vision_client: VisionClient, cache_dir=None,
+                   product=None) -> Assembly | None:
     comps = analysis.components
     listing = "\n".join(f'- id "{c.id}": {c.label} ({c.type}; {"visible" if c.status == "observed" else "inferred, not visible"})'
                         for c in comps)
-    prompt = PROMPT.format(parts=listing, materials=", ".join(MATERIALS))
+    prompt = PROMPT.format(parts=listing, materials=", ".join(MATERIALS)) + product_context(product)
     key = hashlib.sha256(b"".join(hashlib.sha256(j).digest() for j in jpegs) + prompt.encode()
                          + vision_client.model.encode()).hexdigest()
     cached = cache_dir / f"asm-{key}.json" if cache_dir else None

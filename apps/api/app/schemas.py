@@ -92,6 +92,14 @@ class Product(_Model):
     model: Optional[str] = None
     search_query: str = Field(default="", alias="searchQuery")
     identified_from: str = Field(default="", alias="identifiedFrom")
+    # web-checked identification (Gemini + Google Search); still a model guess, see confidence
+    confidence: Optional[float] = Field(default=None, ge=0, le=1)
+    visible_text: str = Field(default="", alias="visibleText")
+    dimensions_mm: Optional[list[float]] = Field(default=None, alias="dimensionsMm")
+    candidates: list[dict] = []
+    sources: list[dict] = []
+    user_hint: str = Field(default="", alias="userHint")
+    web_checked: bool = Field(default=False, alias="webChecked")
 
 
 class AssemblyPart(_Model):

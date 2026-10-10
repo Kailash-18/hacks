@@ -159,15 +159,16 @@ async def physical_analyze(request: Request):
             raise HTTPException(400, "Empty file.")
         files.append((data, u.filename or f"photo{len(files) + 1}"))
 
+    hint = str(form.get("model_hint") or "").strip()[:100]  # user-confirmed exact model (optional)
     key = hashlib.sha256(b"".join(hashlib.sha256(d).digest() for d, _ in files) + vision.model.encode()
-                         + PROMPT_VERSION.encode()).hexdigest()
+                         + PROMPT_VERSION.encode() + hint.lower().encode()).hexdigest()
     cached = CACHE_DIR / f"{key}.json"
     cached_hit = cached.exists()
     if cached_hit:  # free-tier friendly: same photos never cost a second model call
         analysis = SystemAnalysis.model_validate(json.loads(cached.read_text(encoding="utf-8")))
     else:
         # run the blocking model calls off the event loop so the server stays responsive
-        analysis = await run_in_threadpool(analyze_physical_images, files, vision, CACHE_DIR)
+        analysis = await run_in_threadpool(analyze_physical_images, files, vision, CACHE_DIR, hint)
         if analysis.scene and analysis.scene.assembly:  # never save a result whose 3D step failed
             CACHE_DIR.mkdir(exist_ok=True)
             cached.write_text(json.dumps(analysis.dump()), encoding="utf-8")
@@ -175,6 +176,29 @@ async def physical_analyze(request: Request):
     from .services import physical_analysis as pa
     timing = ", ".join(f"{k};dur={v * 1000:.0f}" for k, v in pa.LAST_TIMING.items()) if not cached_hit else "cache;dur=0"
     return JSONResponse(analysis.dump(), headers={"Server-Timing": timing})
+
+
+@app.post("/api/physical/identify")
+async def physical_identify(request: Request):
+    """Exact-model lookup only (Gemini + Google Search). Form: ``images`` (1-4), optional ``model_hint``."""
+    from .services import identify as idm
+    from .services import image_ops as ops
+    form = await request.form()
+    uploads = [u for u in form.getlist("images") if hasattr(u, "read")][:MAX_VIEWS]
+    if not uploads:
+        raise HTTPException(400, "Upload at least one photo.")
+    jpegs = []
+    for u in uploads:
+        data = await u.read(MAX_BYTES + 1)
+        try:
+            jpegs.append(ops.encode_jpeg(ops.fit(ops.decode_image(data), 768)))
+        except ValueError:
+            raise HTTPException(400, "One of the files is not a readable image.")
+    hint = str(form.get("model_hint") or "").strip()[:100]
+    out = await run_in_threadpool(idm.identify_product, jpegs, vision, CACHE_DIR, hint)
+    if out is None:
+        raise HTTPException(503, "Web identification unavailable: " + idm.LAST_ERROR["text"][:300])
+    return out
 
 
 @app.get("/api/physical/samples")

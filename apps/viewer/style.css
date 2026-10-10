@@ -153,3 +153,15 @@ details summary { cursor: pointer; font-weight: 600; color: var(--muted); }
 .tgrid img.on { border-color: var(--accent); opacity: 1; }
 .teardown a { color: #8fb4ff; text-decoration: none; font-weight: 600; }
 .teardown a:hover { text-decoration: underline; }
+
+.id-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15px; }
+.conf { font: 600 11px Inter, sans-serif; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.conf.hi { color: var(--ok); } .conf.mid { color: var(--warn); } .conf.lo { color: var(--danger); }
+.src a { color: var(--accent); text-decoration: none; } .src a:hover { text-decoration: underline; }
+.id-fix { display: grid; gap: 6px; padding-top: 6px; border-top: 1px dashed var(--line); }
+.cands { display: flex; flex-wrap: wrap; gap: 6px; }
+.id-input { display: flex; gap: 6px; }
+.id-input input { flex: 1; min-width: 0; background: var(--surface); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 12px; }
+.id-input input:focus { outline: none; border-color: var(--accent); }
+.tip { color: var(--warn); }

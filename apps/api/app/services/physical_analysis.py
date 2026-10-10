@@ -106,7 +106,7 @@ LIMITATIONS = [
 
 MAX_VIEWS = 4
 LAST_TIMING: dict = {}  # filled per request; exposed as a Server-Timing header for debugging
-PIPELINE_VERSION = "11"  # bump when building logic changes, so saved results are rebuilt (model answers stay cached)
+PIPELINE_VERSION = "12"  # bump when building logic changes, so saved results are rebuilt (model answers stay cached)
 
 
 class AnalysisError(Exception):
@@ -459,14 +459,49 @@ def _merge_groups(raws: list[dict], vision_client) -> tuple[list[list[str]], lis
         return [], _odd_photos_heuristic(raws)
 
 
-def analyze_physical_images(files: list[tuple[bytes, str]], vision_client: VisionClient, cache_dir=None) -> SystemAnalysis:
+def _apply_identification(result: SystemAnalysis, ident: dict | None) -> None:
+    if not ident or result.scene is None:
+        return
+    pr = result.scene.product or Product(category=ident.get("category") or "")
+    if ident.get("model"):
+        pr.brand, pr.model = ident.get("brand") or pr.brand, ident["model"]
+    elif ident.get("brand") and not pr.brand:
+        pr.brand = ident["brand"]
+    pr.category = pr.category or ident.get("category") or ""
+    pr.search_query = ident.get("search_query") or pr.search_query
+    pr.identified_from = ident.get("evidence") or pr.identified_from
+    pr.confidence = ident.get("confidence")
+    pr.visible_text = ident.get("visible_text") or ""
+    pr.dimensions_mm = ident.get("dimensions_mm")
+    pr.candidates = ident.get("candidates") or []
+    pr.sources = ident.get("sources") or []
+    pr.user_hint = ident.get("user_hint") or ""
+    pr.web_checked = bool(pr.sources)
+    result.scene.product = pr
+
+
+def analyze_physical_images(files: list[tuple[bytes, str]], vision_client: VisionClient, cache_dir=None,
+                            hint: str = "") -> SystemAnalysis:
     if not files:
         raise AnalysisError("No image uploaded.", 400)
     files = files[:MAX_VIEWS]
     from concurrent.futures import ThreadPoolExecutor
     t0 = time.perf_counter()
-    with ThreadPoolExecutor(max_workers=len(files)) as pool:
+    from .identify import identify_product
+    id_jpegs = []
+    for b, _ in files:
+        try:
+            id_jpegs.append(ops.encode_jpeg(ops.fit(ops.decode_image(b), 768)))
+        except ValueError:
+            pass
+    with ThreadPoolExecutor(max_workers=len(files) + 1) as pool:
+        # exact-model lookup (web search) runs alongside the part analysis, so it adds no waiting time
+        id_future = pool.submit(identify_product, id_jpegs, vision_client, cache_dir, hint)
         results = list(pool.map(lambda f: _ask_model(f[0], vision_client, cache_dir), files))
+        try:
+            ident = id_future.result(timeout=120)
+        except Exception:
+            ident = None
     t1 = time.perf_counter()
     groups, odd = _merge_groups([r for r, _, _ in results], vision_client)
     if odd:  # never merge two different products into one model
@@ -479,10 +514,15 @@ def analyze_physical_images(files: list[tuple[bytes, str]], vision_client: Visio
     image_hash = hashlib.sha256(b"".join(hashlib.sha256(b).digest() for b, _ in files)).hexdigest()
     result = build_analysis_multi([(raw, img, name) for (raw, img, _), (_, name) in zip(results, files)],
                                   Provider(name=vision_client.name, model=vision_client.model), image_hash, groups)
+    _apply_identification(result, ident)
+    if ident is None and result.scene is not None:
+        result.scene.notes.append("Exact-model web lookup was unavailable this time (free quota or busy); "
+                                  "identification uses visible logos/text only.")
     t3 = time.perf_counter()
     try:  # simplified 3D model for the 360-degree exploded view (best-effort; layers still work without it)
         from .assembly import build_assembly
-        result.scene.assembly = build_assembly(result, [j for _, _, j in results], vision_client, cache_dir)
+        result.scene.assembly = build_assembly(result, [j for _, _, j in results], vision_client, cache_dir,
+                                                product=result.scene.product)
         if result.scene.assembly is None:
             result.scene.notes.append("3D model could not be built; showing photo layers only.")
     except Exception as exc:
@@ -496,5 +536,6 @@ def analyze_physical_images(files: list[tuple[bytes, str]], vision_client: Visio
     return result
 
 
-def analyze_physical_image(image_bytes: bytes, filename: str, vision_client: VisionClient, cache_dir=None) -> SystemAnalysis:
-    return analyze_physical_images([(image_bytes, filename)], vision_client, cache_dir)
+def analyze_physical_image(image_bytes: bytes, filename: str, vision_client: VisionClient, cache_dir=None,
+                           hint: str = "") -> SystemAnalysis:
+    return analyze_physical_images([(image_bytes, filename)], vision_client, cache_dir, hint)
