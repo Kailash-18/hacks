@@ -1,4 +1,4 @@
-"""Copy the Build results (code, React version, guide) of the saved Digital samples into the repo.
+"""Copy the Build results (code, React version, guide, back end) of the saved Digital samples into the repo.
 
     cd apps/api
     python scripts/save_build_samples.py            # copies what is already in .cache/build (no model call)
@@ -27,7 +27,7 @@ except ImportError:
     pass
 
 from app.samples import load_samples  # noqa: E402
-from app.services import codegen  # noqa: E402
+from app.services import codegen, digital_extras  # noqa: E402
 
 REACT_CHANGE = "Convert this page to a React component; keep the look identical."  # same text as build.js
 
@@ -51,6 +51,8 @@ def main(argv=None) -> int:
         for label, name, make in [
             ("html", codegen.code_key(a.analysisId), lambda: codegen.generate_code(a, img, s.mime, client)),
             ("guide", codegen.guide_key(a.analysisId), lambda: codegen.generate_guide(a, img, s.mime, client)),
+            ("backend", digital_extras.backend_key(a.analysisId),
+             lambda: digital_extras.generate_backend(a, img, s.mime, client)),
         ]:
             got = _save(name, out_dir, make if client else None)
             print(f"{s.id:22} {label:6} {'saved' if got else 'missing'}")
