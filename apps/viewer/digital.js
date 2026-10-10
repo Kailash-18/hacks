@@ -67,8 +67,31 @@ async function analyzeScreen(s) {
   }
 }
 
-$("#file").addEventListener("change", async (ev) => {
+$("#file").addEventListener("change", (ev) => {
   const files = [...ev.target.files]; ev.target.value = "";
+  addFiles(files);
+});
+
+// Ctrl+V a screenshot anywhere on the page (text pastes into inputs still work normally)
+document.addEventListener("paste", (ev) => {
+  const imgs = [...(ev.clipboardData?.items || [])].filter((it) => it.kind === "file" && it.type.startsWith("image/")).map((it) => it.getAsFile()).filter(Boolean);
+  if (!imgs.length) return;
+  ev.preventDefault();
+  const stamp = new Date().toTimeString().slice(0, 8).replace(/:/g, "");
+  addFiles(imgs.map((f, i) => new File([f], `pasted-${stamp}${imgs.length > 1 ? "-" + (i + 1) : ""}.${(f.type.split("/")[1] || "png").replace("jpeg", "jpg")}`, { type: f.type })));
+  toast(imgs.length > 1 ? `Pasted ${imgs.length} screenshots` : "Pasted screenshot");
+});
+
+// drag screenshots from the desktop onto the page
+document.addEventListener("dragover", (ev) => { if ([...ev.dataTransfer.types].includes("Files")) ev.preventDefault(); });
+document.addEventListener("drop", (ev) => {
+  const files = [...(ev.dataTransfer?.files || [])].filter((f) => f.type.startsWith("image/"));
+  if (!files.length) return;
+  ev.preventDefault();
+  addFiles(files);
+});
+
+async function addFiles(files) {
   if (!files.length) return;
   const added = [];
   for (const f of files) added.push(await addScreen({ name: f.name, blob: f }));
@@ -78,7 +101,7 @@ $("#file").addEventListener("change", async (ev) => {
     if (s === cur() || !cur()?.analysis) selectScreen(S.screens.indexOf(s));
   }
   autoPair();
-});
+}
 
 async function loadSamples() {
   try {
@@ -102,6 +125,9 @@ async function loadSamples() {
 $("#loadSamples").onclick = loadSamples;
 $("#loadSamples2").onclick = loadSamples;
 
+// saved samples keep the title they were saved with ("Dashboard (v2 redesign)"); uploads use the model's title
+const screenName = (s) => (s.sample ? s.name : s.analysis?.title || s.name);
+
 function renderScreens() {
   $("#screenCount").textContent = S.screens.length ? `${ready().length}/${S.screens.length}` : "";
   $("#screenList").innerHTML = S.screens.map((s, i) => `
@@ -109,7 +135,7 @@ function renderScreens() {
       <img src="${s.url}" alt="" />
       ${s.sample ? '<span class="sbadge">SAMPLE</span>' : ""}
       ${s.busy ? '<div class="sbusy">reading…</div>' : ""}
-      <div class="sname">${esc(s.analysis?.title || s.name)}</div>
+      <div class="sname">${esc(screenName(s))}</div>
       <div class="smeta">${s.analysis ? `${s.analysis.components.length} components` : s.error ? "failed — click to retry" : "analysing"}</div>
     </li>`).join("");
   $$("#screenList li").forEach((li) => (li.onclick = () => {
@@ -190,7 +216,8 @@ function renderPanelHead() {
   if (S.tab === "workflow") { badge.textContent = "Workflow hypotheses"; badge.className = "eyebrow"; }
   else if (S.tab === "compare") { badge.textContent = "Visual difference"; badge.className = "eyebrow"; }
   else { badge.textContent = s?.sample ? "Sample · saved real result" : "Live analysis"; badge.className = "eyebrow" + (s?.sample ? " sample" : ""); }
-  $("#title").textContent = a?.title || (S.tab === "workflow" ? "Workflow" : S.tab === "compare" ? "Compare versions" : s?.name || "");
+  $("#title").textContent = S.tab === "compare" && S.diffPair && a ? `Changes: ${screenName(S.diffPair[0])} → ${screenName(S.diffPair[1])}`
+    : a?.title || (S.tab === "workflow" ? "Workflow" : S.tab === "compare" ? "Compare versions" : s?.name || "");
   $("#summary").textContent = a?.summary || (s?.busy ? "Reading the interface…" : "");
   const lims = a?.limitations || [];
   $("#limits").innerHTML = lims.map((l) => `<li>${esc(l)}</li>`).join("");
@@ -457,7 +484,7 @@ function renderFlowSide() {
 
 // ---------- compare ----------
 function fillPairSelects() {
-  const opts = S.screens.map((s, i) => s.analysis ? `<option value="${i}">${esc(s.analysis.title || s.name)}</option>` : "").join("");
+  const opts = S.screens.map((s, i) => s.analysis ? `<option value="${i}">${esc(screenName(s))}</option>` : "").join("");
   for (const id of ["#beforeSel", "#afterSel"]) { const el = $(id), v = el.value; el.innerHTML = opts; if (v && el.querySelector(`option[value="${v}"]`)) el.value = v; }
 }
 function autoPair() {
@@ -533,6 +560,8 @@ $("#runBuild").onclick = async () => {
 
 function renderRebuild() {
   const s = cur(), r = s?.analysis && S.builds[s.analysis.analysisId];
+  // no model call is involved, so the draft is generated as soon as the tab opens
+  if (!r && s?.analysis && !(S.autoBuilt ||= {})[s.analysis.analysisId]) { S.autoBuilt[s.analysis.analysisId] = 1; $("#runBuild").click(); }
   $("#buildEmpty").hidden = !!r;
   $(".rebuild").hidden = !r;
   $$("#codeTabs button").forEach((b) => b.classList.toggle("on", b.dataset.k === S.codeTab));
@@ -542,12 +571,26 @@ function renderRebuild() {
   $(".side-by-side").hidden = k !== "preview";
   $("#code").hidden = !["html", "react", "css"].includes(k);
   $("#docs").hidden = k !== "docs";
-  if (k === "preview") { $("#origImg").src = s.url; if ($("#preview").dataset.for !== s.analysis.analysisId) { $("#preview").srcdoc = r.prototype.html; $("#preview").dataset.for = s.analysis.analysisId; } }
+  if (k === "preview") {
+    $("#origImg").src = s.url;
+    if ($("#preview").dataset.for !== s.analysis.analysisId) { $("#preview").srcdoc = r.prototype.html; $("#preview").dataset.for = s.analysis.analysisId; }
+    requestAnimationFrame(() => fitPreview(s));
+  }
   if (k === "html") $("#code").textContent = r.prototype.html;
   if (k === "react") $("#code").textContent = r.prototype.react;
   if (k === "css") $("#code").textContent = r.tokens ? r.tokens.css + "\n\n/* " + r.tokens.method + " */" : "/* No image, no measured tokens. */";
   if (k === "docs") $("#docs").innerHTML = md(r.docs);
 }
+
+// render the draft at the screenshot's real size, then scale it to the column (same scale as the original)
+function fitPreview(s) {
+  const wrap = $("#pvwrap"), f = $("#preview");
+  if (!wrap || !s?.w || !wrap.clientWidth) return;
+  const k = wrap.clientWidth / s.w;
+  f.style.width = `${s.w}px`; f.style.height = `${s.h}px`; f.style.transform = `scale(${k})`;
+  wrap.style.height = `${Math.round(s.h * k)}px`;
+}
+addEventListener("resize", () => { if (S.tab === "rebuild" && S.codeTab === "preview") fitPreview(cur()); });
 
 $("#download").onclick = () => {
   const s = cur(), r = s?.analysis && S.builds[s.analysis.analysisId];

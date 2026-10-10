@@ -123,9 +123,11 @@
 .rebuild { flex-direction: column; align-items: stretch; gap: 14px; }
 .side-by-side { display: flex; gap: 18px; align-items: flex-start; min-height: 0; }
 .side-by-side img { max-width: 100%; max-height: calc(100vh - 230px); border-radius: 6px; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
-.side-by-side figure:first-child { flex: 0 1 38%; }
-.side-by-side .grow { flex: 1 1 62%; align-items: stretch; }
-#preview { width: 100%; height: calc(100vh - 230px); border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.side-by-side figure:first-child { flex: 1 1 50%; }
+.side-by-side .grow { flex: 1 1 50%; align-items: stretch; }
+/* the draft renders at the screenshot's real width and is scaled down, so it reflows like the original */
+.pvwrap { position: relative; width: 100%; overflow: hidden; border-radius: 6px; background: #fff; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+#preview { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; background: #fff; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .seg button { appearance: none; border: 0; background: var(--surface-2); color: var(--muted); font: inherit; font-size: 12px; padding: 5px 10px; cursor: pointer; }
 .seg button.on { background: var(--accent); color: #fff; }

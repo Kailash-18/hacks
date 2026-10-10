@@ -41,6 +41,7 @@
       <h1>Screenshot in. System map out.</h1>
       <p>Upload screenshots of any website or app. The AI finds every section, button, form and card, builds the component tree, guesses how screens connect, compares versions and drafts code you can start from.</p>
       <ul class="tips">
+        <li>Paste a screenshot with <b>Ctrl+V</b> (Win+Shift+S, then Ctrl+V here) or drag files onto the page</li>
         <li>One screen per screenshot, full page or app window</li>
         <li>Upload several screens of the same product to map the workflow</li>
         <li>Upload two versions of a screen to see what changed</li>
@@ -112,7 +113,7 @@
       </div>
       <div class="canvas-wrap rebuild">
         <div class="side-by-side"><figure><figcaption>Original</figcaption><img id="origImg" alt="" /></figure>
-          <figure class="grow"><figcaption>Reconstructed draft</figcaption><iframe id="preview" title="Reconstructed prototype" sandbox=""></iframe></figure></div>
+          <figure class="grow"><figcaption>Reconstructed draft</figcaption><div class="pvwrap" id="pvwrap"><iframe id="preview" title="Reconstructed prototype" sandbox=""></iframe></div></figure></div>
         <pre id="code" class="code" hidden></pre>
         <article id="docs" class="docs" hidden></article>
       </div>

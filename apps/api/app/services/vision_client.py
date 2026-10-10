@@ -233,6 +233,12 @@ class GeminiVisionClient:
     def generate_text_json(self, prompt: str) -> str:
         return self._generate(prompt, self._cfg(max_tokens=2000, temperature=0))
 
+    def generate_code_text(self, image_bytes: bytes, mime_type: str, prompt: str) -> str:
+        """Plain-text answer (no JSON mode): long code survives intact instead of being escaped inside JSON."""
+        from google.genai import types
+        return self._generate([types.Part.from_bytes(data=image_bytes, mime_type=mime_type), prompt],
+                              {"temperature": 0.2, "max_output_tokens": int(os.getenv("GEMINI_CODE_MAX_TOKENS", "20000"))})
+
     @staticmethod
     def _cfg(max_tokens: int | None = None, temperature: float = 0.2) -> dict:
         return {"response_mime_type": "application/json", "temperature": temperature,

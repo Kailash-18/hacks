@@ -65,7 +65,7 @@ app.add_middleware(
 async def _no_stale_viewer(request, call_next):
     """Browsers must revalidate the viewer files, so a code update is never hidden by the cache."""
     resp = await call_next(request)
-    if request.url.path in ("/", "/digital") or request.url.path.startswith("/viewer/"):
+    if request.url.path in ("/", "/digital", "/digital/explorer") or request.url.path.startswith("/viewer/"):
         resp.headers["Cache-Control"] = "no-cache"
     return resp
 
@@ -118,6 +118,8 @@ async def _http_error(_, exc: StarletteHTTPException):
 
 register_error_handlers(app)  # ApiError + request validation -> same {"error": {code, message}} shape
 app.include_router(digital_router)  # /api/digital/*, /api/analysis/{id}, /api/analysis/{id}/chat
+from .routes_build import router as build_router  # noqa: E402
+app.include_router(build_router)  # /api/digital/{code,guide}: screenshot -> code, screenshot -> build guide
 from .routes_explorer import router as explorer_router  # noqa: E402
 app.include_router(explorer_router)  # /api/digital/{whatif,workflow,diff,reconstruct}, /{id}/tree
 
@@ -269,5 +271,9 @@ if VIEWER_DIR.exists():
         return FileResponse(VIEWER_DIR / "index.html")
 
     @app.get("/digital")
-    def digital_index():
+    def digital_index():  # simple flow: one screenshot -> code, build guide, structure
+        return FileResponse(VIEWER_DIR / "build.html")
+
+    @app.get("/digital/explorer")
+    def digital_explorer():  # advanced: several screens, workflow graph, version compare, repo mapping
         return FileResponse(VIEWER_DIR / "digital.html")

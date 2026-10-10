@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Digital Lab · Visual Reverse Engineering</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/viewer/build.css" />
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="/">Visual Reverse Engineering</a>
+  <nav class="labs" aria-label="Lab"><a href="/">Physical</a><a href="/digital" aria-current="page">Digital</a></nav>
+  <a class="advanced" href="/digital/explorer" title="Several screens: user workflow, version compare, link to source code">Multi-screen explorer</a>
+</header>
+
+<!-- start: one job, get a screenshot in -->
+<main id="start" class="start">
+  <h1>Paste a screenshot.<br />Get the code to build it.</h1>
+  <p class="lede">Any website or app screen. You get working HTML or React, a step-by-step build plan, and the structure behind it.</p>
+  <label class="drop" id="drop" for="file" tabindex="0">
+    <input id="file" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+    <span class="drop-main"><kbd>Ctrl</kbd> + <kbd>V</kbd> to paste</span>
+    <span class="drop-sub">or drop an image here, or <u>choose a file</u></span>
+  </label>
+  <section class="examples" aria-label="Examples">
+    <h2>Or start from an example</h2>
+    <div id="examples" class="ex-row"></div>
+  </section>
+</main>
+
+<!-- result -->
+<main id="work" class="work" hidden>
+  <div class="head">
+    <img id="thumb" class="thumb" alt="" />
+    <div class="head-text">
+      <h1 id="title">Reading the screenshot…</h1>
+      <p id="summary" class="muted"></p>
+    </div>
+    <button class="btn" id="newShot">New screenshot</button>
+  </div>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="code" aria-selected="true">Rebuilt code</button>
+    <button role="tab" data-tab="guide">How to build it</button>
+    <button role="tab" data-tab="structure">Structure</button>
+  </nav>
+
+  <p id="status" class="status" role="status"></p>
+
+  <!-- code -->
+  <section id="tab-code" class="tab">
+    <div class="code-grid">
+      <div class="stage-col">
+        <div class="tools">
+          <div class="seg" id="viewSeg"><button data-v="wipe" class="on">Compare</button><button data-v="side">Side by side</button><button data-v="code">Code</button></div>
+          <div class="seg" id="targetSeg"><button data-t="html" class="on">HTML</button><button data-t="react">React</button></div>
+        </div>
+        <div id="stage" class="stage">
+          <div class="wipe" id="wipe">
+            <div class="layer rebuilt"><iframe id="frame" title="Rebuilt page" sandbox="allow-scripts"></iframe></div>
+            <div class="layer original" id="origLayer"><img id="origImg" alt="Original screenshot" /></div>
+            <div class="catch" aria-hidden="true"></div>
+            <div class="handle" id="handle" role="slider" tabindex="0" aria-label="Compare original and rebuilt" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><span></span></div>
+            <span class="tag left">Original</span><span class="tag right">Rebuilt</span>
+          </div>
+          <div class="side" id="side" hidden>
+            <figure><img id="sideImg" alt="Original screenshot" /><figcaption>Original</figcaption></figure>
+            <figure><div class="sideframe" id="sideFrameWrap"><iframe id="sideFrame" title="Rebuilt page" sandbox="allow-scripts"></iframe></div><figcaption>Rebuilt</figcaption></figure>
+          </div>
+          <pre id="codeView" class="codeview" hidden><code id="codeText"></code></pre>
+          <div id="stageWait" class="stage-wait" hidden><div class="spinner"></div><span id="stageWaitText">Writing the code…</span></div>
+        </div>
+      </div>
+
+      <aside class="panel">
+        <div class="actions">
+          <button class="btn primary" id="copy">Copy code</button>
+          <button class="btn" id="download">Download</button>
+          <button class="btn" id="openTab" title="Open the rebuilt page in a new tab">Open</button>
+        </div>
+        <form id="changeForm" class="change">
+          <label for="change">Change it</label>
+          <textarea id="change" rows="3" placeholder="e.g. make the sidebar collapsible, add a dark mode, make it mobile friendly"></textarea>
+          <div class="chips" id="chips"></div>
+          <button class="btn primary" id="apply">Apply change</button>
+        </form>
+        <div class="versions">
+          <h3>Versions</h3>
+          <ol id="versions"></ol>
+          <button class="link" id="regen">Write it again from scratch</button>
+        </div>
+        <div id="notes" class="notes"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- guide -->
+  <section id="tab-guide" class="tab" hidden>
+    <article id="guide" class="guide"></article>
+  </section>
+
+  <!-- structure -->
+  <section id="tab-structure" class="tab" hidden>
+    <div class="struct">
+      <div class="shot"><img id="structImg" alt="Screenshot with detected parts" /><div id="boxes" class="boxes"></div></div>
+      <div class="tree-col">
+        <h3>Parts found <span id="partCount" class="muted"></span></h3>
+        <ul id="tree" class="tree"></ul>
+        <form id="askForm" class="ask">
+          <label for="ask">Ask about this screen</label>
+          <div class="ask-row"><input id="ask" placeholder="What does the search bar do?" autocomplete="off" /><button class="btn">Ask</button></div>
+          <div id="answer" class="answer"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast" role="alert" hidden></div>
+<script src="/viewer/build.js"></script>
+</body>
+</html>

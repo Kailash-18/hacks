@@ -113,6 +113,21 @@ class SharedClientAdapter:
             self.last_call = {"seconds": round(time.perf_counter() - t0, 1), "provider": self.name, "model": self.model}
         return text
 
+    def generate_code_text(self, image_bytes: bytes, mime: str | None, prompt: str) -> str:
+        """Image + prompt -> plain text (Digital Lab code generation). Same error mapping as generate_json."""
+        from .vision_client import ProviderError
+
+        if not hasattr(self.inner, "generate_code_text"):
+            return self.generate_json(image_bytes, mime, prompt)
+        t0 = time.perf_counter()
+        try:
+            return self.inner.generate_code_text(image_bytes, mime or "image/png", prompt)
+        except ProviderError as exc:
+            status = int(getattr(exc, "status", 502) or 502)
+            raise VisionProviderError(_CODE_BY_STATUS.get(status, "provider_error"), str(exc), status) from None
+        finally:
+            self.last_call = {"seconds": round(time.perf_counter() - t0, 1), "provider": self.name, "model": self.model}
+
     def generate_json_images(self, images: list[tuple[bytes, str]], prompt: str) -> str:
         """Several images in one call (Digital Lab visual diff). Same error mapping as generate_json."""
         from .vision_client import ProviderError

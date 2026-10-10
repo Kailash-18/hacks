@@ -2,6 +2,12 @@
 
 Open `http://localhost:8000/digital` (the Physical | Digital switch is in the top bar of both labs).
 
+**Demo path:** *Load samples* opens **Nimbus**, a team-made project-tracker app (landing → log in →
+dashboard → settings, plus a v2 redesign of the dashboard). Every screen is a saved result of a real
+Gemini run (`python scripts/make_demo_samples.py`; sources in `apps/api/samples/demo-app/src`).
+Workflow maps the journey, Compare pre-selects dashboard v1 → v2, Rebuild drafts any screen.
+A second click on *Load samples* adds the three unrelated older samples.
+
 Every view reads the same `SystemAnalysis` shape as the Physical Lab: components, relationships,
 evidence and an `observed / inferred / estimated` status. Workflows and diffs are stored as
 `SystemAnalysis` objects too, so one grounded chat answers questions about a screen, a workflow or a
@@ -25,10 +31,19 @@ set of changes.
   Same response shape as the Physical Lab what-if (`verdict`, `health`, `affected[]`, `method`).
 - **Workflow:** a control whose text names another screen ("Sign in" → *Login screen*) becomes a
   `may_navigate_to` edge with the trigger component and its box. An optional text-only model call adds
-  more hypotheses; ids are validated and every edge is `status: inferred`. Entry screen: the model's
+  more hypotheses; ids are validated and every edge is `status: inferred`. Screen names come from the
+  title and short page headings only (a long hero headline is not a screen name); words on every screen
+  (usually the app name) are ignored. Pattern rule: the sign-in button of a login screen *may* open the
+  dashboard/home screen, labelled as a common pattern, not as seen. Entry screen: the model's
   pick, else the only screen that leads somewhere and that nothing leads to, else a login/landing title.
 - **Diff:** greedy one-to-one matching on label similarity, type, box overlap / centre distance and id.
   Unmatched = added or removed; matched pairs report text, type, position (>3 %) and size (>20 %) changes.
+  Naming noise is ignored: types a model swaps between runs (button/menu_item/link, section/card/table)
+  and descriptive words ("Recent projects" vs "Recent projects table"). A renamed control that keeps a
+  word is one change ("+ New project" → "+ Create project"), not removed + added.
+  **Pixel check:** before an element is reported as added or removed, its crop is searched for in the
+  other screenshot (OpenCV template match ≥ 0.92). Found = the model just missed it in one run, so it is
+  not reported, and the limitations list says so.
   Optional two-image model call for colour / typography / spacing changes (validated, `inferred`).
 - **Design tokens:** colours from pixel quantisation (page, buttons, surfaces) and the median "ink" of
   text boxes; font sizes from text box heights; spacing from sibling gaps snapped to a 4 px grid.

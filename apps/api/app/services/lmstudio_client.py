@@ -81,6 +81,9 @@ class LMStudioVisionClient:
     def generate_text_json(self, prompt: str) -> str:
         return self._chat(prompt, max_tokens=1500)
 
+    def generate_code_text(self, image_bytes: bytes, mime_type: str, prompt: str) -> str:
+        return self._chat([self._img(image_bytes, mime_type), {"type": "text", "text": prompt}], max_tokens=8000)
+
 
 class FallbackVisionClient:
     """Try providers in order; move to the next when one is out of quota or unreachable."""
@@ -124,6 +127,9 @@ class FallbackVisionClient:
 
     def generate_text_json(self, *a):
         return self._run("generate_text_json", *a)
+
+    def generate_code_text(self, *a):
+        return self._run("generate_code_text", *a)
 
     def generate_grounded(self, *a):  # web search exists only on Gemini
         g = next((p for p in self.providers if hasattr(p, "generate_grounded") and getattr(p, "ready", True)), None)
