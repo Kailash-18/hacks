@@ -113,12 +113,26 @@ def _key(*parts: str) -> str:
     return hashlib.sha256("\x1f".join(parts).encode()).hexdigest()[:32]
 
 
+SAMPLES_DIR = Path(__file__).resolve().parents[2] / "samples" / "digital"
+
+
 def _cache_get(name: str) -> dict | None:
-    p = CACHE / f"{name}.json"
-    try:
-        return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
-    except (OSError, ValueError):
-        return None
+    # the local cache (newest, includes regenerations), then saved demo results committed with the samples
+    for p in [CACHE / f"{name}.json", *SAMPLES_DIR.glob(f"*/build/{name}.json")]:
+        try:
+            if p.exists():
+                return json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+    return None
+
+
+def code_key(analysis_id: str, target: str = "html", change: str = "", base_code: str = "") -> str:
+    return "code-" + _key(analysis_id, target, change, hashlib.sha256(base_code.encode()).hexdigest() if base_code else "")
+
+
+def guide_key(analysis_id: str) -> str:
+    return "guide-" + _key(analysis_id)
 
 
 def _cache_put(name: str, value: dict) -> None:
@@ -202,9 +216,8 @@ def generate_code(analysis: SystemAnalysis, image: bytes | None, mime: str | Non
                   target: str = "html", change: str = "", base_code: str = "", force: bool = False) -> dict[str, Any]:
     target = target if target in TARGETS else "html"
     change = re.sub(r"\s+", " ", change or "").strip()[:500]
-    base_code = (base_code or "")[:MAX_HTML]
-    key = _key(analysis.analysisId, target, change, hashlib.sha256(base_code.encode()).hexdigest() if base_code else "")
-    name = f"code-{key}"
+    base_code = (base_code or "").replace("\r\n", "\n")[:MAX_HTML]  # browsers send form text with CRLF
+    name = code_key(analysis.analysisId, target, change, base_code)
     if not force and (hit := _cache_get(name)):
         return {**hit, "cached": True}
 
@@ -275,7 +288,7 @@ def _clean_guide(raw: dict) -> dict[str, Any]:
 
 def generate_guide(analysis: SystemAnalysis, image: bytes | None, mime: str | None, client: Any | None,
                    force: bool = False) -> dict[str, Any]:
-    name = f"guide-{_key(analysis.analysisId)}"
+    name = guide_key(analysis.analysisId)
     if not force and (hit := _cache_get(name)):
         return {**hit, "cached": True}
     tokens = _tokens(analysis, image)

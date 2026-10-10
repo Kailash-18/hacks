@@ -40,6 +40,7 @@ class Fake:
 @pytest.fixture(autouse=True)
 def tmp_cache(tmp_path, monkeypatch):
     monkeypatch.setattr(codegen, "CACHE", tmp_path / "build")
+    monkeypatch.setattr(codegen, "SAMPLES_DIR", tmp_path / "no-samples")  # saved demo results would be cache hits
 
 
 def login():
@@ -135,3 +136,15 @@ def test_text_protocol_keeps_long_code_intact():
     assert "ONE fenced block" in fake.prompts[0] and "Return ONLY JSON" not in fake.prompts[0]
     cut = codegen.generate_code(a, img, "image/png", TextFake("```html\n" + HTML), force=True)
     assert cut["source"] == "ai" and "cut off" in cut["notes"][0]
+
+
+def test_saved_demo_results_are_real_and_found():
+    from app.services import codegen as cg
+
+    for sid in ("nimbus-login", "nimbus-dashboard"):
+        s = SAMPLES.get(sid)
+        if s is None or not (s.image_path.parent / "build").exists():
+            pytest.skip("demo build results not saved")
+        d = s.image_path.parent / "build" / f"{cg.code_key(s.analysis.analysisId)}.json"
+        out = json.loads(d.read_text(encoding="utf-8"))
+        assert out["source"] == "ai" and "cdn.tailwindcss.com" in out["code"]
