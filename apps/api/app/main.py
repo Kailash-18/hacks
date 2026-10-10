@@ -75,7 +75,8 @@ async def _analysis_error(_, exc: AnalysisError):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "provider": {"name": vision.name, "model": vision.model, "ready": getattr(vision, "ready", True)}}
+    return {"status": "ok", "pipeline": PIPELINE_VERSION,
+            "provider": {"name": vision.name, "model": vision.model, "ready": getattr(vision, "ready", True)}}
 
 
 @app.get("/api/assets")
@@ -109,7 +110,8 @@ async def physical_analyze(request: Request):
     key = hashlib.sha256(b"".join(hashlib.sha256(d).digest() for d, _ in files) + vision.model.encode()
                          + PROMPT_VERSION.encode()).hexdigest()
     cached = CACHE_DIR / f"{key}.json"
-    if cached.exists():  # free-tier friendly: same photos never cost a second model call
+    cached_hit = cached.exists()
+    if cached_hit:  # free-tier friendly: same photos never cost a second model call
         analysis = SystemAnalysis.model_validate(json.loads(cached.read_text(encoding="utf-8")))
     else:
         # run the blocking model calls off the event loop so the server stays responsive
@@ -117,7 +119,9 @@ async def physical_analyze(request: Request):
         CACHE_DIR.mkdir(exist_ok=True)
         cached.write_text(json.dumps(analysis.dump()), encoding="utf-8")
     _remember(analysis)
-    return analysis.dump()
+    from .services import physical_analysis as pa
+    timing = ", ".join(f"{k};dur={v * 1000:.0f}" for k, v in pa.LAST_TIMING.items()) if not cached_hit else "cache;dur=0"
+    return JSONResponse(analysis.dump(), headers={"Server-Timing": timing})
 
 
 @app.get("/api/physical/samples")
@@ -145,10 +149,14 @@ def get_sample(sample_id: str):
 @app.post("/api/physical/whatif")
 def physical_whatif(req: WhatIfRequest):
     analysis = _store.get(req.analysis_id)
-    if analysis is None:
+    if analysis is not None:
+        comps, rels = analysis.components, analysis.relationships
+    elif req.components is not None:
+        comps, rels = req.components, req.relationships or []
+    else:
         raise HTTPException(404, "Analysis not found (server restarted?). Re-run the analysis.")
     try:
-        return what_if(analysis.components, analysis.relationships, req.removed_component_id)
+        return what_if(comps, rels, req.removed_component_id)
     except KeyError:
         raise HTTPException(404, "Component not found in this analysis.")
 

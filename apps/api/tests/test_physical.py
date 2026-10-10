@@ -313,3 +313,13 @@ def test_small_part_inside_big_part_survives():
     layers = {l.component_id: l for l in a.scene.layers}
     assert "wheel" in layers and "shell" in layers
     assert layers["wheel"].depth_rank < layers["shell"].depth_rank
+
+
+def test_whatif_without_server_state():
+    from app import main
+    client = TestClient(main.app)
+    body = {"analysisId": "gone", "removedComponentId": "a",
+            "components": [{"id": "a", "label": "A"}, {"id": "b", "label": "B"}],
+            "relationships": [{"id": "r", "from": "a", "to": "b", "type": "powers"}]}
+    r = client.post("/api/physical/whatif", json=body)
+    assert r.status_code == 200 and r.json()["affected"][0]["componentId"] == "b"

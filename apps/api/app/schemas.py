@@ -127,3 +127,6 @@ class SystemAnalysis(_Model):
 class WhatIfRequest(_Model):
     analysis_id: str = Field(alias="analysisId")
     removed_component_id: str = Field(alias="removedComponentId")
+    # Optional: the client can send the graph itself, so what-if works even after a server restart.
+    components: Optional[list[Component]] = None
+    relationships: Optional[list[Relationship]] = None

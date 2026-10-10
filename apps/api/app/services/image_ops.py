@@ -100,7 +100,13 @@ def grabcut_refine(img: np.ndarray, rough: np.ndarray, box_px) -> np.ndarray:
     pad = int(0.08 * max(x1 - x0, y1 - y0)) + 4
     rx0, ry0, rx1, ry1 = max(0, x0 - pad), max(0, y0 - pad), min(w, x1 + pad), min(h, y1 + pad)
     roi, r = img[ry0:ry1, rx0:rx1], rough[ry0:ry1, rx0:rx1]
-    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+    # GrabCut cost grows with pixel count: run it on a downscaled ROI and upscale the result.
+    full_shape = r.shape
+    sc = min(1.0, 260 / max(roi.shape[:2]))
+    if sc < 1.0:
+        roi = cv2.resize(roi, (max(8, int(roi.shape[1] * sc)), max(8, int(roi.shape[0] * sc))), interpolation=cv2.INTER_AREA)
+        r = cv2.resize(r, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_NEAREST)
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     inner = cv2.erode(r, k, iterations=2)
     outer = cv2.dilate(r, k, iterations=2)
     gc = np.full(r.shape, cv2.GC_BGD, np.uint8)
@@ -118,6 +124,9 @@ def grabcut_refine(img: np.ndarray, rough: np.ndarray, box_px) -> np.ndarray:
     a, b = res.sum() / 255, max(1, r.sum() / 255)
     if not 0.5 < a / b < 1.6:
         res = r.copy()
+    if res.shape != full_shape:
+        res = cv2.resize(res, (full_shape[1], full_shape[0]), interpolation=cv2.INTER_LINEAR)
+        res = np.where(res > 127, 255, 0).astype(np.uint8)
     out[ry0:ry1, rx0:rx1] = res
     return out
 
@@ -125,6 +134,13 @@ def grabcut_refine(img: np.ndarray, rough: np.ndarray, box_px) -> np.ndarray:
 def grabcut_mask(img: np.ndarray, box_px) -> np.ndarray:
     """Fallback when the model gives no usable mask: GrabCut initialised from the box."""
     h, w = img.shape[:2]
+    sc = min(1.0, 400 / max(h, w))
+    if sc < 1.0:  # run on a smaller image, then scale the mask back up
+        small = cv2.resize(img, (int(w * sc), int(h * sc)), interpolation=cv2.INTER_AREA)
+        sb = tuple(int(v * sc) for v in box_px)
+        m = grabcut_mask(small, (sb[0], sb[1], max(sb[0] + 2, sb[2]), max(sb[1] + 2, sb[3])))
+        m = cv2.resize(m, (w, h), interpolation=cv2.INTER_LINEAR)
+        return np.where(m > 127, 255, 0).astype(np.uint8)
     x0, y0, x1, y1 = box_px
     mask = np.zeros((h, w), np.uint8)
     rect = (x0, y0, max(1, x1 - x0), max(1, y1 - y0))

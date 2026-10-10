@@ -149,8 +149,10 @@ async function build(analysis, { sample = false } = {}) {
   for (const k in depthCache) delete depthCache[k];
   if (!A.scene) { showError("This analysis has no physical scene data."); return; }
   renderPanel();
+  $("explode").value = 0;
   await showView(0);
   $("empty").hidden = true; $("controls").hidden = false; $("panel").hidden = false; $("loading").hidden = true;
+  introExplode();
 }
 
 function renderTabs() {
@@ -158,7 +160,7 @@ function renderTabs() {
   const vs = viewsOf(A);
   vs.forEach((v, i) => {
     const b = el("button", "tab" + (i === currentView ? " on" : ""), `${i + 1} · ${VIEW_NAMES[v.view] || "Photo"}`);
-    b.title = v.filename || ""; b.onclick = () => { if (i !== currentView) showView(i).then(paint); };
+    b.title = v.filename || ""; b.onclick = () => { if (i !== currentView) showView(i, { fromTab: true }).then(paint); };
     box.append(b);
   });
   if (!isSample && vs.length < 4) {
@@ -168,18 +170,22 @@ function renderTabs() {
   box.hidden = false;
 }
 
-async function showView(vi) {
+async function showView(vi, { fromTab = false } = {}) {
   currentView = vi;
+  if (fromTab) { // only the in-browser steps run when switching photos
+    const ol = $("steps"); ol.innerHTML = ""; ol.append(el("li", "active", `Preparing photo ${vi + 1}`));
+    $("loading").hidden = false;
+  }
   root.clear(); parts = []; ghosts = []; plate = null; depthMap = null;
   const S = { ...viewsOf(A)[vi], ghostComponentIds: A.scene.ghostComponentIds || [] };
   worldH = WORLD_W * S.imageHeight / S.imageWidth;
 
-  steps(2);
+  if (!fromTab) steps(2);
   const layerImgs = await Promise.all(S.layers.map((l) => loadImage(l.cutout)));
   const plateImg = S.plate ? await loadImage(S.plate) : null;
 
   // Depth (browser). Composite the object from plate + layers so it also works for samples.
-  steps(3);
+  if (!fromTab) steps(3);
   try {
     depthMap = depthCache[vi] || (depthCache[vi] = await estimateDepth(S, plateImg, layerImgs));
     $("depthBadge").textContent = "depth: Depth Anything V2 (in-browser)";
@@ -187,7 +193,7 @@ async function showView(vi) {
     console.warn("Depth model unavailable, using silhouette relief only", e);
     $("depthBadge").textContent = "depth: silhouette only (model unavailable)";
   }
-  steps(4);
+  if (!fromTab) steps(4);
 
   if (plateImg) {
     const tex = new THREE.Texture(plateImg); tex.colorSpace = THREE.SRGBColorSpace; tex.needsUpdate = true;
@@ -241,30 +247,52 @@ function reorder() { // back-to-front order -> explode layer index
   [...parts].sort((a, b) => a.score - b.score).forEach((p, i) => (p.layer = i + 1));
 }
 
-function frame() {
-  const pb = A.scene && viewsOf(A)[currentView].plateBbox;
-  const cx = pb ? (pb.x + pb.width / 2 - 0.5) * WORLD_W + (ghosts.length ? 1.6 : 0) : 0;
-  const cy = pb ? -(pb.y + pb.height / 2 - 0.5) * worldH : 0;
-  const span = pb ? Math.max(pb.width * WORLD_W + (ghosts.length ? 5 : 0), pb.height * worldH) : Math.max(WORLD_W, worldH);
-  camera.position.set(cx, cy, span * 2.3 + 4);
-  controls.target.set(cx, cy, 1.5); controls.update();
+function objFrame() { // object centre + size in world units for the current photo
+  const pb = A && A.scene && viewsOf(A)[currentView].plateBbox;
+  if (!pb) return { cx: 0, cy: 0, size: Math.max(WORLD_W, worldH) * 0.6 };
+  return { cx: (pb.x + pb.width / 2 - 0.5) * WORLD_W, cy: -(pb.y + pb.height / 2 - 0.5) * worldH,
+           size: Math.max(pb.width * WORLD_W, pb.height * worldH) };
+}
+
+function frame() { // three-quarter view so the explode depth is visible
+  const o = objFrame();
+  const tx = o.cx - (ghosts.length ? o.size * 0.25 : 0), ty = o.cy - o.size * 0.12, tz = o.size * 0.35;
+  const dist = o.size * 2.6 + (ghosts.length ? 2.5 : 0) + 2;
+  const az = -0.55, el = 0.16;
+  camera.position.set(tx + dist * Math.sin(az) * Math.cos(el), ty + dist * Math.sin(el), tz + dist * Math.cos(az) * Math.cos(el));
+  controls.target.set(tx, ty, tz); controls.update();
 }
 
 function applyExplode() {
   const t = parseFloat($("explode").value);
-  const n = parts.length;
+  const n = parts.length, o = objFrame();
+  const step = (o.size * 1.15) / Math.max(2, n);       // total explode depth ~ object size
   for (const p of parts) {
-    const assembled = 0.03 + p.score * 0.35 + p.layer * 0.02;
-    p.group.position.set(p.wb.cx * (1 + 0.45 * t), p.wb.cy * (1 + 0.45 * t), assembled + t * p.layer * (6 / Math.max(3, n)));
+    const assembled = 0.03 + p.score * 0.25 + p.layer * 0.015;
+    p.group.position.set(o.cx + (p.wb.cx - o.cx) * (1 + 0.35 * t), o.cy + (p.wb.cy - o.cy) * (1 + 0.35 * t),
+                         assembled + t * p.layer * step);
     p.group.visible = p.id !== removed;
   }
-  if (plate) plate.group.position.z = -t * 0.6;
+  if (plate) plate.group.position.z = -t * o.size * 0.12;
   for (const g of ghosts) {
     g.group.visible = t > 0.12 && g.id !== removed;
-    g.group.position.copy(g.group.userData.home).setZ(0.4);
-    g.group.position.x -= (1 - t) * 1.2;
+    // keep the column just outside the exploded parts (they spread out by 35% at full explode)
+    const halfW = (viewsOf(A)[currentView].plateBbox?.width || 0.5) * WORLD_W / 2;
+    g.group.position.copy(g.group.userData.home).setZ(o.size * 0.3 * t);
+    // left side: the 3/4 camera looks from the left, so exploded parts drift right on screen
+    g.group.position.x = o.cx - halfW * (1 + 0.35 * t) - 1.8 - t * 0.6;
     g.group.scale.setScalar(Math.min(1, t * 1.6));
   }
+}
+
+function introExplode(target = 0.65, ms = 1600) { // animate apart once a result loads
+  const e = $("explode"), from = parseFloat(e.value), t0 = performance.now();
+  const tick = (now) => {
+    const k = Math.min(1, (now - t0) / ms), ease = 1 - Math.pow(1 - k, 3);
+    e.value = from + (target - from) * ease; applyExplode();
+    if (k < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 }
 $("explode").addEventListener("input", applyExplode);
 
@@ -358,7 +386,7 @@ $("resetView").addEventListener("click", frame);
 function statusChip(s) { return el("span", `chip ${s}`, s); }
 
 function renderPanel() {
-  $("title").textContent = A.title;
+  $("title").textContent = A.title ? A.title[0].toUpperCase() + A.title.slice(1) : "";
   $("summary").textContent = A.summary || "";
   const mb = $("modeBadge");
   mb.textContent = isSample ? "Sample mode · saved real result" : "Live analysis";
@@ -368,7 +396,8 @@ function renderPanel() {
   const pr = A.scene?.product, pe = $("product");
   if (pr && (pr.searchQuery || pr.brand)) {
     pe.innerHTML = "";
-    const name = [pr.brand, pr.model].filter(Boolean).join(" ") || pr.category || A.title;
+    const name = (pr.model && pr.brand && pr.model.toLowerCase().startsWith(pr.brand.toLowerCase()) ? pr.model
+      : [pr.brand, pr.model].filter(Boolean).join(" ")) || pr.category || A.title;
     pe.append(el("div", "", `Identified: ${name}` + (pr.model ? "" : " (exact model not readable)")));
     if (pr.identifiedFrom) pe.append(el("div", "tiny muted", "From: " + pr.identifiedFrom));
     if (!isSample) {
@@ -440,7 +469,8 @@ $("whatif").onclick = async () => {
   if (removed === selected) { removed = null; affected = new Set(); out.hidden = true; applyExplode(); renderParts(); renderDetail(); renderGraph(); paint(); return; }
   try {
     const r = await fetch(API + "/api/physical/whatif", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ analysisId: A.analysisId, removedComponentId: selected }) });
+      body: JSON.stringify({ analysisId: A.analysisId, removedComponentId: selected,
+                             components: A.components, relationships: A.relationships }) });
     const res = await r.json();
     if (!r.ok) throw new Error(errText(res, r.status));
     removed = selected; affected = new Set(res.affected.map((a) => a.componentId));

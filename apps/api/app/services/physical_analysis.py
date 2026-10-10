@@ -102,7 +102,8 @@ LIMITATIONS = [
 ]
 
 MAX_VIEWS = 4
-PIPELINE_VERSION = "6"  # bump when building logic changes, so saved results are rebuilt (model answers stay cached)
+LAST_TIMING: dict = {}  # filled per request; exposed as a Server-Timing header for debugging
+PIPELINE_VERSION = "7"  # bump when building logic changes, so saved results are rebuilt (model answers stay cached)
 
 
 class AnalysisError(Exception):
@@ -155,14 +156,14 @@ def parse_model_json(text: str) -> dict:
 def _segment_view(raw: dict, img: np.ndarray, notes: list[str]):
     """Return (visible parts [(p, mask, rank, refined_by)], plate, plate_bbox) for one photo."""
     h, w = img.shape[:2]
-    candidates = []
-    for idx, p in enumerate(_list(raw.get("parts"))[: MAX_PARTS * 2]):
+    def seg_one(item):
+        idx, p = item
         if not isinstance(p, dict):
-            continue
+            return None
         box = ops.box_to_pixels(p.get("box_2d"), w, h)
         if box is None:
             notes.append(f"Skipped a part with an invalid box ({_str(p.get('label'), 40) or idx}).")
-            continue
+            return None
         mask = ops.decode_gemini_mask(p.get("mask"), box, w, h)
         refined_by = "model mask"
         if mask is None or mask.sum() == 0:
@@ -178,7 +179,11 @@ def _segment_view(raw: dict, img: np.ndarray, notes: list[str]):
             rank = int(p.get("depth_rank", 5))
         except (TypeError, ValueError):
             rank = 5
-        candidates.append((max(0, min(rank, 50)), idx, p, mask, refined_by))
+        return (max(0, min(rank, 50)), idx, p, mask, refined_by)
+
+    from concurrent.futures import ThreadPoolExecutor  # OpenCV releases the GIL, so parts run in parallel
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        candidates = [c for c in pool.map(seg_one, enumerate(_list(raw.get("parts"))[: MAX_PARTS * 2])) if c]
 
     # A small part that sits inside a bigger one (wheel on a shell, button on a panel) is in front of it,
     # whatever rank the model gave. Smallest parts claim overlapping pixels first.
@@ -366,7 +371,7 @@ def build_analysis_multi(views: list[tuple[dict, np.ndarray, str]], provider: Pr
                 "evidence": [ev] if ev else ["Model inference; no direct visual evidence given."],
             }))
     rels, warnings = validate_relationships(comps, rels)
-    notes.extend(warnings)
+    notes.extend(w for w in warnings if "duplicate" not in w)  # duplicates are expected when photos overlap
 
     first_raw = views[0][0]
     v0 = scene_views[0]
@@ -437,15 +442,20 @@ def analyze_physical_images(files: list[tuple[bytes, str]], vision_client: Visio
         raise AnalysisError("No image uploaded.", 400)
     files = files[:MAX_VIEWS]
     from concurrent.futures import ThreadPoolExecutor
+    t0 = time.perf_counter()
     with ThreadPoolExecutor(max_workers=len(files)) as pool:
         results = list(pool.map(lambda f: _ask_model(f[0], vision_client, cache_dir), files))
     t1 = time.perf_counter()
     groups = _merge_groups([r for r, _ in results], vision_client)
+    t2 = time.perf_counter()
     image_hash = hashlib.sha256(b"".join(hashlib.sha256(b).digest() for b, _ in files)).hexdigest()
     result = build_analysis_multi([(raw, img, name) for (raw, img), (_, name) in zip(results, files)],
                                   Provider(name=vision_client.name, model=vision_client.model), image_hash, groups)
-    log.info("physical: %d photos -> %d parts (%d seen), built in %.1f s", len(files), len(result.components),
-             len(result.components) - len(result.scene.ghost_component_ids), time.perf_counter() - t1)
+    t3 = time.perf_counter()
+    LAST_TIMING.clear()
+    LAST_TIMING.update(model=t1 - t0, merge=t2 - t1, build=t3 - t2)
+    log.info("physical: %d photos -> %d parts (%d seen); model %.1f s, merge %.1f s, build %.1f s", len(files),
+             len(result.components), len(result.components) - len(result.scene.ghost_component_ids), t1 - t0, t2 - t1, t3 - t2)
     return result
 
 
