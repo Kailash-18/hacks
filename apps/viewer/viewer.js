@@ -1,0 +1,474 @@
+// Physical Lab viewer: layered 2.5D exploded diagram built from one photo.
+// Depth relief: Depth Anything V2 (small) running in the browser via transformers.js,
+// blended with a per-part "dome" from the cut-out silhouette. No GPU server needed.
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+const API = new URLSearchParams(location.search).get("api") || "";
+const TRANSFORMERS_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.1.2";
+const DEPTH_MODEL = "onnx-community/depth-anything-v2-small";
+const WORLD_W = 10;          // image width in world units
+const RELIEF = 1.1;          // depth relief strength
+const THICKNESS = 0.22;      // solid edge thickness
+const SLICES = 7;
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+// ---------------------------------------------------------------- three setup
+const canvas = $("c");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene3 = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 200);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.minAzimuthAngle = -0.75; controls.maxAzimuthAngle = 0.75;          // keep the 2.5D illusion convincing
+controls.minPolarAngle = Math.PI / 2 - 0.6; controls.maxPolarAngle = Math.PI / 2 + 0.6;
+controls.minDistance = 4; controls.maxDistance = 40;
+scene3.add(new THREE.HemisphereLight(0xffffff, 0x334055, 1.4));
+const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(-4, 6, 10); scene3.add(key);
+const rim = new THREE.DirectionalLight(0x88aaff, 0.6); rim.position.set(6, -2, -6); scene3.add(rim);
+const root = new THREE.Group(); scene3.add(root);
+
+function resize() {
+  const r = canvas.getBoundingClientRect();
+  renderer.setSize(r.width, r.height, false);
+  camera.aspect = r.width / Math.max(1, r.height); camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(canvas);
+
+// ---------------------------------------------------------------- state
+let A = null;               // current SystemAnalysis
+let parts = [];             // {id, comp, group, front, mats[], alpha, base, center, order, layer}
+let ghosts = [];            // {id, comp, group, mat}
+let plate = null;
+let worldH = 1;
+let selected = null, removed = null, affected = new Set();
+let depthMap = null;        // {w,h,data Float32 0..1}
+let isSample = false;
+
+// ---------------------------------------------------------------- helpers
+const loadImage = (src) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+const compById = (id) => A.components.find((c) => c.id === id);
+function showError(msg) { const t = $("error"); t.textContent = msg; t.hidden = false; clearTimeout(showError.t); showError.t = setTimeout(() => (t.hidden = true), 7000); }
+
+const STEP_NAMES = ["Uploading photo", "AI finding parts & cutting them out", "Building 3D layers", "Estimating depth in your browser"];
+function steps(active) {
+  const ol = $("steps"); ol.innerHTML = "";
+  STEP_NAMES.forEach((n, i) => ol.append(el("li", i < active ? "done" : i === active ? "active" : "", n)));
+  $("loading").hidden = active >= STEP_NAMES.length;
+}
+
+function sampleImg(data, w, h, u, v) { // nearest sample of a 0..1 map
+  const x = Math.min(w - 1, Math.max(0, Math.round(u * (w - 1))));
+  const y = Math.min(h - 1, Math.max(0, Math.round(v * (h - 1))));
+  return data[y * w + x];
+}
+
+function silhouetteDome(img) { // blurred alpha -> soft rounded relief 0..1 (64px grid)
+  const N = 64, c = document.createElement("canvas"); c.width = c.height = N;
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.filter = "blur(5px)"; ctx.drawImage(img, 0, 0, N, N);
+  const d = ctx.getImageData(0, 0, N, N).data, out = new Float32Array(N * N);
+  for (let i = 0; i < N * N; i++) out[i] = Math.sqrt(d[i * 4 + 3] / 255);
+  return { w: N, h: N, data: out };
+}
+
+function alphaOf(img) {
+  const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
+  const ctx = c.getContext("2d", { willReadFrequently: true }); ctx.drawImage(img, 0, 0);
+  return { w: img.width, h: img.height, data: ctx.getImageData(0, 0, img.width, img.height).data };
+}
+
+function bboxToWorld(b) {
+  return {
+    w: b.width * WORLD_W, h: b.height * worldH,
+    cx: (b.x + b.width / 2 - 0.5) * WORLD_W, cy: -(b.y + b.height / 2 - 0.5) * worldH,
+  };
+}
+
+// Displace a plane by depth (global map) + dome (part silhouette).
+function reliefGeometry(b, dome, domeWeight) {
+  const wb = bboxToWorld(b);
+  const sx = Math.max(8, Math.min(96, Math.round(wb.w * 14))), sy = Math.max(8, Math.min(96, Math.round(wb.h * 14)));
+  const g = new THREE.PlaneGeometry(wb.w, wb.h, sx, sy);
+  const pos = g.attributes.position, uv = g.attributes.uv;
+  let mean = 0, n = 0; const ds = new Float32Array(pos.count);
+  for (let i = 0; i < pos.count; i++) {
+    const u = uv.getX(i), v = 1 - uv.getY(i);
+    const d = depthMap ? sampleImg(depthMap.data, depthMap.w, depthMap.h, b.x + u * b.width, b.y + v * b.height) : 0.5;
+    ds[i] = d; mean += d; n++;
+  }
+  mean /= n;
+  for (let i = 0; i < pos.count; i++) {
+    const u = uv.getX(i), v = 1 - uv.getY(i);
+    const dm = dome ? sampleImg(dome.data, dome.w, dome.h, u, v) : 0;
+    pos.setZ(i, RELIEF * ((ds[i] - mean) * 0.9 + dm * domeWeight));
+  }
+  g.computeVertexNormals();
+  return { geom: g, meanDepth: mean, wb };
+}
+
+function makeSolid(geom, tex) {
+  const group = new THREE.Group();
+  const front = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5, roughness: 0.75, metalness: 0.05, side: THREE.DoubleSide });
+  const frontMesh = new THREE.Mesh(geom, front);
+  group.add(frontMesh);
+  const mats = [front];
+  for (let s = 1; s <= SLICES; s++) { // stacked darker slices read as a solid edge
+    const m = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5, color: new THREE.Color().setScalar(0.42 - s * 0.025), roughness: 0.9 });
+    const mesh = new THREE.Mesh(geom, m); mesh.position.z = -(THICKNESS * s) / SLICES; group.add(mesh); mats.push(m);
+  }
+  return { group, frontMesh, mats };
+}
+
+function textSprite(text, color = "#f2b84b") {
+  const c = document.createElement("canvas"), ctx = c.getContext("2d"); const f = 28;
+  ctx.font = `600 ${f}px Inter, sans-serif`; c.width = Math.ceil(ctx.measureText(text).width) + 24; c.height = f + 16;
+  ctx.font = `600 ${f}px Inter, sans-serif`; ctx.fillStyle = "rgba(13,15,18,.85)"; ctx.fillRect(0, 0, c.width, c.height);
+  ctx.fillStyle = color; ctx.textBaseline = "middle"; ctx.fillText(text, 12, c.height / 2);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false }));
+  s.scale.set(c.width / c.height * 0.38, 0.38, 1); s.renderOrder = 10; return s;
+}
+
+// ---------------------------------------------------------------- build scene
+async function build(analysis, { sample = false, photoURL = null } = {}) {
+  A = analysis; isSample = sample; selected = removed = null; affected = new Set();
+  root.clear(); parts = []; ghosts = []; plate = null; depthMap = null;
+  const S = A.scene;
+  if (!S) { showError("This analysis has no physical scene data."); return; }
+  worldH = WORLD_W * S.imageHeight / S.imageWidth;
+
+  steps(2);
+  const layerImgs = await Promise.all(S.layers.map((l) => loadImage(l.cutout)));
+  const plateImg = S.plate ? await loadImage(S.plate) : null;
+
+  // Depth (browser). Composite the object from plate + layers so it also works for samples.
+  steps(3);
+  try {
+    depthMap = await estimateDepth(S, plateImg, layerImgs);
+    $("depthBadge").textContent = "depth: Depth Anything V2 (in-browser)";
+  } catch (e) {
+    console.warn("Depth model unavailable, using silhouette relief only", e);
+    $("depthBadge").textContent = "depth: silhouette only (model unavailable)";
+  }
+  steps(4);
+
+  if (plateImg) {
+    const tex = new THREE.Texture(plateImg); tex.colorSpace = THREE.SRGBColorSpace; tex.needsUpdate = true;
+    const { geom } = reliefGeometry(S.plateBbox, null, 0);
+    const solid = makeSolid(geom, tex);
+    const wb = bboxToWorld(S.plateBbox);
+    solid.group.position.set(wb.cx, wb.cy, 0);
+    root.add(solid.group); plate = solid;
+  }
+
+  const maxRank = Math.max(1, ...S.layers.map((l) => l.depthRank));
+  S.layers.forEach((l, i) => {
+    const img = layerImgs[i];
+    const tex = new THREE.Texture(img); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; tex.needsUpdate = true;
+    const { geom, meanDepth, wb } = reliefGeometry(l.bbox, silhouetteDome(img), 0.35);
+    const solid = makeSolid(geom, tex);
+    solid.group.traverse((o) => (o.userData.partId = l.componentId));
+    root.add(solid.group);
+    const frontness = 1 - l.depthRank / maxRank;
+    parts.push({ id: l.componentId, comp: compById(l.componentId), ...solid, alpha: alphaOf(img), wb,
+      score: 0.5 * frontness + 0.5 * (depthMap ? meanDepth : frontness) });
+  });
+  reorder();
+
+  // Hidden (inferred) parts as ghost boxes behind the object.
+  const ghostIds = S.ghostComponentIds || [];
+  ghostIds.forEach((id, i) => {
+    const comp = compById(id); if (!comp) return;
+    const mat = new THREE.MeshStandardMaterial({ color: 0xf2b84b, transparent: true, opacity: 0.18, depthWrite: false });
+    const box = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.9, 0.5), mat);
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(box.geometry), new THREE.LineDashedMaterial({ color: 0xf2b84b, dashSize: 0.12, gapSize: 0.08 }));
+    edges.computeLineDistances();
+    const label = textSprite("? " + comp.label); label.position.y = 0.75;
+    const g = new THREE.Group(); g.add(box, edges, label);
+    g.traverse((o) => (o.userData.partId = id));
+    const span = Math.min(WORLD_W * 0.9, ghostIds.length * 1.9);
+    g.userData.home = new THREE.Vector3(-span / 2 + (ghostIds.length === 1 ? span / 2 : (i * span) / (ghostIds.length - 1)), -worldH / 2 - 0.7, 0);
+    root.add(g); ghosts.push({ id, comp, group: g, mat, box });
+  });
+
+  frame();
+  applyExplode();
+  renderPanel();
+  $("empty").hidden = true; $("controls").hidden = false; $("panel").hidden = false; $("loading").hidden = true;
+}
+
+function reorder() { // back-to-front order -> explode layer index
+  [...parts].sort((a, b) => a.score - b.score).forEach((p, i) => (p.layer = i + 1));
+}
+
+function frame() {
+  const dy = ghosts.length ? -0.9 : 0;
+  camera.position.set(0, dy, Math.max(WORLD_W, worldH + 2) * 1.9);
+  controls.target.set(0, dy, 1.5); controls.update();
+}
+
+function applyExplode() {
+  const t = parseFloat($("explode").value);
+  const n = parts.length;
+  for (const p of parts) {
+    const assembled = 0.03 + p.score * 0.35 + p.layer * 0.02;
+    p.group.position.set(p.wb.cx * (1 + 0.45 * t), p.wb.cy * (1 + 0.45 * t), assembled + t * p.layer * (6 / Math.max(3, n)));
+    p.group.visible = p.id !== removed;
+  }
+  if (plate) plate.group.position.z = -t * 0.6;
+  for (const g of ghosts) {
+    g.group.visible = t > 0.12 && g.id !== removed;
+    g.group.position.copy(g.group.userData.home).setZ(0.4);
+    g.group.position.y -= (1 - t) * 0.6;
+    g.group.scale.setScalar(Math.min(1, t * 1.6));
+  }
+}
+$("explode").addEventListener("input", applyExplode);
+
+// ---------------------------------------------------------------- depth (browser)
+let depthPipe = null;
+async function estimateDepth(S, plateImg, layerImgs) {
+  const W = S.imageWidth, H = S.imageHeight;
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  if (plateImg) { const b = S.plateBbox; ctx.drawImage(plateImg, b.x * W, b.y * H, b.width * W, b.height * H); }
+  const order = S.layers.map((l, i) => [l, layerImgs[i]]).sort((a, b) => b[0].depthRank - a[0].depthRank);
+  for (const [l, img] of order) ctx.drawImage(img, l.bbox.x * W, l.bbox.y * H, l.bbox.width * W, l.bbox.height * H);
+  const objAlpha = ctx.getImageData(0, 0, W, H).data;
+
+  if (!depthPipe) {
+    const { pipeline, env } = await import(TRANSFORMERS_URL);
+    env.allowLocalModels = false;
+    depthPipe = await pipeline("depth-estimation", DEPTH_MODEL, { device: navigator.gpu ? "webgpu" : "wasm", dtype: "fp32" })
+      .catch(() => pipeline("depth-estimation", DEPTH_MODEL));
+  }
+  const out = await depthPipe(c.toDataURL("image/png"));
+  const dimg = out.depth; // RawImage, 1 channel, larger = closer
+  const dw = dimg.width, dh = dimg.height, src = dimg.data, ch = dimg.channels || 1;
+  const data = new Float32Array(dw * dh);
+  let lo = Infinity, hi = -Infinity;
+  for (let y = 0; y < dh; y++) for (let x = 0; x < dw; x++) {
+    const v = src[(y * dw + x) * ch];
+    const ox = Math.min(W - 1, Math.floor(x / dw * W)), oy = Math.min(H - 1, Math.floor(y / dh * H));
+    data[y * dw + x] = v;
+    if (objAlpha[(oy * W + ox) * 4 + 3] > 128) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  }
+  const span = Math.max(1e-6, hi - lo);
+  for (let i = 0; i < data.length; i++) data[i] = Math.min(1, Math.max(0, (data[i] - lo) / span));
+  return { w: dw, h: dh, data };
+}
+
+// ---------------------------------------------------------------- picking
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function pick(ev) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  for (const hit of ray.intersectObjects(root.children, true)) {
+    if (!hit.object.visible || !hit.object.parent?.visible) continue;
+    const id = hit.object.userData.partId; if (!id) continue;
+    const p = parts.find((q) => q.id === id);
+    if (p && hit.uv) { // ignore transparent pixels of the cut-out
+      const a = p.alpha, x = Math.floor(hit.uv.x * (a.w - 1)), y = Math.floor((1 - hit.uv.y) * (a.h - 1));
+      if (a.data[(y * a.w + x) * 4 + 3] < 128) continue;
+    }
+    return id;
+  }
+  return null;
+}
+let downAt = null;
+canvas.addEventListener("pointerdown", (e) => (downAt = [e.clientX, e.clientY]));
+canvas.addEventListener("pointerup", (e) => {
+  if (!A || !downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
+  select(pick(e));
+});
+canvas.addEventListener("pointermove", (e) => {
+  if (!A) return;
+  const id = pick(e), h = $("hover");
+  if (id) { const r = canvas.getBoundingClientRect(); h.textContent = compById(id).label; h.style.left = e.clientX - r.left + "px"; h.style.top = e.clientY - r.top + "px"; h.hidden = false; canvas.style.cursor = "pointer"; }
+  else { h.hidden = true; canvas.style.cursor = ""; }
+});
+
+// ---------------------------------------------------------------- highlight
+function paint() {
+  const iso = $("isolate").checked && selected;
+  const related = new Set(selected ? A.relationships.filter((r) => r.from === selected || r.to === selected).flatMap((r) => [r.from, r.to]) : []);
+  for (const p of parts) {
+    const dim = iso && p.id !== selected && !related.has(p.id);
+    const glow = p.id === selected ? 0x2a6df4 : affected.has(p.id) ? 0xff5040 : 0x000000;
+    p.mats.forEach((m, i) => {
+      m.transparent = dim; m.opacity = dim ? 0.12 : 1; m.depthWrite = !dim;
+      if (i === 0) { m.emissive.setHex(glow); m.emissiveIntensity = glow ? 0.45 : 0; }
+      m.needsUpdate = true;
+    });
+  }
+  if (plate) plate.mats.forEach((m) => { m.transparent = !!iso; m.opacity = iso ? 0.1 : 1; m.depthWrite = !iso; m.needsUpdate = true; });
+  for (const g of ghosts) {
+    g.mat.color.setHex(g.id === selected ? 0x4f8cff : affected.has(g.id) ? 0xff5040 : 0xf2b84b);
+    g.mat.opacity = iso && g.id !== selected && !related.has(g.id) ? 0.05 : g.id === selected ? 0.45 : 0.18;
+  }
+}
+$("isolate").addEventListener("change", paint);
+$("resetView").addEventListener("click", frame);
+
+// ---------------------------------------------------------------- panel
+function statusChip(s) { return el("span", `chip ${s}`, s); }
+
+function renderPanel() {
+  $("title").textContent = A.title;
+  $("summary").textContent = A.summary || "";
+  const mb = $("modeBadge");
+  mb.textContent = isSample ? "Sample mode · saved real result" : "Live analysis";
+  mb.className = "eyebrow" + (isSample ? " sample" : "");
+  $("limits").innerHTML = "";
+  A.limitations.concat(A.scene?.notes || []).forEach((t) => $("limits").append(el("li", "", t)));
+  $("providerLine").textContent = `Vision: ${A.provider.name} · ${A.provider.model}. What-if = graph traversal, not physics.`;
+  renderParts(); renderGraph(); renderDetail();
+}
+
+function renderParts() {
+  const ul = $("parts"); ul.innerHTML = "";
+  for (const c of A.components) {
+    const li = el("li", [c.id === selected && "sel", affected.has(c.id) && "affected", c.id === removed && "removed"].filter(Boolean).join(" "));
+    li.append(el("i", `st ${c.status}`), el("span", "", c.label), el("span", "type", c.type));
+    li.onclick = () => select(c.id);
+    ul.append(li);
+  }
+}
+
+function renderDetail() {
+  const d = $("detail");
+  if (!selected) { d.hidden = true; return; }
+  const c = compById(selected); d.hidden = false;
+  $("dLabel").textContent = c.label;
+  const st = $("dStatus"); st.className = `chip ${c.status}`; st.textContent = c.status === "observed" ? "seen in photo" : c.status;
+  $("dType").textContent = c.type;
+  $("dEvidence").innerHTML = ""; c.evidence.forEach((e) => $("dEvidence").append(el("li", "", e)));
+  const rl = $("dRels"); rl.innerHTML = "";
+  const rels = A.relationships.filter((r) => r.from === c.id || r.to === c.id);
+  if (!rels.length) rl.append(el("li", "muted", "No relationships extracted."));
+  for (const r of rels) {
+    const other = compById(r.from === c.id ? r.to : r.from);
+    const txt = r.from === c.id ? `${r.type.replace(/_/g, " ")} → ${other.label}` : `${other.label} ${r.type.replace(/_/g, " ")} this`;
+    const li = el("li", r.status === "observed" ? "" : "dashed", txt + (r.status === "observed" ? "" : " (inferred)"));
+    li.title = r.evidence.join(" · "); li.onclick = () => select(other.id); rl.append(li);
+  }
+  const isLayer = parts.some((p) => p.id === c.id);
+  $("forward").disabled = $("backward").disabled = !isLayer;
+  $("whatif").textContent = removed === c.id ? "Put it back" : "What if I remove it?";
+}
+
+function select(id) {
+  selected = id; renderParts(); renderDetail(); renderGraph(); paint();
+}
+
+function nudge(dir) {
+  const p = parts.find((q) => q.id === selected); if (!p) return;
+  const sorted = [...parts].sort((a, b) => a.score - b.score);
+  const i = sorted.indexOf(p), j = i + dir;
+  if (j < 0 || j >= sorted.length) return;
+  [p.score, sorted[j].score] = [sorted[j].score, p.score];
+  if (p.score === sorted[j].score) p.score += dir * 0.01;
+  reorder(); applyExplode();
+}
+$("forward").onclick = () => nudge(1);
+$("backward").onclick = () => nudge(-1);
+
+$("whatif").onclick = async () => {
+  const out = $("whatifOut");
+  if (removed === selected) { removed = null; affected = new Set(); out.hidden = true; applyExplode(); renderParts(); renderDetail(); renderGraph(); paint(); return; }
+  try {
+    const r = await fetch(API + "/api/physical/whatif", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ analysisId: A.analysisId, removedComponentId: selected }) });
+    const res = await r.json();
+    if (!r.ok) throw new Error(res.detail || res.error || "What-if failed");
+    removed = selected; affected = new Set(res.affected.map((a) => a.componentId));
+    out.innerHTML = ""; out.append(el("div", "", res.summary));
+    res.affected.forEach((a) => out.append(el("code", "", a.explanation + (a.uncertain ? "  (inferred link)" : ""))));
+    out.append(el("div", "method", res.method)); out.hidden = false;
+    applyExplode(); renderParts(); renderDetail(); renderGraph(); paint();
+  } catch (e) { showError(e.message); }
+};
+
+function renderGraph() {
+  const svg = $("graph"); svg.innerHTML = "";
+  const NS = "http://www.w3.org/2000/svg", cs = A.components, n = cs.length;
+  const pos = {}; const cx = 160, cy = 120, R = n > 1 ? 88 : 0;
+  cs.forEach((c, i) => { const a = (i / n) * Math.PI * 2 - Math.PI / 2; pos[c.id] = [cx + R * Math.cos(a), cy + R * Math.sin(a)]; });
+  const defs = document.createElementNS(NS, "defs");
+  defs.innerHTML = `<marker id="arr" viewBox="0 0 10 10" refX="16" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10z" fill="#8b93a1"/></marker>`;
+  svg.append(defs);
+  for (const r of A.relationships) {
+    const [x1, y1] = pos[r.from], [x2, y2] = pos[r.to];
+    const ln = document.createElementNS(NS, "line");
+    Object.entries({ x1, y1, x2, y2, stroke: (affected.has(r.to) && (r.from === removed || affected.has(r.from))) ? "#ff6b5b" : "#5b6472", "stroke-width": 1.3, "marker-end": "url(#arr)" })
+      .forEach(([k, v]) => ln.setAttribute(k, v));
+    if (r.status !== "observed") ln.setAttribute("stroke-dasharray", "4 3");
+    const t = document.createElementNS(NS, "title"); t.textContent = `${r.type}: ${r.evidence.join(" · ")}`; ln.append(t);
+    svg.append(ln);
+  }
+  const colors = { observed: "#3ccf8e", inferred: "#f2b84b", estimated: "#4f8cff", unknown: "#8b93a1" };
+  for (const c of cs) {
+    const g = document.createElementNS(NS, "g"); g.setAttribute("class", "node"); g.onclick = () => select(c.id);
+    const [x, y] = pos[c.id];
+    const circ = document.createElementNS(NS, "circle");
+    Object.entries({ cx: x, cy: y, r: c.id === selected ? 9 : 7, fill: c.id === removed ? "#333" : affected.has(c.id) ? "#ff6b5b" : colors[c.status],
+      stroke: c.id === selected ? "#fff" : "none", "stroke-width": 2 }).forEach(([k, v]) => circ.setAttribute(k, v));
+    const tx = document.createElementNS(NS, "text");
+    tx.setAttribute("x", x); tx.setAttribute("y", y + (y < cy ? -12 : 18)); tx.setAttribute("text-anchor", "middle");
+    tx.textContent = c.label.length > 16 ? c.label.slice(0, 15) + "…" : c.label;
+    g.append(circ, tx); svg.append(g);
+  }
+}
+
+// ---------------------------------------------------------------- upload & samples
+async function shrink(file, max = 1600) { // client-side downscale keeps uploads fast
+  const img = await loadImage(URL.createObjectURL(file));
+  const s = Math.min(1, max / Math.max(img.width, img.height));
+  const c = document.createElement("canvas"); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return new Promise((res) => c.toBlob(res, "image/jpeg", 0.9));
+}
+
+$("file").addEventListener("change", async (e) => {
+  const file = e.target.files[0]; e.target.value = "";
+  if (!file) return;
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return showError("Please choose a JPEG, PNG or WebP photo.");
+  try {
+    steps(0);
+    const blob = await shrink(file);
+    const fd = new FormData(); fd.append("image", blob, file.name.replace(/\.\w+$/, "") + ".jpg");
+    steps(1);
+    const r = await fetch(API + "/api/physical/analyze", { method: "POST", body: fd });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || data.detail || `Analysis failed (${r.status})`);
+    await build(data, { sample: false });
+  } catch (err) { $("loading").hidden = true; showError(err.message || "Something went wrong."); }
+});
+
+async function loadSamples() {
+  try {
+    const r = await fetch(API + "/api/physical/samples"); const d = await r.json();
+    for (const s of d.samples) $("samples").append(new Option(s.title, s.id));
+    if (!d.samples.length) $("samples").hidden = true;
+  } catch { $("samples").hidden = true; }
+}
+$("samples").addEventListener("change", async (e) => {
+  const id = e.target.value; e.target.value = ""; if (!id) return;
+  try {
+    steps(1);
+    const r = await fetch(API + "/api/physical/samples/" + encodeURIComponent(id)); const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || "Sample failed to load");
+    await build(d, { sample: true });
+  } catch (err) { $("loading").hidden = true; showError(err.message); }
+});
+loadSamples();
+
+// ---------------------------------------------------------------- loop
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene3, camera); });
+window.__vre = { build, get state() { return { parts: parts.length, ghosts: ghosts.length, selected, removed, affected: [...affected] }; }, select };
