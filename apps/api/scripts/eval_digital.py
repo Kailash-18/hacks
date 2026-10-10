@@ -91,7 +91,7 @@ def main(paths: list[str]) -> int:
         (OUT / f"{png.stem}.analysis.json").write_text(json.dumps(analysis, indent=2), encoding="utf-8")
         draw_overlay(png, analysis, gt, OUT / f"{png.stem}.overlay.png")
         row = {"image": png.name, "seconds": secs, "components": len(analysis["components"]),
-               "relationships": len(analysis["relationships"])}
+               "relationships": len(analysis["relationships"]), "call": getattr(client, "last_call", None)}
         if gt:
             m = match_ground_truth(gt, analysis["components"])
             row.update({k: m[k] for k in ("recall", "meanIoUOfHits", "typeAgreementOfHits")}, matches=m["rows"])
@@ -101,6 +101,10 @@ def main(paths: list[str]) -> int:
                   + (f" | missed: {', '.join(missed)}" if missed else ""))
         else:
             print(f"{png.name}: {row['components']} comps, {row['relationships']} edges, {secs}s (no ground truth)")
+        call = row["call"] or {}
+        if call:
+            print(f"    tokens: prompt={call.get('promptTokens')} output={call.get('outputTokens')} "
+                  f"thinking={call.get('thinkingTokens')} | thinking_level sent={call.get('thinkingSent')}")
         summary["screens"].append(row)
 
     (OUT / "eval_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")

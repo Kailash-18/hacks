@@ -128,3 +128,20 @@ def test_gemini_client_drops_unsupported_thinking_level():
     c._thinking = "low-config"
     assert c.generate_json(None, None, "p") == '{"ok": true}'
     assert "thinking_config" in configs[0] and "thinking_config" not in configs[1] and c._thinking is None
+
+
+def test_gemini_client_records_call_diagnostics():
+    from types import SimpleNamespace
+
+    from app.services.vision_provider import GeminiVisionClient
+
+    usage = SimpleNamespace(prompt_token_count=1200, candidates_token_count=900, thoughts_token_count=3000)
+    c = GeminiVisionClient.__new__(GeminiVisionClient)
+    c.model = "m"
+    c._types = SimpleNamespace(Part=None, GenerateContentConfig=lambda **kw: kw)
+    c._client = SimpleNamespace(models=SimpleNamespace(
+        generate_content=lambda model, contents, config: SimpleNamespace(text="{}", usage_metadata=usage)))
+    c._thinking = "cfg"
+    c.generate_json(None, None, "p")
+    assert c.last_call["thinkingTokens"] == 3000 and c.last_call["thinkingSent"] is True
+    assert c.last_call["outputTokens"] == 900 and c.last_call["seconds"] >= 0

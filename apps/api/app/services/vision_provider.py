@@ -99,6 +99,7 @@ class GeminiVisionClient:
         self.model = model or self._pick_flash_model()
         # Lower reasoning effort = much faster responses. Dropped automatically if unsupported.
         self._thinking = self._thinking_config(thinking_level)
+        self.last_call: dict[str, Any] | None = None
 
     def _thinking_config(self, level: str | None):
         level = (level or "").strip().lower()
@@ -115,6 +116,18 @@ class GeminiVisionClient:
         if self._thinking is not None:
             kwargs["thinking_config"] = self._thinking
         return self._types.GenerateContentConfig(**kwargs)
+
+    def _usage(self, resp: Any, seconds: float) -> dict[str, Any]:
+        """Timing/token diagnostics for the last call (no content, safe to print)."""
+        u = getattr(resp, "usage_metadata", None)
+        get = (lambda k: getattr(u, k, None)) if u is not None else (lambda k: None)
+        return {
+            "seconds": round(seconds, 1),
+            "thinkingSent": self._thinking is not None,
+            "promptTokens": get("prompt_token_count"),
+            "outputTokens": get("candidates_token_count"),
+            "thinkingTokens": get("thoughts_token_count"),
+        }
 
     def _pick_flash_model(self) -> str:
         try:
@@ -143,7 +156,9 @@ class GeminiVisionClient:
         last: VisionProviderError | None = None
         for attempt in range(3):  # one retry for transient server errors, one for an unsupported thinking level
             try:
+                t0 = time.perf_counter()
                 resp = self._client.models.generate_content(model=self.model, contents=contents, config=self._config())
+                self.last_call = self._usage(resp, time.perf_counter() - t0)
                 return resp.text or ""
             except Exception as exc:
                 last = self._map_error(exc)
