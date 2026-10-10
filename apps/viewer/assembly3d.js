@@ -125,7 +125,7 @@ export class AssemblyView {
     const k = this.scale;
     // curved shells ("dome") that thin parts and base plates should conform to
     // only upright domes (open side down) act as shells that other parts conform to / fit inside
-    const upright = (a) => a.rotation.every((r) => Math.abs(((r % 360) + 540) % 360 - 180) > 175);
+    const upright = (a) => a.rotation.every((r) => Math.abs(((r % 360) + 540) % 360 - 180) < 5); // rotation ~0: open side down
     const domes = assembly.parts.filter((a) => a.shape === "dome" && upright(a)).map((a) => ({
       cx: a.position[0] * k, cz: a.position[2] * k, ax: (a.size[0] * k) / 2, az: (a.size[2] * k) / 2,
       h: a.size[1] * k, baseY: a.position[1] * k - (a.size[1] * k) / 2 }));
@@ -152,6 +152,8 @@ export class AssemblyView {
     if (main) for (const a of assembly.parts) {
       const c = comp[a.componentId];
       if (!c || a.shape === "dome" || bands[a.componentId] || !inner.has(c.type)) continue;
+      // a flat base plate under the shell is not squeezed inside it: it gets the shell's oval footprint below
+      if (["structure", "cover"].includes(c.type) && a.size[1] < 0.3 * Math.min(a.size[0], a.size[2])) continue;
       const size = a.size.map((v) => v * k), pos = a.position.map((v) => v * k);
       if (domeTop(main, pos[0], pos[2]) === null || pos[1] > (domeTop(main, pos[0], pos[2]) ?? 0)) continue; // not inside the shell
       const R = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(...a.rotation.map((d) => THREE.MathUtils.degToRad(d)))).elements;
