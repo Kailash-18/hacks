@@ -30,6 +30,8 @@ class GeminiVisionClient:
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
         self.model = model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
         self._client = None
+        # "AQ." keys are Google Cloud (Vertex AI express) keys; "AIza" keys are AI Studio keys.
+        self._vertex = os.getenv("GEMINI_USE_VERTEX", "").lower() in ("1", "true") or (self.api_key or "").startswith("AQ.")
 
     @property
     def ready(self) -> bool:
@@ -40,8 +42,15 @@ class GeminiVisionClient:
             raise ProviderError("GEMINI_API_KEY is not set. Add it to apps/api/.env (free key: aistudio.google.com).", 503)
         if self._client is None:
             from google import genai
-            self._client = genai.Client(api_key=self.api_key)
+            self._client = genai.Client(api_key=self.api_key, vertexai=self._vertex)
         return self._client
+
+    def _call(self, client, types, cfg, image_bytes, mime_type, prompt):
+        return client.models.generate_content(
+            model=self.model,
+            contents=[types.Part.from_bytes(data=image_bytes, mime_type=mime_type), prompt],
+            config=types.GenerateContentConfig(**cfg),
+        )
 
     def generate_json(self, image_bytes: bytes, mime_type: str, prompt: str) -> str:
         from google.genai import types
@@ -52,17 +61,25 @@ class GeminiVisionClient:
             # Google recommends disabling thinking for better segmentation output on 2.5.
             cfg["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
         try:
-            resp = client.models.generate_content(
-                model=self.model,
-                contents=[types.Part.from_bytes(data=image_bytes, mime_type=mime_type), prompt],
-                config=types.GenerateContentConfig(**cfg),
-            )
+            try:
+                resp = self._call(client, types, cfg, image_bytes, mime_type, prompt)
+            except Exception as first:
+                t = str(first)
+                if not any(s in t for s in ("API key", "API_KEY", "401", "403", "UNAUTHENTICATED", "PERMISSION_DENIED")):
+                    raise
+                # Wrong endpoint for this key type: switch between AI Studio and Vertex express once.
+                from google import genai
+                self._vertex = not self._vertex
+                self._client = client = genai.Client(api_key=self.api_key, vertexai=self._vertex)
+                resp = self._call(client, types, cfg, image_bytes, mime_type, prompt)
         except Exception as exc:  # map provider failures to stable errors
             text = str(exc)
             if "429" in text or "RESOURCE_EXHAUSTED" in text:
                 raise ProviderError("Gemini free-tier rate limit reached. Wait a minute and retry, or use a sample.", 429) from exc
-            if "API key" in text or "401" in text or "403" in text:
-                raise ProviderError("Gemini rejected the API key.", 502) from exc
+            if any(s in text for s in ("API key", "API_KEY", "401", "403", "UNAUTHENTICATED", "PERMISSION_DENIED")):
+                raise ProviderError("Google rejected the API key (tried both AI Studio and Vertex). Check the key in apps/api/.env.", 502) from exc
+            if "404" in text or "NOT_FOUND" in text:
+                raise ProviderError(f"Model '{self.model}' is not available for this key. Set GEMINI_MODEL in apps/api/.env.", 502) from exc
             raise ProviderError("Vision provider request failed.", 502) from exc
         if not resp.text:
             raise ProviderError("Vision provider returned an empty response.", 502)
