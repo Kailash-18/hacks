@@ -63,7 +63,19 @@ async def _no_stale_viewer(request, call_next):
     return resp
 
 
-vision = GeminiVisionClient()
+def _make_vision():
+    """VISION_PROVIDER: auto (Gemini, then local LM Studio when Gemini is out of quota), gemini, or lmstudio."""
+    from .services.lmstudio_client import FallbackVisionClient, LMStudioVisionClient
+    mode = os.getenv("VISION_PROVIDER", "auto").lower()
+    if mode == "lmstudio":
+        return LMStudioVisionClient()
+    if mode == "gemini":
+        return GeminiVisionClient()
+    providers = [GeminiVisionClient()] if os.getenv("GEMINI_API_KEY") else []
+    return FallbackVisionClient(providers + [LMStudioVisionClient()])
+
+
+vision = _make_vision()
 _store: "OrderedDict[str, SystemAnalysis]" = OrderedDict()  # recent analyses for what-if
 
 
@@ -87,7 +99,8 @@ async def _analysis_error(_, exc: AnalysisError):
 @app.get("/api/health")
 def health():
     return {"status": "ok", "pipeline": PIPELINE_VERSION,
-            "provider": {"name": vision.name, "model": vision.model, "ready": getattr(vision, "ready", True)}}
+            "provider": {"name": vision.name, "model": vision.model},
+            "providers": [{"name": p.name, "model": p.model} for p in getattr(vision, "providers", [vision])]}
 
 
 @app.get("/api/assets")

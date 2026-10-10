@@ -402,3 +402,25 @@ def test_rotated_part_fits_inside_shell():
     b = next(p for p in a.parts if p.component_id == "button")
     # rotated 90 deg about y: its 80 mm length lies along z, so it must end inside z = +/-50
     assert abs(b.position[2]) + b.size[0] / 2 <= 50 + 1e-6
+
+
+def test_fallback_provider_on_quota():
+    from app.services.lmstudio_client import FallbackVisionClient
+    from app.services.vision_client import ProviderError
+
+    class Out:
+        name, model = "gemini", "g"
+        def generate_text_json(self, p): raise ProviderError("quota", 429)
+
+    class Local:
+        name, model = "lmstudio-local", "gemma"
+        def generate_text_json(self, p): return "{}"
+
+    class Broken:
+        name, model = "x", "y"
+        def generate_text_json(self, p): raise ProviderError("bad key", 502)
+
+    f = FallbackVisionClient([Out(), Local()])
+    assert f.generate_text_json("p") == "{}" and f.name == "lmstudio-local" and f.model == "gemma"
+    with pytest.raises(ProviderError):  # non-quota errors are not hidden
+        FallbackVisionClient([Broken(), Local()]).generate_text_json("p")
