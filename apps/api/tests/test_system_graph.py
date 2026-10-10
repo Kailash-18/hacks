@@ -78,3 +78,21 @@ def test_what_if_old_graph_still_works():
     r = [Relationship(**{"id": "1", "from": "a", "to": "b", "type": "drives"})]
     res = what_if(c, r, "a")
     assert res["affected"][0]["impact"] == "stops moving" and "health" in res
+
+
+def test_duplicate_parts_from_several_photos_are_merged():
+    from app.services.assembly import find_duplicates
+    comps = [Component(id=i, label=l, type=t, status="observed") for i, l, t in [
+        ("pins", "Power Plug Pins", "connector"), ("pins2", "Power Pins", "connector"),
+        ("wick", "Wick", "mechanism"), ("wick3", "Vaporizing Wick", "interface"),
+        ("casing", "Heater Casing", "structure"), ("heater", "Heating Element", "mechanism"),
+        ("plug", "Electrical Plug", "connector")]]
+    raw = {"parts": [
+        {"id": "pins", "shape": "cylinder", "size": [4, 18, 4], "position": [0, 30, -18], "rotation": [90, 0, 0]},
+        {"id": "pins2", "shape": "cylinder", "size": [4, 18, 4], "position": [0, 30, -18], "rotation": [90, 0, 0]},
+        {"id": "wick", "shape": "cylinder", "size": [6, 65, 6], "position": [0, 10, 0]},
+        {"id": "wick3", "shape": "cylinder", "size": [6, 10, 6], "position": [0, 15, 0]},
+        {"id": "casing", "shape": "cylinder", "size": [30, 25, 30], "position": [0, 15, 0]},
+        {"id": "heater", "shape": "torus", "size": [20, 8, 20], "position": [0, 15, 0], "rotation": [90, 0, 0]},
+        {"id": "plug", "shape": "rounded_box", "size": [35, 35, 20], "position": [0, 30, -17]}]}
+    assert find_duplicates(raw, comps) == {"pins2": "pins", "wick3": "wick"}

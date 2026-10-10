@@ -1,0 +1,5 @@
+/* Physical | Digital switch in the top bar (shared by both labs). */
+.labswitch { display: inline-flex; margin-left: 10px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-weight: 500; }
+.labswitch a { padding: 4px 10px; color: var(--muted); text-decoration: none; font-size: 13px; }
+.labswitch a.on { background: var(--accent); color: #fff; }
+.labswitch a:not(.on):hover { color: var(--text); }

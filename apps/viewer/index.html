@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/viewer/style.css" />
+<link rel="stylesheet" href="/viewer/labswitch.css" />
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -16,7 +17,7 @@
 </head>
 <body>
 <header class="topbar">
-  <div class="brand"><span class="dot"></span>Visual Reverse Engineering <span class="muted">/ Physical Lab</span></div>
+  <div class="brand"><span class="dot"></span>Visual Reverse Engineering <nav class="labswitch"><a href="/" class="on">Physical</a><a href="/digital">Digital</a></nav></div>
   <div class="actions">
     <label class="btn primary" for="file">Upload photos</label>
     <input id="file" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden />

@@ -113,6 +113,21 @@ class SharedClientAdapter:
             self.last_call = {"seconds": round(time.perf_counter() - t0, 1), "provider": self.name, "model": self.model}
         return text
 
+    def generate_json_images(self, images: list[tuple[bytes, str]], prompt: str) -> str:
+        """Several images in one call (Digital Lab visual diff). Same error mapping as generate_json."""
+        from .vision_client import ProviderError
+
+        if not hasattr(self.inner, "generate_json_images"):
+            raise VisionProviderError("provider_error", "This provider cannot compare several images.", 501)
+        t0 = time.perf_counter()
+        try:
+            return self.inner.generate_json_images(images, prompt)
+        except ProviderError as exc:
+            status = int(getattr(exc, "status", 502) or 502)
+            raise VisionProviderError(_CODE_BY_STATUS.get(status, "provider_error"), str(exc), status) from None
+        finally:
+            self.last_call = {"seconds": round(time.perf_counter() - t0, 1), "provider": self.name, "model": self.model}
+
 
 # --- Fixture (explicit development mode only) --------------------------------
 class FixtureVisionClient:

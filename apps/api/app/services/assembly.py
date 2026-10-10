@@ -44,6 +44,7 @@ Return ONLY one JSON object:
   "relationships": [
     {{"from": "<id>", "to": "<id>", "type": "<relationship type>", "why": "short reason, max 12 words"}}
   ],
+  "duplicates": [["<id to keep>", "<id of the same physical part>"]],
   "details": [
     {{"parent": "<one of the ids above>", "shape": "<detail shape>", "size": [x, y, z], "position": [x, y, z],
       "rotation": [rx, ry, rz], "color": "#rrggbb", "material": "<material>", "count": 1}}
@@ -95,6 +96,14 @@ Rules:
   (button/switch controls board input -> use "controls" from the input part to the board; board controls
   outputs), motion (motor drives gear, wheel drives encoder), structure (housing supports/mounts the parts
   it holds; base supports board). EVERY part appears in at least one relationship. 8-30 relationships.
+- "duplicates": the list above comes from several photos, so one physical part may appear twice under different
+  names (e.g. "Power Plug Pins" and "Power Pins", "Wick" and "Vaporizing Wick"). List each such group once,
+  best id first, and give a "parts" entry ONLY for the first id. [] if none.
+- Parts that are visible from outside in the photos stay visible when assembled: put them where the photo shows
+  them (a refill bottle hangs below the heater unit, a label sits on the outside surface, a switch on the casing).
+  Never bury a visible part inside another part.
+- Prefer upright shapes: a "dome" opens downwards (do not rotate it 180 degrees; for a cup that opens upwards
+  use a cylinder or rounded_box).
 - importance: 0-1, how much the object's main function depends on the part (battery/main board ~1, logo ~0.05).
 - Keep it compact. No prose.
 """
@@ -248,6 +257,8 @@ def build_assembly(analysis: SystemAnalysis, jpegs: list[bytes], vision_client: 
         if cached:
             cache_dir.mkdir(parents=True, exist_ok=True)
             cached.write_text(json.dumps(raw), encoding="utf-8")
+    merge_duplicates(analysis, raw)
+    comps = analysis.components
     extra = parse_extra_parts(raw, {c.id for c in comps})
     ids = {c.id for c in comps} | {c.id for c in extra}
     asm = parse_assembly(raw, ids, {c.id: c.type for c in comps + extra})
@@ -330,3 +341,114 @@ def apply_system(analysis: SystemAnalysis, raw: dict, extra: list, asm: Assembly
                                           "type": "supports", "status": "inferred",
                                           "evidence": ["Assumed: held in place by the main housing."]}))
     analysis.relationships, _ = validate_relationships(analysis.components, merged)
+
+
+GENERIC_WORDS = {"main", "power", "upper", "lower", "left", "right", "front", "back", "rear", "top", "bottom", "side",
+                 "inner", "outer", "internal", "external", "cover", "part", "small", "large", "plastic", "unit", "assembly"}
+
+
+CONTAINER_WORDS = ("casing", "housing", "case", "shell", "enclosure", "frame", "body", "holder", "chassis", "compartment")
+
+
+def _is_container(label: str) -> bool:
+    return any(w in label.lower() for w in CONTAINER_WORDS)
+
+
+def _words(label: str) -> set[str]:
+    return {w[:4] for w in re.findall(r"[a-z]{3,}", label.lower()) if w not in GENERIC_WORDS}
+
+
+def _aabb(p: dict, k=1.0):
+    try:
+        size, pos, rot = [abs(float(v)) for v in p["size"][:3]], [float(v) for v in p["position"][:3]], _vec(p.get("rotation"), lo=-360, hi=360)
+    except (KeyError, TypeError, ValueError, IndexError):
+        return None
+    R = _rot_matrix(rot)
+    half = [sum(abs(R[i][j]) * size[j] / 2 for j in range(3)) for i in range(3)]
+    return [pos[i] - half[i] for i in range(3)], [pos[i] + half[i] for i in range(3)]
+
+
+def find_duplicates(raw: dict, comps: list) -> dict[str, str]:
+    """Map duplicate id -> kept id. Uses the 3D step's own "duplicates" list, then a geometric backstop:
+    two parts that occupy the same space and share a name word (or have the same shape and similar size)."""
+    by_id = {c.id: c for c in comps}
+    dup: dict[str, str] = {}
+
+    def root(x):
+        while x in dup:
+            x = dup[x]
+        return x
+
+    def keep_first(a, b):  # prefer the part seen in a photo, then the AI's order
+        ca, cb = by_id[a], by_id[b]
+        return (a, b) if (ca.status == "observed") >= (cb.status == "observed") else (b, a)
+
+    for g in raw.get("duplicates", []) if isinstance(raw.get("duplicates"), list) else []:
+        ids = [str(x) for x in g if str(x) in by_id] if isinstance(g, list) else []
+        for other in ids[1:]:
+            a, b = root(ids[0]), root(other)
+            if a != b:
+                dup[b] = a
+    geo = {str(p.get("id")): p for p in raw.get("parts", []) if isinstance(p, dict) and str(p.get("id")) in by_id}
+    boxes = {i: _aabb(p) for i, p in geo.items()}
+    ids = [i for i in geo if boxes[i]]
+    vol = {i: max(1e-6, (boxes[i][1][0] - boxes[i][0][0]) * (boxes[i][1][1] - boxes[i][0][1]) * (boxes[i][1][2] - boxes[i][0][2])) for i in ids}
+    for x in range(len(ids)):
+        for y in range(x + 1, len(ids)):
+            a, b = ids[x], ids[y]
+            if root(a) == root(b):
+                continue
+            (la, ha), (lb, hb) = boxes[a], boxes[b]
+            inter = 1.0
+            for i in range(3):
+                inter *= max(0.0, min(ha[i], hb[i]) - max(la[i], lb[i]))
+            contain = inter / min(vol[a], vol[b])
+            # a container and what it holds are never the same part (heater casing vs heating element)
+            if _is_container(by_id[a].label) != _is_container(by_id[b].label):
+                continue
+            ratio = min(vol[a], vol[b]) / max(vol[a], vol[b])
+            shape_eq = geo[a].get("shape") == geo[b].get("shape")
+            same_name = bool(_words(by_id[a].label) & _words(by_id[b].label))
+            if (same_name and contain >= 0.4 and (shape_eq or ratio > 0.25)) or \
+                    (shape_eq and ratio > 0.45 and contain >= 0.8 and by_id[a].type == by_id[b].type):
+                k, d = keep_first(root(a), root(b))
+                dup[d] = k
+    return {d: root(d) for d in dup}
+
+
+def merge_duplicates(analysis: SystemAnalysis, raw: dict) -> None:
+    """Fold duplicate parts into one: components, relationships, photo layers and the raw 3D answer."""
+    dup = find_duplicates(raw, analysis.components)
+    if not dup:
+        return
+    by_id = {c.id: c for c in analysis.components}
+    for d, k in dup.items():
+        by_id[k].evidence = list(dict.fromkeys(by_id[k].evidence + by_id[d].evidence))[:6]
+        if by_id[d].status == "observed":
+            by_id[k].status = "observed"
+    analysis.components = [c for c in analysis.components if c.id not in dup]
+    m = lambda x: dup.get(x, x)  # noqa: E731
+    rels = []
+    for r in analysis.relationships:
+        a, b = m(r.from_), m(r.to)
+        if a != b:
+            rels.append(r.model_copy(update={"from_": a, "to": b, "id": f"{a}--{r.type}--{b}"}))
+    from .component_graph import validate_relationships
+    analysis.relationships, _ = validate_relationships(analysis.components, rels)
+    if analysis.scene is not None:
+        for v in analysis.scene.views:
+            for l in v.layers:
+                l.component_id = m(l.component_id)
+        for l in analysis.scene.layers:
+            l.component_id = m(l.component_id)
+        analysis.scene.ghost_component_ids = [g for g in analysis.scene.ghost_component_ids if g not in dup
+                                              and any(c.id == g for c in analysis.components)]
+        if dup:
+            analysis.scene.notes.append(f"Merged {len(dup)} duplicate part(s) seen in several photos.")
+    raw["parts"] = [p for p in raw.get("parts", []) if not (isinstance(p, dict) and str(p.get("id")) in dup)]
+    for r in raw.get("relationships", []) if isinstance(raw.get("relationships"), list) else []:
+        if isinstance(r, dict):
+            r["from"], r["to"] = m(str(r.get("from", ""))), m(str(r.get("to", "")))
+    for d in raw.get("details", []) if isinstance(raw.get("details"), list) else []:
+        if isinstance(d, dict):
+            d["parent"] = m(str(d.get("parent", "")))

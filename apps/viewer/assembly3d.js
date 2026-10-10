@@ -123,7 +123,9 @@ export class AssemblyView {
     this.scale = TARGET_SIZE / Math.max(ox, oy, oz, 1);
     const k = this.scale;
     // curved shells ("dome") that thin parts and base plates should conform to
-    const domes = assembly.parts.filter((a) => a.shape === "dome").map((a) => ({
+    // only upright domes (open side down) act as shells that other parts conform to / fit inside
+    const upright = (a) => a.rotation.every((r) => Math.abs(((r % 360) + 540) % 360 - 180) > 175);
+    const domes = assembly.parts.filter((a) => a.shape === "dome" && upright(a)).map((a) => ({
       cx: a.position[0] * k, cz: a.position[2] * k, ax: (a.size[0] * k) / 2, az: (a.size[2] * k) / 2,
       h: a.size[1] * k, baseY: a.position[1] * k - (a.size[1] * k) / 2 }));
     const domeTop = (d, x, z) => { const q = 1 - ((x - d.cx) / d.ax) ** 2 - ((z - d.cz) / d.az) ** 2; return q > 0 ? d.baseY + d.h * Math.sqrt(q) : null; };
@@ -201,6 +203,7 @@ export class AssemblyView {
           geom.translate(d.cx - pos[0], 0, d.cz - pos[2]); conformed = true;
         }
       }
+      const inverted = a.shape === "dome" && !upright(a);
       geom = geom || geometryFor(a.shape, size);
       const mp = MATERIALS[a.material] || MATERIALS.plastic;
       const mat = new THREE.MeshPhysicalMaterial({ color: new THREE.Color(a.color), envMapIntensity: 1.0, ...mp,
@@ -210,6 +213,10 @@ export class AssemblyView {
       const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geom, 28),
         new THREE.LineBasicMaterial({ color: inferred ? 0xf2b84b : 0x0b0d12, transparent: true, opacity: inferred ? 0.85 : 0.28 }));
       const group = new THREE.Group(); group.add(mesh, edges);
+      if (inverted) { // a flipped dome would be an open bowl: close it with a lid
+        const lid = new THREE.Mesh(new THREE.CircleGeometry(0.5, 64).rotateX(Math.PI / 2).scale(size[0], 1, size[2]).translate(0, -size[1] / 2, 0), mat);
+        lid.castShadow = true; group.add(lid); var lidMesh = lid;
+      }
       if (!conformed) group.rotation.set(...a.rotation.map((d) => THREE.MathUtils.degToRad(d)));
       group.traverse((o) => (o.userData.partId = a.componentId));
       const div = document.createElement("div"); div.className = "lbl" + (inferred ? " inferred" : "");
@@ -219,14 +226,17 @@ export class AssemblyView {
       group.add(label);
       this.root.add(group);
       geom.computeBoundingBox();
-      this.parts.push({ id: a.componentId, group, mesh, edges, mat, label, inferred, extras: [], pickables: [mesh], conformed,
-        type: c.type, shape: a.shape, isBoard, material: a.material, size, localCenter: geom.boundingBox.getCenter(new THREE.Vector3()),
+      this.parts.push({ id: a.componentId, group, mesh, edges, mat, label, inferred, extras: [], pickables: inverted ? [mesh, lidMesh] : [mesh], conformed,
+        type: c.type, shape: a.shape, isBoard,
+        printable: ["interface", "display"].includes(c.type) || /label|logo|badge|sticker|screen|display|decal|print/i.test(c.label), material: a.material, size, localCenter: geom.boundingBox.getCenter(new THREE.Vector3()),
         dragT: 0, fx: { offset: new THREE.Vector3(), quat: new THREE.Quaternion(), scale: 1 }, edgeColor: edges.material.color.clone(),
         baseEdgeOpacity: edges.material.opacity,
         offset: new THREE.Vector3(), baseQuat: group.quaternion.clone(), userQuat: new THREE.Quaternion(),
-        base: new THREE.Vector3(...a.position.map((v) => v * k)),
+        base: new THREE.Vector3(...pos), thinAxis: size.indexOf(Math.min(...size)),
+        sheetCandidate: !conformed && ["plate", "box", "rounded_box"].includes(a.shape) && Math.min(...size) < 0.28 * [...size].sort((x, y) => x - y)[1],
         dir: new THREE.Vector3(...a.explodeDir).normalize(), dist: a.explodeDist ?? 1, halfH: size[1] / 2 });
     }
+    this.wrapStickers();
     // centre the assembly on its bounding box
     const box = new THREE.Box3();
     for (const p of this.parts) { p.group.position.copy(p.base); p.group.updateMatrixWorld(true); box.expandByObject(p.mesh); }
@@ -299,6 +309,48 @@ export class AssemblyView {
         add(new THREE.CylinderGeometry(rad * 1.005, rad * 1.005, y * 0.06, 40), metal, 0, y / 2 - y * 0.03, 0);
         add(new THREE.CylinderGeometry(rad * 1.005, rad * 1.005, y * 0.04, 40), metal, 0, -y / 2 + y * 0.02, 0);
       }
+    }
+  }
+
+  // Thin flat parts (labels, switches, badges, panels) are wrapped onto the surface they sit on, like a sticker:
+  // every vertex of a fine grid is ray-cast onto the host part, so a label hugs a round bottle and a switch
+  // sits on a curved casing instead of floating as a flat card.
+  wrapStickers() {
+    for (const p of this.parts) { p.group.position.copy(p.base); p.group.updateMatrixWorld(true); }
+    const solids = this.parts.filter((q) => !q.sheetCandidate);
+    const ray = new THREE.Raycaster();
+    for (const p of this.parts) {
+      if (!p.sheetCandidate) continue;
+      const q = p.group.quaternion, t = p.thinAxis, axes = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
+      const n = axes[t].clone().applyQuaternion(q).normalize();
+      const [ia, ib] = [0, 1, 2].filter((i) => i !== t), U = axes[ia].clone().applyQuaternion(q), V = axes[ib].clone().applyQuaternion(q);
+      const c = p.group.position.clone(), w = p.size[ia], h = p.size[ib], th = p.size[t], reach = Math.max(w, h) * 1.2 + th * 4;
+      // which side is the host on? the closer surface hit along -n or +n
+      let best = null;
+      for (const sgn of [1, -1]) {
+        ray.set(c.clone().addScaledVector(n, sgn * reach), n.clone().multiplyScalar(-sgn)); ray.far = reach * 2;
+        const hit = ray.intersectObjects(solids.map((s) => s.mesh), false).find((x) => x.object !== p.mesh);
+        if (hit) { const d = Math.abs(hit.point.clone().sub(c).dot(n)); if (!best || d < best.d) best = { d, out: n.clone().multiplyScalar(sgn), host: hit.object }; }
+      }
+      if (!best || best.d > Math.max(w, h)) continue; // nothing close enough underneath: leave it as modelled
+      const N = 18, g = new THREE.PlaneGeometry(1, 1, N, N), P = g.attributes.position;
+      let ok = 0;
+      for (let i = 0; i < P.count; i++) {
+        const u = P.getX(i) * w, v = P.getY(i) * h;
+        const world = c.clone().addScaledVector(U, u).addScaledVector(V, v);
+        ray.set(world.clone().addScaledVector(best.out, reach), best.out.clone().negate()); ray.far = reach * 2.2;
+        const hit = ray.intersectObject(best.host, false)[0];
+        const pt = hit ? (ok++, hit.point.clone().addScaledVector(best.out, Math.max(0.006, th * 0.5))) : world;
+        pt.sub(c); P.setXYZ(i, pt.x, pt.y, pt.z);
+      }
+      if (ok < P.count * 0.6) continue; // mostly off the host: keep the original shape
+      g.computeVertexNormals();
+      p.mesh.geometry.dispose(); p.mesh.geometry = g; p.mat.side = THREE.DoubleSide;
+      p.edges.geometry.dispose(); p.edges.geometry = new THREE.EdgesGeometry(g, 40);
+      p.group.quaternion.identity(); p.baseQuat = new THREE.Quaternion(); p.conformed = true; p.sheet = true;
+      g.computeBoundingBox(); p.localCenter = g.boundingBox.getCenter(new THREE.Vector3());
+      p.label.position.set(p.localCenter.x, g.boundingBox.max.y + 0.12, p.localCenter.z);
+      p.group.updateMatrixWorld(true);
     }
   }
 
@@ -399,9 +451,18 @@ export class AssemblyView {
       for (const l of v.layers || []) {
         const p = byId[l.componentId];
         if (!p || p.decal || !l.cutout) continue;
+        if (p.sheet && !p.printable) continue; // switches/panels keep a clean solid colour
+        if (p.sheet) { // label-like stickers print the photo of the part directly (plane UVs map onto the cut-out)
+          let im; try { im = await load(l.cutout); } catch { continue; }
+          if (!this.parts.includes(p)) return;
+          const tex = new THREE.Texture(im); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; tex.needsUpdate = true;
+          p.mat.map = tex; p.mat.alphaTest = 0.35; p.mat.color.set(0xffffff); p.mat.bumpMap = null; p.mat.needsUpdate = true; p.decal = true; continue;
+        }
+        // photos only print well on flat faces: curved/conformed shells get their sampled colour instead
+        if (p.conformed || !["box", "rounded_box", "plate"].includes(p.shape)) continue;
         let img; try { img = await load(l.cutout); } catch { continue; }
         if (!this.parts.includes(p)) return; // a newer build replaced this one
-        const geom = this.decalGeometry(p, axisW, v.view);
+        const geom = this.decalGeometry(p, axisW, v.view, img.width / Math.max(1, img.height));
         if (!geom) continue;
         const tex = new THREE.Texture(img); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; tex.needsUpdate = true;
         const mat = new THREE.MeshPhysicalMaterial({ map: tex, transparent: true, alphaTest: 0.3, roughness: p.mat.roughness,
@@ -413,7 +474,7 @@ export class AssemblyView {
     }
   }
 
-  decalGeometry(p, axisW, view) {
+  decalGeometry(p, axisW, view, imgAspect = 1) {
     // work in the mesh's local frame
     const inv = new THREE.Quaternion().copy(p.group.quaternion).invert();
     const axis = axisW.clone().applyQuaternion(inv).normalize();
@@ -437,6 +498,9 @@ export class AssemblyView {
       a.fromBufferAttribute(P, i + j); const u = a.dot(U), w = a.dot(V);
       uMin = Math.min(uMin, u); uMax = Math.max(uMax, u); vMin = Math.min(vMin, w); vMax = Math.max(vMax, w);
     }
+    // the face the photo lands on must have roughly the cut-out's proportions, or the print looks smeared
+    const faceAspect = (uMax - uMin) / Math.max(1e-6, vMax - vMin), mis = faceAspect / imgAspect;
+    if (mis > 1.8 || mis < 1 / 1.8) return null;
     keep.forEach((i, t) => {
       for (let j = 0; j < 3; j++) {
         a.fromBufferAttribute(P, i + j);

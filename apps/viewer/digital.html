@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Digital Lab · Visual Reverse Engineering</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/viewer/style.css" />
+<link rel="stylesheet" href="/viewer/digital.css" />
+</head>
+<body class="dlab">
+<header class="topbar">
+  <div class="brand"><span class="dot"></span>Visual Reverse Engineering
+    <nav class="labswitch"><a href="/">Physical</a><a href="/digital" class="on">Digital</a></nav>
+  </div>
+  <div class="actions">
+    <label class="btn primary" for="file">Upload screenshots</label>
+    <input id="file" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden />
+    <button id="loadSamples" class="btn" title="Saved results of earlier real analyses">Load samples</button>
+  </div>
+</header>
+
+<main class="dlayout">
+  <aside class="screens" id="screens" aria-label="Screens">
+    <div class="screens-head"><h3>Screens</h3><span id="screenCount" class="legend"></span></div>
+    <ol id="screenList" class="screen-list"></ol>
+    <label class="add-screen" for="file">+ Add screen</label>
+  </aside>
+
+  <section class="dstage">
+    <div class="dtabs" role="tablist">
+      <button class="dtab on" data-tab="explore" role="tab">Explore</button>
+      <button class="dtab" data-tab="workflow" role="tab">Workflow</button>
+      <button class="dtab" data-tab="compare" role="tab">Compare</button>
+      <button class="dtab" data-tab="rebuild" role="tab">Rebuild</button>
+      <span id="engineLine" class="engine-line"></span>
+    </div>
+
+    <div id="empty" class="empty">
+      <h1>Screenshot in. System map out.</h1>
+      <p>Upload screenshots of any website or app. The AI finds every section, button, form and card, builds the component tree, guesses how screens connect, compares versions and drafts code you can start from.</p>
+      <ul class="tips">
+        <li>One screen per screenshot, full page or app window</li>
+        <li>Upload several screens of the same product to map the workflow</li>
+        <li>Upload two versions of a screen to see what changed</li>
+      </ul>
+      <div class="row center"><label class="btn primary big" for="file">Choose screenshots</label>
+        <button class="btn big" id="loadSamples2">Try the samples</button></div>
+    </div>
+
+    <div id="loading" class="loading" hidden>
+      <div class="scan">
+        <div class="scan-photo"><img id="scanImg" alt="" /><i class="br tl"></i><i class="br tr"></i><i class="br bl"></i><i class="br brr"></i>
+          <div class="scan-grid"></div><div class="scan-line"></div></div>
+        <div class="scan-side">
+          <div class="scan-title">READING UI<span id="scanTime" class="scan-time">0.0 s</span></div>
+          <ol id="steps"></ol>
+          <div class="tiny muted" id="scanNote">Free-tier AI: usually 15–60 s per screen. Screens already seen load instantly.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view" id="view-explore" hidden>
+      <div class="viewbar">
+        <label class="check"><input type="checkbox" id="showBoxes" checked /> All boxes</label>
+        <label class="check"><input type="checkbox" id="showLabels" /> Labels</label>
+        <span class="legend"><i class="st observed"></i>seen <i class="st inferred"></i>inferred <i class="st estimated"></i>from geometry</span>
+      </div>
+      <div class="canvas-wrap"><div class="shot" id="shot"><img id="shotImg" alt="" /><div class="boxes" id="boxes"></div></div></div>
+    </div>
+
+    <div class="view" id="view-workflow" hidden>
+      <div class="viewbar">
+        <button class="btn small primary" id="mapFlow">Map workflow</button>
+        <label class="check"><input type="checkbox" id="flowModel" checked /> Ask AI for extra hypotheses</label>
+        <span class="tiny muted" id="flowNote">Every arrow is a hypothesis: no click was performed and no code was read.</span>
+      </div>
+      <div class="canvas-wrap"><svg id="flow" class="flow" role="img" aria-label="Screen workflow graph"></svg>
+        <div id="flowEmpty" class="placeholder">Add at least two screens of the same product, then press <b>Map workflow</b>.</div></div>
+    </div>
+
+    <div class="view" id="view-compare" hidden>
+      <div class="viewbar">
+        <label class="sel">Before <select id="beforeSel"></select></label>
+        <label class="sel">After <select id="afterSel"></select></label>
+        <button class="btn small primary" id="runDiff">Compare</button>
+        <label class="check"><input type="checkbox" id="diffModel" checked /> AI style check</label>
+        <span class="legend"><i class="ck added"></i>added <i class="ck removed"></i>removed <i class="ck moved"></i>moved/resized <i class="ck text_changed"></i>text</span>
+      </div>
+      <div class="canvas-wrap compare">
+        <figure><figcaption>Before</figcaption><div class="shot" id="shotB"><img alt="" /><div class="boxes"></div></div></figure>
+        <figure><figcaption>After</figcaption><div class="shot" id="shotA"><img alt="" /><div class="boxes"></div></div></figure>
+      </div>
+      <div id="diffEmpty" class="placeholder">Upload two versions of a screen (or pick any two screens) and press <b>Compare</b>.</div>
+    </div>
+
+    <div class="view" id="view-rebuild" hidden>
+      <div class="viewbar">
+        <button class="btn small primary" id="runBuild">Generate draft</button>
+        <span class="seg" id="codeTabs"><button data-k="preview" class="on">Preview</button><button data-k="html">HTML</button><button data-k="react">React</button><button data-k="css">Tokens CSS</button><button data-k="docs">Docs</button></span>
+        <button class="btn small" id="download">Download</button>
+        <span class="tiny muted">Draft only: layout inferred from boxes, no behaviour.</span>
+      </div>
+      <div class="canvas-wrap rebuild">
+        <div class="side-by-side"><figure><figcaption>Original</figcaption><img id="origImg" alt="" /></figure>
+          <figure class="grow"><figcaption>Reconstructed draft</figcaption><iframe id="preview" title="Reconstructed prototype" sandbox=""></iframe></figure></div>
+        <pre id="code" class="code" hidden></pre>
+        <article id="docs" class="docs" hidden></article>
+      </div>
+      <div id="buildEmpty" class="placeholder">Select a screen and press <b>Generate draft</b> for a starter prototype, design tokens and documentation.</div>
+    </div>
+
+    <div id="error" class="toast" hidden></div>
+    <div id="hover" class="hover" hidden></div>
+  </section>
+
+  <aside class="panel" id="panel" hidden>
+    <div class="block">
+      <div class="eyebrow" id="modeBadge">Live analysis</div>
+      <h2 id="title"></h2>
+      <p id="summary" class="muted"></p>
+    </div>
+    <div id="side"></div>
+    <div class="block chat">
+      <div class="block-head"><h3>Ask about <span id="chatScope">this screen</span></h3></div>
+      <div id="chatLog" class="chat-log"></div>
+      <div class="chips" id="chatSuggest"></div>
+      <form id="chatForm" class="chat-form"><input id="chatInput" placeholder="What does this component do?" autocomplete="off" maxlength="1000" />
+        <button class="btn small primary">Ask</button></form>
+      <p class="tiny muted">Answers use only the extracted structure and cite the components they rely on.</p>
+    </div>
+    <details class="block">
+      <summary>Limitations &amp; method</summary>
+      <ul id="limits" class="tiny"></ul>
+      <p class="tiny muted" id="providerLine"></p>
+    </details>
+  </aside>
+</main>
+<script type="module" src="/viewer/digital.js"></script>
+</body>
+</html>
