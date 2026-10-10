@@ -127,15 +127,62 @@ export class AssemblyView {
       cx: a.position[0] * k, cz: a.position[2] * k, ax: (a.size[0] * k) / 2, az: (a.size[2] * k) / 2,
       h: a.size[1] * k, baseY: a.position[1] * k - (a.size[1] * k) / 2 }));
     const domeTop = (d, x, z) => { const q = 1 - ((x - d.cx) / d.ax) ** 2 - ((z - d.cz) / d.az) ** 2; return q > 0 ? d.baseY + d.h * Math.sqrt(q) : null; };
+    const main = [...domes].sort((a, b) => b.ax * b.az - a.ax * a.az)[0];
+    // 1) Housing parts (side shell, lower shell, chassis) with the dome's footprint become curved bands that
+    //    follow the dome, and the dome is trimmed to sit on them: one seamless body, no box corners sticking out.
+    const bands = {};
+    if (main) for (const a of assembly.parts) {
+      const c = comp[a.componentId];
+      if (!c || a.shape === "dome" || !["box", "rounded_box", "plate", "cylinder"].includes(a.shape)) continue;
+      if (!["cover", "structure"].includes(c.type)) continue;
+      const sx = a.size[0] * k, sy = a.size[1] * k, sz = a.size[2] * k, py = a.position[1] * k;
+      if (sx < main.ax * 2 * 0.72 || sz < main.az * 2 * 0.72) continue;  // not a housing-sized part
+      if (sy < 0.3 * Math.min(sx, sz)) continue;                          // thin base plates are handled below
+      const y0 = py - sy / 2, y1 = Math.min(py + sy / 2, main.baseY + main.h * 0.9);
+      if (y1 <= y0) continue;
+      bands[a.componentId] = { y0, y1 };
+      if (y1 > main.baseY) main.cutY = Math.max(main.cutY ?? -Infinity, y1); // the dome starts where the band ends
+    }
+    // 2) Internal parts must fit inside the curved shell: shrink them / pull them in until they do.
+    const inner = new Set(["controller", "sensor", "power_source", "storage", "mechanism", "cable", "connector", "fastener", "unknown", "structure"]);
+    const fitted = {};
+    if (main) for (const a of assembly.parts) {
+      const c = comp[a.componentId];
+      if (!c || a.shape === "dome" || bands[a.componentId] || !inner.has(c.type)) continue;
+      const size = a.size.map((v) => v * k), pos = a.position.map((v) => v * k);
+      if (domeTop(main, pos[0], pos[2]) === null || pos[1] > (domeTop(main, pos[0], pos[2]) ?? 0)) continue; // not inside the shell
+      const R = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(...a.rotation.map((d) => THREE.MathUtils.degToRad(d)))).elements;
+      for (let it = 0; it < 14; it++) {
+        const hx = (Math.abs(R[0]) * size[0] + Math.abs(R[4]) * size[1] + Math.abs(R[8]) * size[2]) / 2;
+        const hy = (Math.abs(R[1]) * size[0] + Math.abs(R[5]) * size[1] + Math.abs(R[9]) * size[2]) / 2;
+        const hz = (Math.abs(R[2]) * size[0] + Math.abs(R[6]) * size[1] + Math.abs(R[10]) * size[2]) / 2;
+        let ok = true;
+        for (const [dx, dz] of [[-hx, -hz], [hx, -hz], [-hx, hz], [hx, hz]]) {
+          const x = pos[0] + dx, z = pos[2] + dz;
+          const inFoot = ((x - main.cx) / (main.ax * 0.94)) ** 2 + ((z - main.cz) / (main.az * 0.94)) ** 2 <= 1;
+          const top = domeTop(main, x, z);
+          if (!inFoot || top === null || pos[1] + hy > main.baseY + (top - main.baseY) * 0.94) { ok = false; break; }
+        }
+        if (ok) break;
+        for (let i = 0; i < 3; i++) size[i] *= 0.9;
+        pos[0] += (main.cx - pos[0]) * 0.15; pos[2] += (main.cz - pos[2]) * 0.15;
+        pos[1] = Math.max(main.baseY + hy * 0.9, pos[1] - hy * 0.12);
+      }
+      fitted[a.componentId] = { size, pos };
+    }
     for (const a of assembly.parts) {
       const c = comp[a.componentId]; if (!c) continue;
       const inferred = c.status !== "observed";
-      const size = a.size.map((v) => Math.max(0.02, v * k));
-      const pos = a.position.map((v) => v * k);
+      const size = fitted[a.componentId] ? fitted[a.componentId].size.map((v) => Math.max(0.02, v)) : a.size.map((v) => Math.max(0.02, v * k));
+      const pos = fitted[a.componentId] ? fitted[a.componentId].pos : a.position.map((v) => v * k);
       let geom = null, conformed = false;
+      if (bands[a.componentId]) { geom = this.bandGeometry(main, bands[a.componentId], pos); conformed = true; }
+      else if (a.shape === "dome" && main && a.componentId && main.cutY != null && Math.abs(a.position[0] * k - main.cx) < 1e-6
+        && Math.abs(a.size[0] * k / 2 - main.ax) < 1e-6) { geom = this.cutDome(size, (main.cutY - main.baseY) / main.h); }
       const thin = size[1] < 0.3 * Math.min(size[0], size[2]);
       const host = a.shape !== "dome" && domes.find((d) => domeTop(d, pos[0], pos[2]) !== null);
-      if (host && thin && pos[1] > host.baseY + host.h * 0.3 && ["plate", "box", "rounded_box"].includes(a.shape)) {
+      if (geom) { /* band or trimmed dome built above */ }
+      else if (host && thin && pos[1] > host.baseY + host.h * 0.3 && ["plate", "box", "rounded_box"].includes(a.shape)) {
         // thin part on top of a curved shell (button, badge): bend it onto the shell surface
         const g = new THREE.PlaneGeometry(size[0], size[2], 24, 24); g.rotateX(-Math.PI / 2);
         const P = g.attributes.position;
@@ -146,7 +193,7 @@ export class AssemblyView {
           P.setXYZ(i, x - pos[0], domeTop(host, x, z) + Math.max(0.02, size[1] * 0.5) - pos[1], z - pos[2]);
         }
         g.computeVertexNormals(); geom = g; conformed = true;
-      } else {
+      } else if (!geom) {
         const d = domes.find((d) => Math.abs((pos[1] + size[1] / 2) - d.baseY) < d.h * 0.35
           && size[0] > d.ax * 1.4 && size[2] > d.az * 1.4 && ["plate", "box", "rounded_box"].includes(a.shape));
         if (d) { // base plate under a curved shell: give it the shell's oval footprint
@@ -253,6 +300,36 @@ export class AssemblyView {
         add(new THREE.CylinderGeometry(rad * 1.005, rad * 1.005, y * 0.04, 40), metal, 0, -y / 2 + y * 0.02, 0);
       }
     }
+  }
+
+  // Lower/side housing that follows the dome: an oval wall from y0 to y1 (full footprint below the dome's
+  // base, the dome's own curve above it) with a closed bottom. Built in world space, returned part-local.
+  bandGeometry(d, { y0, y1 }, pos, seg = 96, rings = 18) {
+    const r = (y) => (y <= d.baseY ? 1 : Math.sqrt(Math.max(0, 1 - ((y - d.baseY) / d.h) ** 2)));
+    const vs = [], idx = [];
+    for (let j = 0; j <= rings; j++) {
+      const y = y0 + (y1 - y0) * (j / rings), f = r(y) * 1.004;
+      for (let i = 0; i <= seg; i++) { const t = (i / seg) * Math.PI * 2; vs.push(d.cx + d.ax * f * Math.cos(t) - pos[0], y - pos[1], d.cz + d.az * f * Math.sin(t) - pos[2]); }
+    }
+    for (let j = 0; j < rings; j++) for (let i = 0; i < seg; i++) {
+      const a = j * (seg + 1) + i, b = a + seg + 1;
+      idx.push(a, b, a + 1, b, b + 1, a + 1);
+    }
+    const c0 = vs.length / 3; vs.push(d.cx - pos[0], y0 - pos[1], d.cz - pos[2]); // bottom cap
+    for (let i = 0; i < seg; i++) idx.push(c0, i + 1, i);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(vs, 3)); g.setIndex(idx);
+    const uv = [];
+    for (let j = 0; j <= rings; j++) for (let i = 0; i <= seg; i++) uv.push((i / seg) * 4, j / rings);
+    uv.push(0.5, 0.5); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+    g.computeVertexNormals(); return g;
+  }
+
+  // Dome trimmed so it starts at fraction f of its height (sits exactly on a band below it).
+  cutDome([x, y, z], f) {
+    const theta = Math.acos(Math.max(0, Math.min(0.92, f)));
+    const g = new THREE.SphereGeometry(0.5, 64, 32, 0, Math.PI * 2, 0, theta);
+    g.scale(x, y * 2, z); g.translate(0, -y / 2, 0); g.computeVertexNormals(); return g;
   }
 
   // Small surface features (screws, vents, ports, LEDs, labels...). Each is snapped onto its parent's
