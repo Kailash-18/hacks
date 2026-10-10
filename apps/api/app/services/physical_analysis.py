@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
+import time
 
 import numpy as np
 
@@ -25,7 +27,8 @@ from . import image_ops as ops
 from .component_graph import ALLOWED_TYPES, validate_relationships
 from .vision_client import VisionClient
 
-MAX_PARTS = 12
+log = logging.getLogger("uvicorn.error")
+MAX_PARTS = 10
 MAX_HIDDEN = 6
 PART_TYPES = {
     "power_source", "actuator", "controller", "sensor", "structure", "fastener", "connector",
@@ -278,8 +281,14 @@ def analyze_physical_image(image_bytes: bytes, filename: str, vision_client: Vis
         img = ops.fit(ops.decode_image(image_bytes))
     except ValueError as exc:
         raise AnalysisError("That file is not a readable image.", 400) from exc
-    jpeg = ops.encode_jpeg(img)
+    jpeg = ops.encode_jpeg(ops.fit(img, 768))  # smaller upload = faster model call; coords are normalized
+    t0 = time.perf_counter()
+    log.info("physical: calling %s (%d KB)...", vision_client.model, len(jpeg) // 1024)
     text = vision_client.generate_json(jpeg, "image/jpeg", PROMPT)
+    t1 = time.perf_counter()
+    log.info("physical: model replied in %.1f s (%d KB)", t1 - t0, len(text) // 1024)
     raw = parse_model_json(text)
     image_hash = hashlib.sha256(image_bytes).hexdigest()
-    return build_analysis(raw, img, filename, Provider(name=vision_client.name, model=vision_client.model), image_hash)
+    result = build_analysis(raw, img, filename, Provider(name=vision_client.name, model=vision_client.model), image_hash)
+    log.info("physical: %d parts, %d layers built in %.1f s", len(result.components), len(result.scene.layers), time.perf_counter() - t1)
+    return result

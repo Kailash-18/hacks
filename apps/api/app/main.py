@@ -95,7 +95,9 @@ async def physical_analyze(image: UploadFile = File(...)):
     if cached.exists():  # free-tier friendly: same photo never costs a second model call
         analysis = SystemAnalysis.model_validate(json.loads(cached.read_text(encoding="utf-8")))
     else:
-        analysis = analyze_physical_image(data, image.filename or "upload", vision)
+        # run the blocking model call off the event loop so the server stays responsive
+        from starlette.concurrency import run_in_threadpool
+        analysis = await run_in_threadpool(analyze_physical_image, data, image.filename or "upload", vision)
         CACHE_DIR.mkdir(exist_ok=True)
         cached.write_text(json.dumps(analysis.dump()), encoding="utf-8")
     _remember(analysis)

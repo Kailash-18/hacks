@@ -44,8 +44,13 @@ class GeminiVisionClient:
             raise ProviderError("GEMINI_API_KEY is not set. Add it to apps/api/.env (free key: aistudio.google.com).", 503)
         if self._client is None:
             from google import genai
-            self._client = genai.Client(api_key=self.api_key, vertexai=self._vertex)
+            self._client = genai.Client(api_key=self.api_key, vertexai=self._vertex, http_options=self._http())
         return self._client
+
+    @staticmethod
+    def _http():
+        from google.genai import types
+        return types.HttpOptions(timeout=int(os.getenv("GEMINI_TIMEOUT_MS", "100000")))
 
     def _pick_model(self, client) -> str | None:
         """Newest available Flash model for this key (model names change over time)."""
@@ -78,6 +83,11 @@ class GeminiVisionClient:
         if "2.5" in self.model:
             # Google recommends disabling thinking for better segmentation output on 2.5.
             cfg["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
+        elif self.model.startswith("gemini-3") and not getattr(self, "_no_thinking_cfg", False):
+            try:  # low thinking = much faster; dropped automatically if the model rejects it
+                cfg["thinking_config"] = types.ThinkingConfig(thinking_level="low")
+            except Exception:
+                pass
         try:
             try:
                 resp = self._call(client, types, cfg, image_bytes, mime_type, prompt)
@@ -88,9 +98,15 @@ class GeminiVisionClient:
                 # Wrong endpoint for this key type: switch between AI Studio and Vertex express once.
                 from google import genai
                 self._vertex = not self._vertex
-                self._client = client = genai.Client(api_key=self.api_key, vertexai=self._vertex)
+                self._client = client = genai.Client(api_key=self.api_key, vertexai=self._vertex, http_options=self._http())
                 resp = self._call(client, types, cfg, image_bytes, mime_type, prompt)
         except Exception as exc:
+            t = str(exc)
+            if "thinking_config" in cfg and ("400" in t or "INVALID_ARGUMENT" in t) and "hinking" in t:
+                self._no_thinking_cfg = True
+                return self.generate_json(image_bytes, mime_type, prompt)
+            if "timed out" in t.lower() or "timeout" in t.lower() or "DEADLINE" in t:
+                raise ProviderError("The AI took too long (over 100 s). Try again, or use a simpler photo.", 504) from exc
             if ("404" in str(exc) or "NOT_FOUND" in str(exc)) and not self._model_checked:
                 self._model_checked = True
                 picked = self._pick_model(self._get())

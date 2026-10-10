@@ -444,7 +444,11 @@ $("file").addEventListener("change", async (e) => {
     const blob = await shrink(file);
     const fd = new FormData(); fd.append("image", blob, file.name.replace(/\.\w+$/, "") + ".jpg");
     steps(1);
-    const r = await fetch(API + "/api/physical/analyze", { method: "POST", body: fd });
+    const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 150000);
+    let r;
+    try { r = await fetch(API + "/api/physical/analyze", { method: "POST", body: fd, signal: ctl.signal }); }
+    catch (err) { throw new Error(err.name === "AbortError" ? "The analysis took over 2.5 minutes and was stopped. Please try again." : "Can't reach the server. Is uvicorn running?"); }
+    finally { clearTimeout(timer); }
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error || data.detail || `Analysis failed (${r.status})`);
     await build(data, { sample: false });
