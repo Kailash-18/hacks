@@ -681,13 +681,15 @@ $("reveal").addEventListener("click", () => { $("reveal").classList.add("out"); 
 
 const EDGE_COL = { powers: "#ffb020", feeds: "#ffb020", controls: "#36d6ff", depends_on: "#9b8cff", drives: "#ff5fd2", transmits: "#ff5fd2",
   supports: "#8fa3bf", mounts: "#8fa3bf" };
-const GW = 340, GH = 300;
+const GW = 340; let GH = 300;
 let graphLayout = { id: null, pos: {} };
 function layoutGraph() { // small deterministic force layout: linked parts cluster, everything stays readable
   const cs = A.components, n = cs.length, pos = {};
+  GH = Math.round(260 + Math.max(0, n - 8) * 16); // taller canvas for bigger systems
+  $("graph").setAttribute("viewBox", `0 0 ${GW} ${GH}`);
   cs.forEach((c, i) => { const a = (i / n) * Math.PI * 2; pos[c.id] = { x: GW / 2 + 110 * Math.cos(a), y: GH / 2 + 100 * Math.sin(a) }; });
   const edges = A.relationships.filter((r) => pos[r.from] && pos[r.to]);
-  const k = Math.sqrt((GW * GH) / Math.max(1, n)) * 0.62;
+  const k = Math.sqrt((GW * GH) / Math.max(1, n)) * 0.78;
   for (let it = 0; it < 320; it++) {
     const temp = 14 * (1 - it / 320) + 0.6, disp = {};
     for (const c of cs) disp[c.id] = { x: 0, y: 0 };
@@ -708,7 +710,23 @@ function layoutGraph() { // small deterministic force layout: linked parts clust
       p.y = Math.min(GH - 22, Math.max(18, p.y + (d.y / m) * Math.min(m, temp)));
     }
   }
-  graphLayout = { id: A.analysisId + ":" + n + ":" + edges.length, pos };
+  // labels: try below / above / right / left of each node, skip ones that would overlap (hover shows them)
+  const boxes = cs.map((c) => { const p = pos[c.id], r = 5 + (c.importance ?? 0.45) * 7; return { x0: p.x - r, y0: p.y - r, x1: p.x + r, y1: p.y + r }; });
+  const hit = (b) => boxes.some((o) => b.x0 < o.x1 && b.x1 > o.x0 && b.y0 < o.y1 && b.y1 > o.y0);
+  const labels = {};
+  const order = [...cs].sort((a, b) => (b.importance ?? 0.45) - (a.importance ?? 0.45));
+  for (const c of order) {
+    const p = pos[c.id], r = 5 + (c.importance ?? 0.45) * 7, text = c.label.length > 16 ? c.label.slice(0, 15) + "…" : c.label;
+    const w = text.length * 4.6 + 4, h = 10;
+    const tries = [[p.x, p.y + r + 10, "middle"], [p.x, p.y - r - 4, "middle"], [p.x + r + 3, p.y + 3, "start"], [p.x - r - 3, p.y + 3, "end"]];
+    for (const [x, y, anchor] of tries) {
+      const x0 = anchor === "middle" ? x - w / 2 : anchor === "start" ? x : x - w;
+      const b = { x0, y0: y - h + 2, x1: x0 + w, y1: y + 2 };
+      if (b.x0 < 0 || b.x1 > GW || b.y0 < 0 || b.y1 > GH || hit(b)) continue;
+      boxes.push(b); labels[c.id] = { x, y, anchor, text }; break;
+    }
+  }
+  graphLayout = { id: A.analysisId + ":" + n + ":" + edges.length, pos, labels };
 }
 
 function renderGraph() {
@@ -753,9 +771,12 @@ function renderGraph() {
     mk("circle", { cx: p.x, cy: p.y, r: rad(c), fill: c.id === removed ? "#2a2d33" : affected.has(c.id) ? "#ff4a3a" : colorsN[c.status],
       stroke: c.id === removed ? "#ff4a3a" : "rgba(0,0,0,.35)", "stroke-width": c.id === removed ? 2 : 1 }, g);
     if (c.id === removed) mk("path", { d: `M${p.x - 4},${p.y - 4}L${p.x + 4},${p.y + 4}M${p.x + 4},${p.y - 4}L${p.x - 4},${p.y + 4}`, stroke: "#ff4a3a", "stroke-width": 2 }, g);
-    const below = p.y < GH - 30;
-    const t = mk("text", { x: p.x, y: below ? p.y + rad(c) + 11 : p.y - rad(c) - 5, "text-anchor": "middle", class: "glabel" }, g);
-    t.textContent = c.label.length > 18 ? c.label.slice(0, 17) + "…" : c.label;
+    const L = graphLayout.labels[c.id];
+    if (L || c.id === selected) { // overlapping labels stay hidden; hover or select a node to read it
+      const l = L || { x: p.x, y: p.y + rad(c) + 10, anchor: "middle", text: c.label };
+      const t = mk("text", { x: l.x, y: l.y, "text-anchor": l.anchor, class: "glabel" + (L ? "" : " gfloat") }, g);
+      t.textContent = l.text;
+    }
     mk("title", {}, g).textContent = `${c.label} (${c.type}, ${c.status})${c.function ? " — " + c.function : ""}`;
   }
 }

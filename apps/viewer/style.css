@@ -260,3 +260,8 @@ details summary { cursor: pointer; font-weight: 600; color: var(--muted); }
 @keyframes flow { to { stroke-dashoffset: -9; } }
 .glegend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--muted); margin-top: 6px; }
 .glegend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+
+/* scan screen and banners sit above the 3D part labels */
+.loading { z-index: 9; }
+.reveal, .impact { z-index: 7; }
+#graph .gfloat { font-weight: 700; fill: #fff; }
