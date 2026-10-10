@@ -1,0 +1,559 @@
+{
+  "$defs": {
+    "BBox": {
+      "additionalProperties": true,
+      "description": "Normalized 0-1 box, top-left origin.",
+      "properties": {
+        "x": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Y",
+          "type": "number"
+        },
+        "width": {
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "Width",
+          "type": "number"
+        },
+        "height": {
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "Height",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "title": "BBox",
+      "type": "object"
+    },
+    "Component": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "type": {
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Type",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "observed",
+            "inferred",
+            "estimated",
+            "unknown"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "bbox": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BBox"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "modelNodeId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Modelnodeid"
+        },
+        "transform": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Transform"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "type",
+        "status"
+      ],
+      "title": "Component",
+      "type": "object"
+    },
+    "Provider": {
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "model"
+      ],
+      "title": "Provider",
+      "type": "object"
+    },
+    "Relationship": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "maxLength": 260,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "from": {
+          "minLength": 1,
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "minLength": 1,
+          "title": "To",
+          "type": "string"
+        },
+        "type": {
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Type",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "observed",
+            "inferred",
+            "estimated",
+            "unknown"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "from",
+        "to",
+        "type",
+        "status"
+      ],
+      "title": "Relationship",
+      "type": "object"
+    },
+    "Scene": {
+      "additionalProperties": true,
+      "description": "Physical-only layered 2.5D scene (spec: docs/PHYSICAL_LAB.md, owner Samvit).",
+      "properties": {
+        "kind": {
+          "const": "layered-2.5d",
+          "default": "layered-2.5d",
+          "title": "Kind",
+          "type": "string"
+        },
+        "imageWidth": {
+          "exclusiveMinimum": 0,
+          "title": "Imagewidth",
+          "type": "integer"
+        },
+        "imageHeight": {
+          "exclusiveMinimum": 0,
+          "title": "Imageheight",
+          "type": "integer"
+        },
+        "plate": {
+          "title": "Plate",
+          "type": "string"
+        },
+        "plateBbox": {
+          "$ref": "#/$defs/BBox"
+        },
+        "layers": {
+          "items": {
+            "$ref": "#/$defs/SceneLayer"
+          },
+          "title": "Layers",
+          "type": "array"
+        },
+        "ghostComponentIds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Ghostcomponentids",
+          "type": "array"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "imageWidth",
+        "imageHeight",
+        "plate",
+        "plateBbox"
+      ],
+      "title": "Scene",
+      "type": "object"
+    },
+    "SceneLayer": {
+      "additionalProperties": true,
+      "properties": {
+        "componentId": {
+          "title": "Componentid",
+          "type": "string"
+        },
+        "bbox": {
+          "$ref": "#/$defs/BBox"
+        },
+        "cutout": {
+          "title": "Cutout",
+          "type": "string"
+        },
+        "depthRank": {
+          "minimum": 0,
+          "title": "Depthrank",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "componentId",
+        "bbox",
+        "cutout",
+        "depthRank"
+      ],
+      "title": "SceneLayer",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": true,
+      "properties": {
+        "kind": {
+          "default": "image",
+          "title": "Kind",
+          "type": "string"
+        },
+        "filename": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filename"
+        }
+      },
+      "title": "Source",
+      "type": "object"
+    },
+    "Transform": {
+      "additionalProperties": true,
+      "properties": {
+        "position": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Rotation",
+          "type": "array"
+        },
+        "scale": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Scale",
+          "type": "array"
+        }
+      },
+      "required": [
+        "position",
+        "rotation",
+        "scale"
+      ],
+      "title": "Transform",
+      "type": "object"
+    },
+    "ChatRequest": {
+      "additionalProperties": true,
+      "properties": {
+        "question": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "selectedComponentIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Selectedcomponentids",
+          "type": "array"
+        },
+        "selectedRelationshipIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Selectedrelationshipids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "question"
+      ],
+      "title": "ChatRequest",
+      "type": "object"
+    },
+    "ChatResponse": {
+      "additionalProperties": true,
+      "properties": {
+        "answer": {
+          "title": "Answer",
+          "type": "string"
+        },
+        "referencedComponentIds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Referencedcomponentids",
+          "type": "array"
+        },
+        "referencedRelationshipIds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Referencedrelationshipids",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "answer"
+      ],
+      "title": "ChatResponse",
+      "type": "object"
+    },
+    "ErrorBody": {
+      "additionalProperties": true,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "ErrorBody",
+      "type": "object"
+    },
+    "ErrorResponse": {
+      "additionalProperties": true,
+      "properties": {
+        "error": {
+          "$ref": "#/$defs/ErrorBody"
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "title": "ErrorResponse",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "analysisId": {
+      "minLength": 1,
+      "title": "Analysisid",
+      "type": "string"
+    },
+    "domain": {
+      "enum": [
+        "physical",
+        "digital"
+      ],
+      "title": "Domain",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/Source"
+    },
+    "assetId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Assetid"
+    },
+    "components": {
+      "items": {
+        "$ref": "#/$defs/Component"
+      },
+      "title": "Components",
+      "type": "array"
+    },
+    "relationships": {
+      "items": {
+        "$ref": "#/$defs/Relationship"
+      },
+      "title": "Relationships",
+      "type": "array"
+    },
+    "summary": {
+      "default": "",
+      "title": "Summary",
+      "type": "string"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "provider": {
+      "$ref": "#/$defs/Provider"
+    },
+    "scene": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Scene"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "analysisId",
+    "domain",
+    "title",
+    "source",
+    "provider"
+  ],
+  "title": "SystemAnalysis",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "system-analysis.schema.json"
+}
