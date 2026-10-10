@@ -1,0 +1,107 @@
+{
+  "image": "mobile_login.png",
+  "width": 390,
+  "height": 844,
+  "elements": [
+    {
+      "id": "app-logo",
+      "type": "logo",
+      "bbox": {
+        "x": 0.4077,
+        "y": 0.128,
+        "width": 0.1846,
+        "height": 0.0853
+      }
+    },
+    {
+      "id": "title",
+      "type": "heading",
+      "bbox": {
+        "x": 0.0615,
+        "y": 0.237,
+        "width": 0.8769,
+        "height": 0.0367
+      }
+    },
+    {
+      "id": "email-label",
+      "type": "text",
+      "bbox": {
+        "x": 0.0615,
+        "y": 0.3412,
+        "width": 0.8769,
+        "height": 0.019
+      }
+    },
+    {
+      "id": "email-input",
+      "type": "input",
+      "bbox": {
+        "x": 0.0615,
+        "y": 0.3673,
+        "width": 0.8769,
+        "height": 0.0592
+      }
+    },
+    {
+      "id": "password-label",
+      "type": "text",
+      "bbox": {
+        "x": 0.0615,
+        "y": 0.4479,
+        "width": 0.8769,
+        "height": 0.019
+      }
+    },
+    {
+      "id": "password-input",
+      "type": "input",
+      "bbox": {
+        "x": 0.0615,
+        "y": 0.4739,
+        "width": 0.8769,
+        "height": 0.0592
+      }
+    },
+    {
+      "id": "forgot-link",
+      "type": "link",
+      "bbox": {
+        "x": 0.0615,
+        "y": 0.5474,
+        "width": 0.8769,
+        "height": 0.019
+      }
+    },
+    {
+      "id": "login-button",
+      "type": "button",
+      "bbox": {
+        "x": 0.0615,
+        "y": 0.5972,
+        "width": 0.8769,
+        "height": 0.0616
+      }
+    },
+    {
+      "id": "google-button",
+      "type": "button",
+      "bbox": {
+        "x": 0.0615,
+        "y": 0.7334,
+        "width": 0.8769,
+        "height": 0.0592
+      }
+    },
+    {
+      "id": "signup-footer",
+      "type": "text",
+      "bbox": {
+        "x": 0.0,
+        "y": 0.9336,
+        "width": 1.0,
+        "height": 0.019
+      }
+    }
+  ]
+}
