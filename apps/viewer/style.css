@@ -2,7 +2,7 @@
 :root {
   --bg: #0d0f12; --surface: #15181d; --surface-2: #1c2027; --line: #2a2f38;
   --text: #e8eaed; --muted: #8b93a1; --accent: #4f8cff; --accent-2: #2a5bd7;
-  --ok: #3ccf8e; --warn: #f2b84b; --danger: #ff6b5b; --radius: 10px;
+  --ok: #3ccf8e; --warn: #f2b84b; --inf: #9b8cff; --danger: #ff6b5b; --radius: 10px;
 }
 :root[data-theme="light"] {
   --bg: #f4f5f7; --surface: #ffffff; --surface-2: #eef0f3; --line: #dde1e7;
@@ -75,7 +75,7 @@ h4 { font-size: 12px; color: var(--muted); margin: 12px 0 4px; font-weight: 600;
 #summary { margin: 6px 0 0; font-size: 13px; }
 .legend { font-size: 11px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
 .st { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
-.st.observed { background: var(--ok); } .st.inferred { background: var(--warn); }
+.st.observed { background: var(--ok); } .st.inferred { background: var(--inf); }
 .st.estimated { background: var(--accent); } .st.unknown { background: var(--muted); }
 
 .parts { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
@@ -87,11 +87,11 @@ h4 { font-size: 12px; color: var(--muted); margin: 12px 0 4px; font-weight: 600;
 .parts .type { margin-left: auto; font: 11px "JetBrains Mono", monospace; color: var(--muted); }
 
 .chip { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
-.chip.observed { color: var(--ok); } .chip.inferred { color: var(--warn); } .chip.estimated { color: var(--accent); } .chip.unknown { color: var(--muted); }
+.chip.observed { color: var(--ok); } .chip.inferred { color: var(--inf); } .chip.estimated { color: var(--accent); } .chip.unknown { color: var(--muted); }
 .kv { display: flex; gap: 8px; font-size: 13px; } .kv span { color: var(--muted); }
 .evidence, .rels { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
 .rels li { cursor: pointer; } .rels li:hover { color: var(--accent); }
-.rels .dashed { color: var(--warn); }
+.rels .dashed { color: var(--inf); }
 .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
 .whatif { margin-top: 10px; padding: 10px; border-radius: 8px; background: var(--surface-2); font-size: 13px; }
 .whatif code { font: 12px "JetBrains Mono", monospace; display: block; margin: 4px 0; color: var(--text); white-space: normal; }
@@ -119,7 +119,7 @@ details summary { cursor: pointer; font-weight: 600; color: var(--muted); }
 .labels3d { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
 .lbl { font: 500 11px Inter, sans-serif; color: var(--text); background: color-mix(in srgb, var(--bg) 82%, transparent);
   border: 1px solid var(--line); padding: 2px 7px; border-radius: 6px; white-space: nowrap; margin-bottom: 4px; }
-.lbl.inferred { color: var(--warn); border-style: dashed; }
+.lbl.inferred { border-style: dashed; }
 .lbl.sel { border-color: var(--accent); color: #fff; background: var(--accent-2); }
 .lbl.hit { border-color: var(--danger); color: var(--danger); }
 .tab.tab3d.on { background: var(--accent); color: #fff; border-color: var(--accent); }
@@ -140,8 +140,8 @@ details summary { cursor: pointer; font-weight: 600; color: var(--muted); }
   box-shadow: 0 4px 18px rgba(0, 0, 0, .35); }
 .labels3d .lbl::before { content: ""; position: absolute; left: 7px; top: 50%; width: 6px; height: 6px; margin-top: -3px;
   border-radius: 50%; background: #59d8ff; box-shadow: 0 0 8px #59d8ff; }
-.labels3d .lbl.inferred { color: #ffd38a; border: 1px dashed rgba(242, 184, 75, .55); }
-.labels3d .lbl.inferred::before { background: #f2b84b; box-shadow: 0 0 8px #f2b84b; }
+.labels3d .lbl.inferred { border-style: dashed; }
+.labels3d .lbl small { margin-left: 6px; font: 500 9.5px Inter, sans-serif; color: #9aa6b8; letter-spacing: .03em; }
 .labels3d .lbl.sel { background: rgba(42, 109, 244, .85); border-color: #8fb4ff; color: #fff; }
 .labels3d .lbl.hit { border-color: #ff6b5b; color: #ffb3aa; }
 .labels3d .lbl.collide { opacity: 0; }
@@ -270,11 +270,28 @@ details summary { cursor: pointer; font-weight: 600; color: var(--muted); }
 .labels3d .leaders3d { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
 .leaders3d .leader path { fill: none; stroke: rgba(120, 190, 255, .55); stroke-width: 1.2; }
 .leaders3d .leader circle { fill: #59d8ff; stroke: rgba(5, 8, 14, .8); stroke-width: 1; filter: drop-shadow(0 0 4px #59d8ff); }
-.leaders3d .leader.inf path { stroke: rgba(242, 184, 75, .6); stroke-dasharray: 4 3; }
-.leaders3d .leader.inf circle { fill: #f2b84b; filter: drop-shadow(0 0 4px #f2b84b); }
+.leaders3d .leader.inf path { stroke-dasharray: 4 3; }
 .leaders3d .leader.sel path { stroke: #8fb4ff; stroke-width: 2; }
 .leaders3d .leader.sel circle { fill: #8fb4ff; r: 4; }
 .leaders3d .leader.hit path { stroke: #ff6b5b; stroke-width: 1.6; }
 .leaders3d .leader.hit circle { fill: #ff6b5b; filter: drop-shadow(0 0 5px #ff6b5b); }
 .labels3d .lbl { margin-bottom: 0; transition: opacity .15s; }
 
+
+/* ---- chat about the object (Physical Lab) ---- */
+.chat-log { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; margin: 6px 0 8px; padding-right: 2px; }
+.msg { display: flex; flex-direction: column; gap: 4px; }
+.msg .bubble { padding: 8px 11px; border-radius: 10px; font-size: 13px; line-height: 1.45; white-space: pre-wrap; max-width: 92%; }
+.msg.bot .bubble { background: var(--surface-2); border: 1px solid var(--line); align-self: flex-start; }
+.msg.me .bubble { background: var(--accent-2); color: #fff; align-self: flex-end; }
+.msg.pending .bubble { color: var(--muted); font-style: italic; }
+.msg.err .bubble { border-color: var(--danger); color: #ffb3aa; }
+.msg .refs { display: flex; flex-wrap: wrap; gap: 4px; }
+.msg .ref { border: 1px solid var(--line); background: none; color: var(--accent); border-radius: 99px; padding: 1px 8px; font-size: 11.5px; cursor: pointer; }
+.msg .ref:hover { border-color: var(--accent); }
+.chat-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.chip-q { border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); border-radius: 99px; padding: 3px 9px; font-size: 12px; cursor: pointer; text-align: left; }
+.chip-q:hover { color: var(--text); border-color: var(--accent); }
+.chat-form { display: flex; gap: 6px; }
+.chat-form input { flex: 1; min-width: 0; background: var(--surface-2); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 13px; }
+.chat-form input:focus { outline: none; border-color: var(--accent); }

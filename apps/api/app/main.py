@@ -35,7 +35,7 @@ def _load_env(path: Path) -> None:
 _load_env(API_DIR / ".env")
 
 from .schemas import SystemAnalysis, WhatIfRequest  # noqa: E402
-from .services.component_graph import what_if  # noqa: E402
+from .services.component_graph import complete_relationships, what_if  # noqa: E402
 from .services.physical_analysis import MAX_VIEWS, PIPELINE_VERSION, PROMPT, AnalysisError, analyze_physical_images  # noqa: E402
 from .services.vision_client import ProviderError  # noqa: E402
 from .contract import SystemAnalysis as ContractAnalysis  # noqa: E402
@@ -80,7 +80,14 @@ set_shared_client(vision)  # Digital Lab and chat use the same client (one quota
 _store: "OrderedDict[str, SystemAnalysis]" = OrderedDict()  # recent analyses for what-if
 
 
+def _complete(a: SystemAnalysis) -> SystemAnalysis:
+    """Connect the board, battery and connectors the model left without links (edges marked inferred)."""
+    a.relationships = complete_relationships(a.components, a.relationships)
+    return a
+
+
 def _remember(a: SystemAnalysis) -> None:
+    _complete(a)
     _store[a.analysis_id] = a
     _store.move_to_end(a.analysis_id)
     while len(_store) > 50:

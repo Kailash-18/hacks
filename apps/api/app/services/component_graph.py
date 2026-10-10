@@ -9,6 +9,7 @@ or engineering simulation.
 """
 from __future__ import annotations
 
+import re
 from collections import deque
 
 from ..schemas import Component, Relationship
@@ -164,3 +165,68 @@ def what_if(
         "summary": summary.strip(),
         "method": METHOD,
     }
+
+
+# ---------------------------------------------------------------- completing a sparse graph
+# The model often returns only structural links (housing mounts button), which leaves the board, battery
+# and connectors floating with no edges. These rules add the usual functional backbone from the part
+# types alone. Every added edge is status "inferred" and says so in its evidence; observed edges are
+# never changed and nothing is added where the model already linked the parts.
+_POWER_WORDS = ("batter", "power", "charg", "cell", "psu", "supply")
+_OUTPUT_TYPES = {"display", "interface", "mechanism", "light", "speaker"}
+_INPUT_TYPES = {"actuator", "sensor", "wheel", "button", "switch"}
+_DECOR = re.compile(r"logo|badge|sticker|label|decal|emblem|print", re.I)
+
+
+def _is_power(c: Component) -> bool:
+    return c.type == "power_source" or any(w in c.label.lower() for w in _POWER_WORDS)
+
+
+def complete_relationships(components: list[Component], relationships: list[Relationship]) -> list[Relationship]:
+    """Return relationships plus inferred type-based edges that connect the functional parts."""
+    if not components:
+        return relationships
+    rels = list(relationships)
+    linked = {(r.from_, r.to) for r in rels} | {(r.to, r.from_) for r in rels}
+    degree: dict[str, int] = {}
+    for r in rels:
+        degree[r.from_] = degree.get(r.from_, 0) + 1
+        degree[r.to] = degree.get(r.to, 0) + 1
+    imp = lambda c: (c.importance if c.importance is not None else 0.5, degree.get(c.id, 0))  # noqa: E731
+    controllers = [c for c in components if c.type == "controller"]
+    board = max(controllers, key=imp) if controllers else None
+    shells = [c for c in components if c.type in ("structure", "cover")]
+    housing = max(shells, key=lambda c: (c.type == "structure", degree.get(c.id, 0), imp(c))) if shells else None
+    n = 0
+
+    def add(a: Component, b: Component, typ: str, why: str) -> None:
+        nonlocal n
+        if a.id == b.id or (a.id, b.id) in linked:
+            return
+        n += 1
+        rels.append(Relationship(id=f"auto-{n}-{a.id}-{b.id}"[:80], **{"from": a.id}, to=b.id, type=typ, status="inferred",
+                                 evidence=[f"Not seen in the photo: inferred from the part types ({why})."]))
+        linked.add((a.id, b.id)); linked.add((b.id, a.id))
+        degree[a.id] = degree.get(a.id, 0) + 1
+        degree[b.id] = degree.get(b.id, 0) + 1
+
+    powers_out = {r.from_ for r in rels if r.type in ("powers", "feeds")}
+    controlled = {r.to for r in rels if r.type == "controls"}
+    for c in components:
+        if board is not None and c.id != board.id:
+            if _is_power(c) and c.id not in powers_out and c.type in ("power_source", "connector", "storage", "unknown"):
+                add(c, board, "powers", "a battery or power input feeds the main board")
+            elif c.type in _OUTPUT_TYPES and c.id not in controlled and not _DECOR.search(c.label):
+                add(board, c, "controls", "the main board drives screens, speakers and motors")
+            elif c.type in _INPUT_TYPES and degree.get(c.id, 0) <= 1:
+                add(c, board, "connected_to", "buttons and sensors send their signal to the main board")
+            elif c.type == "connector" and not _is_power(c):
+                add(c, board, "connected_to", "connectors are wired to the main board")
+            elif c.type == "controller":
+                add(board, c, "controls", "secondary boards are run by the main board")
+    if board is not None and housing is not None:
+        add(housing, board, "supports", "the board is screwed into the main housing")
+    for c in components:  # anything still floating sits in the housing
+        if housing is not None and degree.get(c.id, 0) == 0 and c.id != housing.id:
+            add(housing, c, "contains", "it sits inside the main housing")
+    return rels
