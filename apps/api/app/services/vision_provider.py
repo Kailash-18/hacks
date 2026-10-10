@@ -84,7 +84,8 @@ def _version_key(name: str) -> tuple:
 class GeminiVisionClient:
     name = "gemini"
 
-    def __init__(self, api_key: str, model: str | None = None, timeout_s: float = 60.0) -> None:
+    def __init__(self, api_key: str, model: str | None = None, timeout_s: float = 90.0,
+                 thinking_level: str | None = None) -> None:
         try:
             from google import genai
             from google.genai import types
@@ -96,6 +97,24 @@ class GeminiVisionClient:
         # Keep this reference alive for the process lifetime (see module notes).
         self._client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=int(timeout_s * 1000)))
         self.model = model or self._pick_flash_model()
+        # Lower reasoning effort = much faster responses. Dropped automatically if unsupported.
+        self._thinking = self._thinking_config(thinking_level)
+
+    def _thinking_config(self, level: str | None):
+        level = (level or "").strip().lower()
+        if not level or level == "default":
+            return None
+        try:
+            return self._types.ThinkingConfig(thinking_level=level)
+        except Exception:  # older SDK without thinking_level
+            log.info("thinking_level not supported by this google-genai version; ignoring")
+            return None
+
+    def _config(self):
+        kwargs: dict[str, Any] = {"response_mime_type": "application/json", "temperature": 0.2}
+        if self._thinking is not None:
+            kwargs["thinking_config"] = self._thinking
+        return self._types.GenerateContentConfig(**kwargs)
 
     def _pick_flash_model(self) -> str:
         try:
@@ -120,16 +139,19 @@ class GeminiVisionClient:
         if image_bytes is not None:
             contents.append(types.Part.from_bytes(data=image_bytes, mime_type=mime or "image/png"))
         contents.append(prompt)
-        config = types.GenerateContentConfig(response_mime_type="application/json", temperature=0.2)
 
         last: VisionProviderError | None = None
-        for attempt in range(2):  # one retry, only for transient server errors
+        for attempt in range(3):  # one retry for transient server errors, one for an unsupported thinking level
             try:
-                resp = self._client.models.generate_content(model=self.model, contents=contents, config=config)
+                resp = self._client.models.generate_content(model=self.model, contents=contents, config=self._config())
                 return resp.text or ""
             except Exception as exc:
                 last = self._map_error(exc)
-                if last.code != "provider_unavailable" or attempt == 1:
+                if last.code == "provider_rejected_input" and self._thinking is not None:
+                    log.info("Model rejected thinking_level; retrying without it")
+                    self._thinking = None
+                    continue
+                if last.code != "provider_unavailable" or attempt == 2:
                     raise last from None
                 time.sleep(1.5)
         raise last  # pragma: no cover
@@ -187,7 +209,12 @@ def get_vision_client() -> VisionClient:
     key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not key:
         raise provider_not_configured()
-    _client_singleton = GeminiVisionClient(key, os.getenv("GEMINI_MODEL") or None)
+    _client_singleton = GeminiVisionClient(
+        key,
+        os.getenv("GEMINI_MODEL") or None,
+        timeout_s=float(os.getenv("GEMINI_TIMEOUT_S") or 90),
+        thinking_level=os.getenv("GEMINI_THINKING_LEVEL", "low"),
+    )
     return _client_singleton
 
 

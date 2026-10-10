@@ -95,3 +95,36 @@ def test_eval_script_refuses_fixture_mode(monkeypatch):
 
     monkeypatch.setattr(mod, "get_vision_client", lambda: Fixture())
     assert mod.main([]) == 2
+
+
+def test_type_groups_accept_equivalent_labels():
+    from app.services.box_eval import types_agree
+
+    assert types_agree("hero", "section") and types_agree("paragraph", "text")
+    assert not types_agree("button", "text") and not types_agree(None, "text")
+
+
+def test_gemini_client_drops_unsupported_thinking_level():
+    """Model rejects thinking_level with HTTP 400 -> client retries once without it (no SDK needed)."""
+    from types import SimpleNamespace
+
+    from app.services.vision_provider import GeminiVisionClient
+
+    class Err(Exception):
+        code = 400
+
+    configs = []
+
+    def generate_content(model, contents, config):
+        configs.append(config)
+        if "thinking_config" in config:
+            raise Err()
+        return SimpleNamespace(text='{"ok": true}')
+
+    c = GeminiVisionClient.__new__(GeminiVisionClient)
+    c.model = "m"
+    c._types = SimpleNamespace(Part=None, GenerateContentConfig=lambda **kw: kw)
+    c._client = SimpleNamespace(models=SimpleNamespace(generate_content=generate_content))
+    c._thinking = "low-config"
+    assert c.generate_json(None, None, "p") == '{"ok": true}'
+    assert "thinking_config" in configs[0] and "thinking_config" not in configs[1] and c._thinking is None

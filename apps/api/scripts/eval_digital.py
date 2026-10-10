@@ -71,7 +71,8 @@ def main(paths: list[str]) -> int:
 
     images = [Path(p) for p in paths] or sorted(SCREENS.glob("*.png"))
     OUT.mkdir(exist_ok=True)
-    summary = {"provider": client.name, "model": client.model, "ranAt": datetime.now(timezone.utc).isoformat(),
+    summary = {"provider": client.name, "model": client.model,
+               "thinkingLevel": os.getenv("GEMINI_THINKING_LEVEL", "low"), "ranAt": datetime.now(timezone.utc).isoformat(),
                "note": "Live inference on team-made synthetic screens; small sample, not a benchmark.", "screens": []}
     failures = 0
     for png in images:
@@ -103,7 +104,7 @@ def main(paths: list[str]) -> int:
         summary["screens"].append(row)
 
     (OUT / "eval_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    print(f"\nModel: {client.name}/{client.model}. Overlays and JSON in {OUT}")
+    print(f"\nModel: {client.name}/{client.model} (thinking={summary['thinkingLevel']}). Overlays and JSON in {OUT}")
     return 1 if failures else 0
 
 

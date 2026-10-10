@@ -135,6 +135,9 @@ Vision client interface (shared): `.name`, `.model`, `.generate_json(image_bytes
 |---|---|
 | `GEMINI_API_KEY` | AI Studio key (server-side only) |
 | `GEMINI_MODEL` | Pin the model for the demo; if unset, newest available Flash is auto-picked |
+| `GEMINI_THINKING_LEVEL` | `low` (default, fastest), `medium`, `high`; dropped automatically if the model rejects it |
+| `GEMINI_TIMEOUT_S` | Seconds per model call (default 90) |
+| `CORS_ORIGINS` | Comma-separated allowed frontend origins |
 | `VRE_FIXTURE_MODE=1` | Dev only: recorded responses labelled `provider.name="fixture"`; not live inference |
 
 ## Limits
@@ -159,7 +162,9 @@ uvicorn app.digital_main:app --reload --port 8000
 
 `python scripts/eval_digital.py` sends the 3 team-made mock screens in `tests/fixtures/screens/` to the model and scores the boxes against ground truth captured from the HTML (`*.gt.json`): recall at IoU ≥ 0.5, mean IoU of matched boxes, and type agreement. It writes overlays (green = ground truth, orange = model) and JSON to `apps/api/out/`. It refuses fixture mode. Pass any screenshot path to get an overlay without scoring.
 
-These are 3 synthetic screens, so treat the numbers as a sanity check, not a benchmark. Regenerate screens with `python scripts/render_mock_screens.py` (needs Playwright).
+These are 3 synthetic screens, so treat the numbers as a sanity check, not a benchmark. Text elements (headings, labels, links) are scored against the box of the visible text (`data-gt-box="text"`), not the full-width HTML block. Type agreement treats near-synonyms as matching (e.g. `hero`/`section`; see `TYPE_GROUPS` in `box_eval.py`).
+
+First live run (10 Oct, gemini-3.8-flash, default thinking, before the prompt and ground-truth fixes), re-scored against the corrected ground truth: recall@0.5 = 1.0 on all 3 screens; mean IoU 0.95 / 0.92 / 0.90 (dashboard / landing / mobile). Latency was 15–54 s per screen, which is why `GEMINI_THINKING_LEVEL=low` is now the default. Regenerate screens with `python scripts/render_mock_screens.py` (needs Playwright).
 
 ## Tests
 `cd apps/api && pytest -q`: contract validation, box normalisation, containment geometry, edge-type guards, upload validation, bad/empty model output, provider errors, chat ID filtering, API error shapes, box metrics and the eval script (with a fake model). All use recorded/fake model replies. Live inference is covered only by `scripts/eval_digital.py`.

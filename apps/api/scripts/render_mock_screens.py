@@ -1,7 +1,7 @@
 """Render the team-made mock UI screens to PNG and record ground-truth boxes.
 
-Elements tagged with data-gt="<id>" data-gt-type="<type>" become ground truth, stored as
-normalized {x, y, width, height} in <name>.gt.json next to the PNG.
+Elements tagged with data-gt="<id>" data-gt-type="<type>" become ground truth (optional
+data-gt-box="text" uses the tight text box), stored as normalized {x, y, width, height} in <name>.gt.json next to the PNG.
 
 Needs Playwright with Chromium. Run from apps/api:  python scripts/render_mock_screens.py
 """
@@ -15,8 +15,11 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 SCREENS = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "screens"
+# data-gt-box="text" -> tight box around the rendered text (for block elements whose box is
+# much wider than their visible text, e.g. a full-width <label>); otherwise the element box.
 JS = """() => [...document.querySelectorAll('[data-gt]')].map(e => {
-  const r = e.getBoundingClientRect();
+  let r = e.getBoundingClientRect();
+  if (e.dataset.gtBox === 'text') { const g = document.createRange(); g.selectNodeContents(e); r = g.getBoundingClientRect(); }
   return {id: e.dataset.gt, type: e.dataset.gtType, x: r.x, y: r.y, w: r.width, h: r.height};
 })"""
 
