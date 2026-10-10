@@ -102,6 +102,7 @@ LIMITATIONS = [
 ]
 
 MAX_VIEWS = 4
+PIPELINE_VERSION = "4"  # bump when building logic changes, so saved results are rebuilt (model answers stay cached)
 
 
 class AnalysisError(Exception):
@@ -179,7 +180,21 @@ def _segment_view(raw: dict, img: np.ndarray, notes: list[str]):
             rank = 5
         candidates.append((max(0, min(rank, 50)), idx, p, mask, refined_by))
 
-    candidates.sort(key=lambda c: (c[0], c[1]))
+    # A small part that sits inside a bigger one (wheel on a shell, button on a panel) is in front of it,
+    # whatever rank the model gave. Smallest parts claim overlapping pixels first.
+    areas = [max(1, int(c[3].sum() // 255)) for c in candidates]
+    boxes = [ops.bbox_of(c[3]) for c in candidates]
+    ranks = [c[0] for c in candidates]
+    for i, bi in enumerate(boxes):
+        for j, bj in enumerate(boxes):
+            if i == j or bi is None or bj is None or areas[i] >= areas[j]:
+                continue
+            ix = max(0, min(bi[2], bj[2]) - max(bi[0], bj[0])) * max(0, min(bi[3], bj[3]) - max(bi[1], bj[1]))
+            if ix >= 0.7 * (bi[2] - bi[0]) * (bi[3] - bi[1]):
+                ranks[i] = min(ranks[i], ranks[j])
+    order = sorted(range(len(candidates)), key=lambda i: (ranks[i], areas[i]))
+    final_rank = {i: r for r, i in enumerate(order)}  # strict front-to-back order, 0 = front
+    candidates = [(final_rank[i],) + tuple(candidates[i][1:]) for i in sorted(range(len(candidates)), key=lambda i: areas[i])]
     taken = np.zeros((h, w), np.uint8)
     parts = []
     min_area = 0.0015 * h * w

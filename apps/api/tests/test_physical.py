@@ -298,3 +298,18 @@ def test_api_multi_upload(monkeypatch, tmp_path):
     assert len(r.json()["scene"]["views"]) == 2
     five = [("images", (f"{i}.png", synthetic_device(), "image/png")) for i in range(5)]
     assert client.post("/api/physical/analyze", files=five).status_code == 400
+
+
+def test_small_part_inside_big_part_survives():
+    """Model ranks the shell in front of the wheel; the wheel must still be cut out and be in front."""
+    def bx(x0, y0, x1, y1):
+        return [round(y0 / H * 1000), round(x0 / W * 1000), round(y1 / H * 1000), round(x1 / W * 1000)]
+    def ol(x0, y0, x1, y1):
+        return [[round(y / H * 1000), round(x / W * 1000)] for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))]
+    resp = {"object_name": "Mouse", "view": "top",
+            "parts": [{"id": "wheel", "label": "Scroll Wheel", "box_2d": bx(270, 130, 310, 170), "outline": ol(270, 130, 310, 170), "depth_rank": 1},
+                      {"id": "shell", "label": "Top shell", "box_2d": bx(60, 50, 340, 250), "outline": ol(60, 50, 340, 250), "depth_rank": 0}]}
+    a = analyze_physical_image(synthetic_device(), "m.png", FakeVision(resp))
+    layers = {l.component_id: l for l in a.scene.layers}
+    assert "wheel" in layers and "shell" in layers
+    assert layers["wheel"].depth_rank < layers["shell"].depth_rank

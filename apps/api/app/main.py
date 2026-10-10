@@ -35,11 +35,11 @@ _load_env(API_DIR / ".env")
 
 from .schemas import SystemAnalysis, WhatIfRequest  # noqa: E402
 from .services.component_graph import what_if  # noqa: E402
-from .services.physical_analysis import MAX_VIEWS, PROMPT, AnalysisError, analyze_physical_images  # noqa: E402
+from .services.physical_analysis import MAX_VIEWS, PIPELINE_VERSION, PROMPT, AnalysisError, analyze_physical_images  # noqa: E402
 from .services.vision_client import GeminiVisionClient, ProviderError  # noqa: E402
 
 MAX_BYTES = 8 * 1024 * 1024
-PROMPT_VERSION = hashlib.sha256(PROMPT.encode()).hexdigest()[:8]
+PROMPT_VERSION = hashlib.sha256(PROMPT.encode()).hexdigest()[:8] + PIPELINE_VERSION
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
 CACHE_DIR = API_DIR / ".cache"
 SAMPLES_DIR = API_DIR / "samples"
