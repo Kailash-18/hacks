@@ -248,3 +248,53 @@ def test_repo_route_errors_and_success(api):
     assert bad["error"]["code"] == "bad_zip"
     assert api.post("/api/digital/repo", data={"analysisId": dash, "repoUrl": "https://example.com/x"}).json()["error"]["code"] == "bad_repo_url"
     assert api.post("/api/digital/repo", data={"analysisId": dash}).json()["error"]["code"] == "missing_input"
+
+
+# --- Nimbus demo app (saved real results): the demo path judges see ------------------------
+from app.samples import load_samples
+
+NIMBUS = load_samples()
+
+
+def _nimbus(*ids):
+    missing = [i for i in ids if i not in NIMBUS]
+    if missing:
+        pytest.skip(f"Nimbus samples not saved yet: {missing}")
+    return [NIMBUS[i] for i in ids]
+
+
+def test_nimbus_workflow_is_the_real_journey():
+    screens = _nimbus("nimbus-landing", "nimbus-login", "nimbus-dashboard", "nimbus-settings")
+    wf, _ = dx.build_workflow([s.analysis for s in screens])
+    title = {c.id: c.label for c in wf.components}
+    edges = {(title[r.from_], title[r.to]) for r in wf.relationships}
+    land, login, dash, sett = (s.analysis.title for s in screens)
+    assert {(land, login), (login, dash), (dash, sett), (sett, dash)} <= edges
+    # a long hero headline ("Plan projects your team…") must not make sidebar links point at the landing page
+    assert not any(to == land for _, to in edges)
+    assert next(c for c in wf.components if c.isEntry).label == land
+    assert all(r.status == "inferred" for r in wf.relationships)
+
+
+def test_nimbus_diff_reports_real_changes_not_naming_noise():
+    before, after = _nimbus("nimbus-dashboard", "nimbus-dashboard-v2")
+    imgs = ((before.image_path.read_bytes(), before.mime), (after.image_path.read_bytes(), after.mime))
+    d, _ = dx.diff_analyses(before.analysis, after.analysis, None, imgs)
+    kinds = {c["label"]: c["kind"] for c in d["changes"]}
+    assert "type_changed" not in kinds.values()  # button -> menu_item is the same control
+    assert kinds.get("+ Create project") == "text_changed"  # renamed, not removed + added
+    assert any(k == "added" and "Upgrade" in label for label, k in kinds.items())
+    assert any(k == "removed" and "Team members" in label for label, k in kinds.items())
+    # the greeting is still on screen in v2 although the model did not list it: pixel check keeps it out
+    assert not any(label.startswith("Good morning") for label in kinds)
+    assert any(l.startswith("Pixel check") for l in d["limitations"])
+
+
+def test_tokens_pick_the_brand_colour_not_the_dark_sidebar():
+    (dash,) = _nimbus("nimbus-dashboard")
+    assert dx.extract_tokens(dash.analysis, dash.image_path.read_bytes())["colors"]["primary"] == "#4f46e5"
+
+
+def test_same_text_ignores_descriptive_words():
+    assert dx._same_text("Recent projects", "Recent projects table")
+    assert not dx._same_text("+ New project", "+ Create project")

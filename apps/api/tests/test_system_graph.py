@@ -96,3 +96,14 @@ def test_duplicate_parts_from_several_photos_are_merged():
         {"id": "heater", "shape": "torus", "size": [20, 8, 20], "position": [0, 15, 0], "rotation": [90, 0, 0]},
         {"id": "plug", "shape": "rounded_box", "size": [35, 35, 20], "position": [0, 30, -17]}]}
     assert find_duplicates(raw, comps) == {"pins2": "pins", "wick3": "wick"}
+
+
+def test_label_closeup_or_unknown_photo_is_not_a_different_object():
+    from app.services.physical_analysis import _clearly_other, _odd_photos_heuristic
+    mouse = {"object_name": "Computer Mouse", "product": {"category": "computer mouse", "brand": "Lenovo"}, "view": "top"}
+    assert not _clearly_other(mouse, {"object_name": "unknown", "view": "bottom"})
+    assert not _clearly_other(mouse, {"object_name": "Product label sticker", "view": "unknown"})
+    assert not _clearly_other(mouse, {"object_name": "", "view": "front"})
+    assert not _clearly_other(mouse, {"object_name": "Wireless device", "product": {"brand": "Lenovo"}, "view": "front"})
+    assert _clearly_other(mouse, {"object_name": "Smartphone", "product": {"category": "mobile phone"}, "view": "front"})
+    assert _odd_photos_heuristic([mouse, {"object_name": "unknown"}, {"object_name": "Smartphone"}]) == [3]

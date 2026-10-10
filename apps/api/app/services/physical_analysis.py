@@ -88,6 +88,8 @@ Rules:
 
 MERGE_PROMPT = """These part lists come from different photos that SHOULD show the same object.
 1) Decide whether every photo shows the same object (same kind of product). A mouse and a phone are different.
+   A close-up of a label or sticker, the bottom, the inside, or a photo whose object is "unknown" counts as the SAME
+   object. Only list a photo in odd_photos when it clearly shows a different kind of product. If unsure: same object.
 2) Decide which labels name the same physical part.
 Return ONLY JSON: {"same_object": true, "odd_photos": [numbers of photos that show a DIFFERENT object than photo 1],
 "groups": [["label as given", "other label as given"], ...]}
@@ -430,10 +432,28 @@ def _object_words(raw: dict) -> set[str]:
     return {w.rstrip("s") for w in re.findall(r"[a-z]{3,}", text)} - {"the", "and", "with", "wireless", "computer", "device", "object"}
 
 
+UNSURE_WORDS = {"unknown", "label", "sticker", "closeup", "close", "detail", "bottom", "underside", "inside", "text", "part",
+                "component", "surface", "panel", "plastic", "barcode", "logo", "nameplate", "unidentified", "unclear", "product",
+                "rating", "model", "serial", "information", "info", "back", "view", "photo", "image", "hand"}
+
+
+def _clearly_other(first: dict, other: dict) -> bool:
+    """True only when the other photo names a real, unrelated object. Label close-ups, bottom/inside views and
+    photos the model could not name are never 'different' (they are usually the same object, seen up close)."""
+    a, b = _object_words(first), _object_words(other)
+    if not a or not b or not (b - UNSURE_WORDS):
+        return False
+    pa = first.get("product") if isinstance(first.get("product"), dict) else {}
+    pb = other.get("product") if isinstance(other.get("product"), dict) else {}
+    brand_a, brand_b = _str(pa.get("brand"), 40).lower(), _str(pb.get("brand"), 40).lower()
+    if brand_a and brand_a not in ("null", "none") and brand_a == brand_b:
+        return False  # same brand: same product photographed differently
+    return not (a & b)
+
+
 def _odd_photos_heuristic(raws: list[dict]) -> list[int]:
-    """Fallback check: photo i is 'different' when its object name/category shares no word with photo 1."""
-    first = _object_words(raws[0])
-    return [i + 1 for i, r in enumerate(raws[1:], start=1) if first and _object_words(r) and not (first & _object_words(r))]
+    """Photo i is 'different' only when it clearly names an unrelated object (see _clearly_other)."""
+    return [i + 1 for i, r in enumerate(raws[1:], start=1) if _clearly_other(raws[0], r)]
 
 
 def _merge_groups(raws: list[dict], vision_client) -> tuple[list[list[str]], list[int]]:
@@ -452,7 +472,9 @@ def _merge_groups(raws: list[dict], vision_client) -> tuple[list[list[str]], lis
         data = parse_model_json(fn(MERGE_PROMPT + "\n".join(lists)))
         odd = [int(x) for x in _list(data.get("odd_photos")) if isinstance(x, (int, float)) and 2 <= int(x) <= len(raws)]
         if data.get("same_object") is False and not odd:
-            odd = _odd_photos_heuristic(raws) or list(range(2, len(raws) + 1))
+            odd = list(range(2, len(raws) + 1))
+        # the model's opinion alone never rejects a photo: it must also clearly show a named, unrelated object
+        odd = [n for n in odd if _clearly_other(raws[0], raws[n - 1])]
         return [g for g in _list(data.get("groups")) if isinstance(g, list)], odd
     except Exception as exc:  # merging is best-effort
         log.warning("physical: label merge skipped (%s)", exc)

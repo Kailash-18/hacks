@@ -238,9 +238,15 @@ def _screen_id(a: SystemAnalysis, i: int) -> str:
 def _screen_keywords(a: SystemAnalysis) -> set[str]:
     words = _words(a.title)
     for c in a.components:
-        if c.type in {"heading", "hero", "header"} and c.bbox and c.bbox.y < 0.35:
+        # a short page heading names the screen ("Settings", "Log in to Nimbus"); a long marketing
+        # headline ("Plan projects your team actually finishes") does not, so it is ignored
+        if c.type in {"heading", "hero", "header"} and c.bbox and c.bbox.y < 0.35 and len(_words(c.label)) <= 4:
             words |= _words(c.label)
     return words
+
+
+AUTH_WORDS = frozenset({"login", "signup"})
+HOME_WORDS = frozenset({"dashboard", "home", "overview"})
 
 
 def _triggers(a: SystemAnalysis) -> list[Component]:
@@ -254,6 +260,9 @@ def build_workflow(analyses: list[SystemAnalysis], client: Any | None = None) ->
     sids = [_screen_id(a, i) for i, a in enumerate(analyses)]
     by_sid = dict(zip(sids, analyses))
     keywords = {sid: _screen_keywords(a) for sid, a in by_sid.items()}
+    if len(keywords) >= 3:  # words on every screen (usually the app name) cannot tell screens apart
+        common = set.intersection(*keywords.values())
+        keywords = {sid: kw - common for sid, kw in keywords.items()}
     rels: dict[str, Relationship] = {}
 
     def add(frm: str, to: str, trig: Component | None, evidence: str, source: str) -> None:
@@ -286,6 +295,17 @@ def build_workflow(analyses: list[SystemAnalysis], client: Any | None = None) ->
                     best, best_score = other, score
             if best and best_score >= 0.5:
                 add(sid, best, c, f"Control '{c.label}' on {a.title} matches the title of {by_sid[best].title}", "label-match")
+
+    # a2) common pattern: the submit button of a sign-in screen leads into the app's home screen
+    homes = [sid for sid, kw in keywords.items() if kw & HOME_WORDS]
+    for sid, a in by_sid.items():
+        if not (keywords[sid] & AUTH_WORDS) or not homes or any(r.from_ == sid and r.to in homes for r in rels.values()):
+            continue
+        submit = [c for c in _triggers(a) if c.type == "button" and _words(c.label) & AUTH_WORDS]
+        if submit:
+            trig = max(submit, key=lambda c: (c.bbox.width * c.bbox.height) if c.bbox else 0)
+            add(sid, homes[0], trig, f"Common pattern: '{trig.label}' on a sign-in screen usually opens the app's "
+                f"home screen ({by_sid[homes[0]].title}); not shown in the screenshot", "pattern")
 
     # b) optional model hypotheses (text only, cheap)
     model_summary, entry = "", None
@@ -368,10 +388,30 @@ AFTER components: %s
 """
 
 
+# Types a model uses interchangeably for the same element across two runs; a switch inside one
+# family is naming noise, not a change in the interface.
+TYPE_FAMILY = {**{t: "control" for t in ("button", "link", "menu_item", "tab", "list_item", "toggle")},
+               **{t: "container" for t in ("section", "card", "panel", "table", "list", "container", "form", "group")},
+               **{t: "text" for t in ("text", "paragraph", "label", "heading", "badge")},
+               **{t: "media" for t in ("icon", "image", "avatar", "logo")},
+               **{t: "bar" for t in ("navbar", "header", "toolbar", "topbar")}}
+# words a model adds to a label to describe the element rather than quote it ("Recent projects table")
+DESCRIPTIVE = frozenset("table section list bar card panel button icon link menu item container area block group "
+                        "navigation nav header footer sidebar banner image logo".split())
+
+
+def _family(t: str) -> str:
+    return TYPE_FAMILY.get(t, t)
+
+
+def _same_text(x: str, y: str) -> bool:
+    return x.strip() == y.strip() or (_words(x) - DESCRIPTIVE) == (_words(y) - DESCRIPTIVE) != set()
+
+
 def _match_score(b: Component, a: Component) -> float:
-    label = _sim(b.label, a.label)
+    label = 1.0 if _same_text(b.label, a.label) else _sim(b.label, a.label)
     same_id = 1.0 if b.id == a.id else 0.0
-    same_type = 1.0 if b.type == a.type else 0.0
+    same_type = 1.0 if b.type == a.type else 0.7 if _family(b.type) == _family(a.type) else 0.0
     if b.bbox and a.bbox:
         (bx, by), (ax, ay) = _center(b.bbox), _center(a.bbox)
         near = max(0.0, 1.0 - ((bx - ax) ** 2 + (by - ay) ** 2) ** 0.5 / 0.35)
@@ -396,7 +436,41 @@ def match_components(before: SystemAnalysis, after: SystemAnalysis, threshold: f
         used_b.add(i)
         used_a.add(j)
         out.append((before.components[i], after.components[j], round(score, 3)))
+    # second pass: a renamed control keeps a word ("+ New project" -> "+ Create project"); limited to
+    # controls, because two different cards often share a topic word ("Team members" vs "Team activity")
+    for score, i, j in pairs:
+        if i in used_b or j in used_a or score < 0.2:
+            continue
+        b, a = before.components[i], after.components[j]
+        if _family(b.type) == _family(a.type) == "control" and (_words(b.label) - DESCRIPTIVE) & (_words(a.label) - DESCRIPTIVE):
+            used_b.add(i)
+            used_a.add(j)
+            out.append((b, a, round(score, 3)))
     return out
+
+
+def _gray(data: bytes, width: int | None = None):
+    import cv2
+    import numpy as np
+
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_GRAYSCALE)
+    if img is not None and width and img.shape[1] != width:
+        img = cv2.resize(img, (width, round(img.shape[0] * width / img.shape[1])), interpolation=cv2.INTER_AREA)
+    return img
+
+
+def _found_in(box: BBox, src, dst, threshold: float = 0.92) -> bool:
+    """Is the pixel content of `box` in `src` present anywhere in `dst`? Catches elements the model
+    listed in one version only, although they are still on screen in the other."""
+    import cv2
+
+    h, w = src.shape[:2]
+    x0, y0 = int(box.x * w) + 1, int(box.y * h) + 1
+    x1, y1 = int((box.x + box.width) * w) - 1, int((box.y + box.height) * h) - 1
+    crop = src[max(0, y0):min(h, y1), max(0, x0):min(w, x1)]
+    if crop.shape[0] < 10 or crop.shape[1] < 10 or crop.std() < 12 or crop.shape[0] > dst.shape[0] or crop.shape[1] > dst.shape[1]:
+        return False  # too small or too plain to identify reliably
+    return float(cv2.minMaxLoc(cv2.matchTemplate(dst, crop, cv2.TM_CCOEFF_NORMED))[1]) >= threshold
 
 
 def diff_analyses(before: SystemAnalysis, after: SystemAnalysis, client: Any | None = None,
@@ -417,19 +491,39 @@ def diff_analyses(before: SystemAnalysis, after: SystemAnalysis, client: Any | N
             "afterBbox": a.bbox.model_dump() if a and a.bbox else None,
         })
 
+    # pixel check: an element listed in only one analysis but still visible in the other image was
+    # missed by the model in one run, not added or removed
+    still_there: list[str] = []
+    gb = ga = None
+    if images is not None:
+        try:
+            gb = _gray(images[0][0])
+            ga = _gray(images[1][0], gb.shape[1] if gb is not None else None)
+        except Exception:
+            gb = ga = None
+    pixels = gb is not None and ga is not None
+
     for b in before.components:
         if b.id not in mb:
-            change("removed", b, None, [f"'{b.label}' ({b.type}) is not found in the new version"])
+            if pixels and b.bbox and _found_in(b.bbox, gb, ga):
+                still_there.append(b.label)
+                continue
+            change("removed", b, None, [f"'{b.label}' ({b.type}) is not found in the new version"]
+                   + (["Its pixels are not found in the new screenshot either"] if pixels and b.bbox else []))
     for a in after.components:
         if a.id not in ma:
-            change("added", None, a, [f"'{a.label}' ({a.type}) is new"])
+            if pixels and a.bbox and _found_in(a.bbox, ga, gb):
+                still_there.append(a.label)
+                continue
+            change("added", None, a, [f"'{a.label}' ({a.type}) is new"]
+                   + (["Its pixels are not found in the old screenshot either"] if pixels and a.bbox else []))
     unchanged = 0
     for b, a, score in matches:
         details, kinds = [], []
-        if b.label.strip() != a.label.strip():
+        if not _same_text(b.label, a.label):
             kinds.append("text_changed")
             details.append(f"Text '{b.label}' → '{a.label}'")
-        if b.type != a.type:
+        if _family(b.type) != _family(a.type):
             kinds.append("type_changed")
             details.append(f"Type {b.type} → {a.type}")
         if b.bbox and a.bbox:
@@ -456,6 +550,10 @@ def diff_analyses(before: SystemAnalysis, after: SystemAnalysis, client: Any | N
         "Components are matched by text, type and position; a heavily redesigned element can show as removed + added.",
         "Both versions come from separate analyses, so small box differences can be estimation noise (moves under 3% are ignored).",
     ]
+    if still_there:
+        shown = ", ".join(f"'{t[:40]}'" for t in still_there[:4]) + (" …" if len(still_there) > 4 else "")
+        limitations.insert(0, f"Pixel check: {len(still_there)} element(s) listed in only one analysis are still visible in "
+                              f"both screenshots ({shown}), so they are not reported as added or removed.")
     style_changes: list[dict[str, Any]] = []
     model_summary = ""
     if client is not None and images is not None and hasattr(client, "generate_json_images"):
@@ -569,9 +667,10 @@ def extract_tokens(analysis: SystemAnalysis, image_bytes: bytes) -> dict[str, An
         return _dominant(img, c.bbox, k=3)[0][0]
 
     # primary = most common saturated fill among buttons (fallback: most saturated page colour)
-    btn_fills = [fill_of(c) for c in by_type.get("button", [])[:12]]
-    sat_btn = [f for f in btn_fills if _sat(f) > 0.25]
     vivid = lambda p: _sat(p) * max(p) / 255  # saturated AND bright, so dark navy text does not win
+    btn_fills = [fill_of(c) for c in by_type.get("button", [])[:16]]
+    # vivid, not just saturated: dark sidebar items (#0f172a has high HSV saturation) are not the brand colour
+    sat_btn = [f for f in btn_fills if vivid(f) > 0.2]
     primary = Counter(sat_btn).most_common(1)[0][0] if sat_btn else max((p for p, share in page if share > 0.003),
                                                                        key=vivid, default=(37, 99, 235))
     # text ink = median colour of pixels that clearly contrast with the local background
