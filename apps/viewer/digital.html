@@ -65,7 +65,7 @@
     <div class="view" id="view-explore" hidden>
       <div class="viewbar">
         <label class="check"><input type="checkbox" id="showBoxes" checked /> All boxes</label>
-        <label class="check"><input type="checkbox" id="showLabels" /> Labels</label>
+        <label class="check" title="Exploded view: names in side columns with lines to each component"><input type="checkbox" id="showLabels" checked /> Labels</label>
         <span class="legend"><i class="st observed"></i>seen <i class="st inferred"></i>inferred <i class="st estimated"></i>from geometry</span>
         <button class="btn small" id="repoToggle" title="Connect UI elements to the files that render them">Link source code</button>
       </div>
@@ -76,7 +76,7 @@
         <button class="btn small primary" id="repoGo">Map</button>
         <span class="tiny muted" id="repoNote">Nothing is executed: visible text and component names are matched against the source.</span>
       </form>
-      <div class="canvas-wrap"><div class="shot" id="shot"><img id="shotImg" alt="" /><div class="boxes" id="boxes"></div></div></div>
+      <div class="canvas-wrap" id="exploreWrap"><div class="shot" id="shot"><img id="shotImg" alt="" /><div class="boxes" id="boxes"></div><div class="callouts" id="callouts"></div></div></div>
     </div>
 
     <div class="view" id="view-workflow" hidden>

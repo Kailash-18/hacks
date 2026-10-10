@@ -265,3 +265,16 @@ details summary { cursor: pointer; font-weight: 600; color: var(--muted); }
 .loading { z-index: 9; }
 .reveal, .impact { z-index: 7; }
 #graph .gfloat { font-weight: 700; fill: #fff; }
+
+/* ---- exploded-diagram callouts (3D): labels in side columns with leader lines to their parts ---- */
+.labels3d .leaders3d { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.leaders3d .leader path { fill: none; stroke: rgba(120, 190, 255, .55); stroke-width: 1.2; }
+.leaders3d .leader circle { fill: #59d8ff; stroke: rgba(5, 8, 14, .8); stroke-width: 1; filter: drop-shadow(0 0 4px #59d8ff); }
+.leaders3d .leader.inf path { stroke: rgba(242, 184, 75, .6); stroke-dasharray: 4 3; }
+.leaders3d .leader.inf circle { fill: #f2b84b; filter: drop-shadow(0 0 4px #f2b84b); }
+.leaders3d .leader.sel path { stroke: #8fb4ff; stroke-width: 2; }
+.leaders3d .leader.sel circle { fill: #8fb4ff; r: 4; }
+.leaders3d .leader.hit path { stroke: #ff6b5b; stroke-width: 1.6; }
+.leaders3d .leader.hit circle { fill: #ff6b5b; filter: drop-shadow(0 0 5px #ff6b5b); }
+.labels3d .lbl { margin-bottom: 0; transition: opacity .15s, transform .12s ease-out; }
+

@@ -182,3 +182,30 @@
 .fw { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0 8px; }
 .fw span { font: 11px "JetBrains Mono", monospace; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--line); }
 .tree .tn .has-src { font: 10px "JetBrains Mono", monospace; color: var(--accent); }
+
+/* ---- exploded-diagram callouts: names in side columns, leader line to each box ---- */
+.canvas-wrap.callout-mode { padding-left: 200px; padding-right: 200px; scrollbar-gutter: stable; }
+.canvas-wrap.callout-mode .shot { max-width: 100%; }
+.canvas-wrap.callout-mode .bx .bl { display: none !important; }
+.callouts { position: absolute; inset: 0; pointer-events: none; }
+.callouts .leaders { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.callouts g, .co { --c: var(--ok); }
+.callouts g[data-status="inferred"], .co[data-status="inferred"] { --c: var(--warn); }
+.callouts g[data-status="estimated"], .co[data-status="estimated"] { --c: var(--accent); }
+.callouts path { fill: none; stroke: var(--c); stroke-width: 1.2; opacity: .55; }
+.callouts circle { fill: var(--c); }
+.callouts g[data-status="inferred"] path { stroke-dasharray: 4 3; }
+.co { position: absolute; pointer-events: auto; cursor: pointer; max-width: 176px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 600 11px/18px Inter, sans-serif; color: var(--text); background: var(--surface); border: 1px solid color-mix(in srgb, var(--c) 70%, transparent);
+  border-radius: 999px; padding: 0 9px; box-shadow: 0 2px 10px rgba(0,0,0,.35); transition: background .12s, border-color .12s; }
+.co[data-status="inferred"] { border-style: dashed; }
+.co:hover, .co.hov { background: color-mix(in srgb, var(--c) 22%, var(--surface)); }
+.callouts g.hov path { opacity: 1; stroke-width: 2; }
+.bx.hov { background: color-mix(in srgb, var(--c, var(--ok)) 18%, transparent); opacity: 1 !important; z-index: 3; }
+.co.sel { --c: #fff; background: var(--accent); color: #fff; }
+.callouts g.sel { --c: #fff; } .callouts g.sel path { opacity: 1; stroke-width: 2; }
+.co.ref, .callouts g.ref { --c: #c084fc; }
+.co.hit, .co.gone, .callouts g.hit, .callouts g.gone { --c: var(--danger); }
+.callouts g.ref path, .callouts g.hit path, .callouts g.gone path { opacity: 1; stroke-width: 1.8; }
+@media (max-width: 1100px) { .canvas-wrap.callout-mode { padding-left: 160px; padding-right: 160px; } .co { max-width: 140px; } }
+

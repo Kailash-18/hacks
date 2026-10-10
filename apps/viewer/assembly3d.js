@@ -674,18 +674,58 @@ export class AssemblyView {
     const r = this.renderer.domElement.getBoundingClientRect();
     this.labels.setSize(r.width, r.height);
     this.labels.render(this.scene, this.camera);
-    // declutter: keep the most important labels, hide ones that overlap them
     // CSS2D labels ignore parent visibility: hide labels of parts that are hidden (removed, intro)
     for (const p of this.parts) p.label.element.style.visibility = p.group.visible && p.fx.scale > 0.3 ? "" : "hidden";
-    const cand = this.parts.filter((p) => p.label.visible && p.group.visible);
-    cand.sort((a, b) => (b.highlight - a.highlight) || (a.inferred - b.inferred) || (b.halfH - a.halfH));
-    const kept = [];
-    for (const p of cand) {
-      const e = p.label.element, b = e.getBoundingClientRect();
-      const hit = kept.some((k) => b.left < k.right + 4 && b.right > k.left - 4 && b.top < k.bottom + 2 && b.bottom > k.top - 2);
-      e.classList.toggle("collide", hit && !p.highlight);
-      if (!hit || p.highlight) kept.push(b);
+    this.layoutCallouts(r.width, r.height);
+  }
+
+  // Exploded-diagram callouts: labels sit in two clean columns at the left/right edges of the view,
+  // ordered by the height of their part, and a leader line runs from each label to its part.
+  // Labels never overlap each other or the part they name.
+  layoutCallouts(w, h) {
+    const NS = "http://www.w3.org/2000/svg";
+    if (!this._leaders) {
+      this._leaders = document.createElementNS(NS, "svg");
+      this._leaders.setAttribute("class", "leaders3d");
+      this.labels.domElement.prepend(this._leaders);
     }
+    const svg = this._leaders;
+    svg.setAttribute("width", w); svg.setAttribute("height", h); svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+    const TOP = 60, BOTTOM = 76, SIDE = 16, GAP = 6, ELBOW = 18;
+    const v = new THREE.Vector3(), items = [];
+    for (const p of this.parts) {
+      const e = p.label.element;
+      e.classList.remove("collide");
+      if (!p.label.visible || !p.group.visible || p.fx.scale <= 0.3 || e.style.display === "none") continue;
+      v.copy(this.centerOf(p)).project(this.camera);
+      if (v.z > 1) { e.style.visibility = "hidden"; continue; } // behind the camera
+      items.push({ p, e, ax: (v.x + 1) / 2 * w, ay: (1 - v.y) / 2 * h, lw: e.offsetWidth, lh: e.offsetHeight });
+    }
+    if (!items.length) { svg.innerHTML = ""; return; }
+    // split around the model's on-screen centre, then balance so neither column is overloaded
+    const cx = items.reduce((s, i) => s + i.ax, 0) / items.length;
+    let left = items.filter((i) => i.ax < cx), right = items.filter((i) => i.ax >= cx);
+    const move = (from, to, pick) => { from.sort(pick); to.push(from.shift()); };
+    while (left.length - right.length > 1) move(left, right, (a, b) => b.ax - a.ax);
+    while (right.length - left.length > 1) move(right, left, (a, b) => a.ax - b.ax);
+    let paths = "";
+    for (const [col, side] of [[left, "L"], [right, "R"]]) {
+      const row = (i) => Math.round(i.ay / 14); // same row: the lower label goes to the part farther away, so lines never cross
+      col.sort((a, b) => row(a) - row(b) || (side === "L" ? a.ax - b.ax : b.ax - a.ax));
+      let y = TOP; // top-down pass: as close to the part's height as possible, no overlap
+      for (const i of col) { i.y = Math.max(i.ay - i.lh / 2, y); y = i.y + i.lh + GAP; }
+      let limit = h - BOTTOM; // bottom-up pass: pull back inside the view if the column overflows
+      for (let k = col.length - 1; k >= 0; k--) { col[k].y = Math.max(TOP, Math.min(col[k].y, limit - col[k].lh)); limit = col[k].y - GAP; }
+      for (const i of col) {
+        i.x = side === "L" ? SIDE : w - SIDE - i.lw;
+        i.e.style.transform = `translate(${Math.round(i.x)}px, ${Math.round(i.y)}px)`;
+        const sx = side === "L" ? i.x + i.lw : i.x, sy = i.y + i.lh / 2, ex = sx + (side === "L" ? ELBOW : -ELBOW);
+        const cls = "leader" + (i.p.inferred ? " inf" : "") + (i.e.classList.contains("sel") ? " sel" : "") + (i.e.classList.contains("hit") ? " hit" : "");
+        paths += `<g class="${cls}"><path d="M${sx.toFixed(1)},${sy.toFixed(1)} L${ex.toFixed(1)},${sy.toFixed(1)} L${i.ax.toFixed(1)},${i.ay.toFixed(1)}"/>` +
+          `<circle cx="${i.ax.toFixed(1)}" cy="${i.ay.toFixed(1)}" r="3"/></g>`;
+      }
+    }
+    svg.innerHTML = paths;
   }
 
   // ---------------------------------------------------------------- wiring x-ray: the relationship graph, in 3D
