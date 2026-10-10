@@ -75,6 +75,53 @@ def decode_gemini_mask(mask_str, box_px, w: int, h: int) -> np.ndarray | None:
     return full
 
 
+def polygon_mask(points, w: int, h: int) -> np.ndarray | None:
+    """Model outline [[y, x], ...] on a 0-1000 grid -> filled uint8 mask (None if unusable)."""
+    if not isinstance(points, list) or len(points) < 3:
+        return None
+    pts = []
+    for pt in points[:64]:
+        try:
+            y, x = float(pt[0]), float(pt[1])
+        except (TypeError, ValueError, IndexError):
+            continue
+        pts.append([int(max(0, min(1000, x)) / 1000 * (w - 1)), int(max(0, min(1000, y)) / 1000 * (h - 1))])
+    if len(pts) < 3:
+        return None
+    m = np.zeros((h, w), np.uint8)
+    cv2.fillPoly(m, [np.array(pts, np.int32)], 255)
+    return m if m.sum() > 0 else None
+
+
+def grabcut_refine(img: np.ndarray, rough: np.ndarray, box_px) -> np.ndarray:
+    """Snap a rough outline to real edges with GrabCut, working on a small ROI for speed."""
+    h, w = img.shape[:2]
+    x0, y0, x1, y1 = box_px
+    pad = int(0.08 * max(x1 - x0, y1 - y0)) + 4
+    rx0, ry0, rx1, ry1 = max(0, x0 - pad), max(0, y0 - pad), min(w, x1 + pad), min(h, y1 + pad)
+    roi, r = img[ry0:ry1, rx0:rx1], rough[ry0:ry1, rx0:rx1]
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+    inner = cv2.erode(r, k, iterations=2)
+    outer = cv2.dilate(r, k, iterations=2)
+    gc = np.full(r.shape, cv2.GC_BGD, np.uint8)
+    gc[outer > 0] = cv2.GC_PR_BGD
+    gc[r > 0] = cv2.GC_PR_FGD
+    gc[inner > 0] = cv2.GC_FGD
+    out = np.zeros((h, w), np.uint8)
+    try:
+        bgd, fgd = np.zeros((1, 65), np.float64), np.zeros((1, 65), np.float64)
+        cv2.grabCut(roi, gc, None, bgd, fgd, 2, cv2.GC_INIT_WITH_MASK)
+        res = np.where((gc == cv2.GC_FGD) | (gc == cv2.GC_PR_FGD), 255, 0).astype(np.uint8)
+    except cv2.error:
+        res = r.copy()
+    # Guard: if GrabCut collapsed or exploded, trust the outline instead.
+    a, b = res.sum() / 255, max(1, r.sum() / 255)
+    if not 0.5 < a / b < 1.6:
+        res = r.copy()
+    out[ry0:ry1, rx0:rx1] = res
+    return out
+
+
 def grabcut_mask(img: np.ndarray, box_px) -> np.ndarray:
     """Fallback when the model gives no usable mask: GrabCut initialised from the box."""
     h, w = img.shape[:2]

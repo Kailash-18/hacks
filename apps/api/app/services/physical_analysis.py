@@ -42,10 +42,10 @@ Return ONLY one JSON object, no prose, with this shape:
 {{
   "object_name": "short name of the object",
   "summary": "1-2 sentences on what the object is and how it works",
-  "object": {{"box_2d": [ymin, xmin, ymax, xmax], "mask": "segmentation mask of the WHOLE object"}},
+  "object": {{"box_2d": [ymin, xmin, ymax, xmax], "outline": [[y, x], ...]}},
   "parts": [
     {{"id": "snake_case_id", "label": "Part name", "type": "<part type>",
-      "box_2d": [ymin, xmin, ymax, xmax], "mask": "segmentation mask of this part",
+      "box_2d": [ymin, xmin, ymax, xmax], "outline": [[y, x], ...],
       "depth_rank": 0, "evidence": "what in the photo shows this part", "role": "what it does"}}
   ],
   "hidden_parts": [
@@ -60,8 +60,8 @@ Return ONLY one JSON object, no prose, with this shape:
 
 Rules:
 - box_2d uses [ymin, xmin, ymax, xmax] normalized to 0-1000.
-- Each mask is a base64-encoded PNG probability map covering exactly its box_2d (the standard
-  segmentation output format). Values above 127 belong to the part.
+- "outline" is a polygon tracing the visible edge of the part (or whole object): 8-24 [y, x] points
+  in order, on the same 0-1000 grid. Integers only. Keep the JSON compact; no masks, no images.
 - "parts": at most {MAX_PARTS} VISIBLE, physically distinct parts (covers, panels, wheels, buttons,
   handles, lenses, screws as a group, cables...). Never include the whole object as a part.
   Skip parts smaller than about 2% of the image.
@@ -151,8 +151,13 @@ def build_analysis(raw: dict, img: np.ndarray, filename: str, provider: Provider
         mask = ops.decode_gemini_mask(p.get("mask"), box, w, h)
         refined_by = "model mask"
         if mask is None or mask.sum() == 0:
-            mask = ops.grabcut_mask(img, box)
-            refined_by = "GrabCut (model gave no usable mask)"
+            outline = ops.polygon_mask(p.get("outline"), w, h)
+            if outline is not None:
+                mask = ops.grabcut_refine(img, outline, box)
+                refined_by = "model outline refined with GrabCut"
+            else:
+                mask = ops.grabcut_mask(img, box)
+                refined_by = "GrabCut from box (model gave no outline)"
         mask = ops.clean_mask(mask)
         try:
             rank = int(p.get("depth_rank", 5))
@@ -244,6 +249,9 @@ def build_analysis(raw: dict, img: np.ndarray, filename: str, provider: Provider
     obj = raw.get("object") if isinstance(raw.get("object"), dict) else {}
     obj_box = ops.box_to_pixels(obj.get("box_2d"), w, h)
     obj_mask = ops.decode_gemini_mask(obj.get("mask"), obj_box, w, h) if obj_box else None
+    if (obj_mask is None or obj_mask.sum() == 0) and obj_box:
+        rough = ops.polygon_mask(obj.get("outline"), w, h)
+        obj_mask = ops.grabcut_refine(img, rough, obj_box) if rough is not None else None
     if obj_mask is None or obj_mask.sum() == 0:
         import cv2
         pts = np.column_stack(np.nonzero(taken)[::-1]).astype(np.int32)

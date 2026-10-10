@@ -79,7 +79,8 @@ class GeminiVisionClient:
         from google.genai import types
 
         client = self._get()
-        cfg = {"response_mime_type": "application/json", "temperature": 0.2}
+        cfg = {"response_mime_type": "application/json", "temperature": 0.2,
+               "max_output_tokens": int(os.getenv("GEMINI_MAX_TOKENS", "12000"))}
         if "2.5" in self.model:
             # Google recommends disabling thinking for better segmentation output on 2.5.
             cfg["thinking_config"] = types.ThinkingConfig(thinking_budget=0)

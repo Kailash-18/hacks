@@ -51,7 +51,7 @@ def good_response() -> dict:
              "mask": mask_png(lambda m: cv2.rectangle(m, (90, 80), (230, 200), 255, -1), b_screen),
              "depth_rank": 0, "evidence": "Orange panel", "role": "Shows output"},
             {"id": "button", "label": "Button", "type": "interface", "box_2d": b_btn,
-             "mask": "",  # no mask -> GrabCut fallback
+             "mask": "",  # no mask, no outline -> GrabCut fallback
              "depth_rank": 0, "evidence": "Red disc"},
             {"id": "shell", "label": "Shell", "type": "cover", "box_2d": b_body,
              "mask": "not-base64!!", "depth_rank": 2, "evidence": "Grey body"},
@@ -210,3 +210,18 @@ def test_model_auto_pick():
                "models/gemini-3-flash-lite", "models/gemini-3-pro", "models/gemini-2.5-flash-image"]]
     client = NS(models=NS(list=lambda: models))
     assert GeminiVisionClient(api_key="x")._pick_model(client) == "gemini-3-flash"
+
+
+def test_outline_path():
+    resp = good_response()
+    b = box(260, 120, 320, 180)
+    # circle approximated by a 12-point outline (y, x on 0-1000 grid)
+    import math
+    pts = [[round((150 + 30 * math.sin(a)) / H * 1000), round((290 + 30 * math.cos(a)) / W * 1000)]
+           for a in [i * math.pi / 6 for i in range(12)]]
+    resp["parts"][1] = {"id": "button", "label": "Button", "type": "interface", "box_2d": b, "outline": pts, "depth_rank": 0}
+    a = analyze_physical_image(synthetic_device(), "d.png", FakeVision(resp))
+    btn = next(c for c in a.components if c.id == "button")
+    assert any("outline" in e for e in btn.evidence)
+    layer = next(l for l in a.scene.layers if l.component_id == "button")
+    assert 0.1 < layer.bbox.width < 0.2  # ~60px of 400
