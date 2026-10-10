@@ -223,8 +223,11 @@ async function showView(vi) {
     const label = textSprite("? " + comp.label); label.position.y = 0.75;
     const g = new THREE.Group(); g.add(box, edges, label);
     g.traverse((o) => (o.userData.partId = id));
-    const span = Math.min(WORLD_W * 0.9, ghostIds.length * 1.9);
-    g.userData.home = new THREE.Vector3(-span / 2 + (ghostIds.length === 1 ? span / 2 : (i * span) / (ghostIds.length - 1)), -worldH / 2 - 0.7, 0);
+    // Column to the right of the object, so labels never overlap each other or the controls.
+    const pb = S.plateBbox || { x: 0.25, y: 0.25, width: 0.5, height: 0.5 };
+    const right = (pb.x + pb.width - 0.5) * WORLD_W, top = -(pb.y - 0.5) * worldH;
+    const step = Math.min(1.4, (pb.height * worldH + 1) / Math.max(1, ghostIds.length - 1 || 1));
+    g.userData.home = new THREE.Vector3(right + 2.9, top - 0.4 - i * step, 0);
     root.add(g); ghosts.push({ id, comp, group: g, mat, box });
   });
 
@@ -239,9 +242,12 @@ function reorder() { // back-to-front order -> explode layer index
 }
 
 function frame() {
-  const dy = ghosts.length ? -0.9 : 0;
-  camera.position.set(0, dy, Math.max(WORLD_W, worldH + 2) * 1.9);
-  controls.target.set(0, dy, 1.5); controls.update();
+  const pb = A.scene && viewsOf(A)[currentView].plateBbox;
+  const cx = pb ? (pb.x + pb.width / 2 - 0.5) * WORLD_W + (ghosts.length ? 1.6 : 0) : 0;
+  const cy = pb ? -(pb.y + pb.height / 2 - 0.5) * worldH : 0;
+  const span = pb ? Math.max(pb.width * WORLD_W + (ghosts.length ? 5 : 0), pb.height * worldH) : Math.max(WORLD_W, worldH);
+  camera.position.set(cx, cy, span * 2.3 + 4);
+  controls.target.set(cx, cy, 1.5); controls.update();
 }
 
 function applyExplode() {
@@ -256,7 +262,7 @@ function applyExplode() {
   for (const g of ghosts) {
     g.group.visible = t > 0.12 && g.id !== removed;
     g.group.position.copy(g.group.userData.home).setZ(0.4);
-    g.group.position.y -= (1 - t) * 0.6;
+    g.group.position.x -= (1 - t) * 1.2;
     g.group.scale.setScalar(Math.min(1, t * 1.6));
   }
 }
@@ -436,7 +442,7 @@ $("whatif").onclick = async () => {
     const r = await fetch(API + "/api/physical/whatif", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ analysisId: A.analysisId, removedComponentId: selected }) });
     const res = await r.json();
-    if (!r.ok) throw new Error(res.detail || res.error || "What-if failed");
+    if (!r.ok) throw new Error(errText(res, r.status));
     removed = selected; affected = new Set(res.affected.map((a) => a.componentId));
     out.innerHTML = ""; out.append(el("div", "", res.summary));
     res.affected.forEach((a) => out.append(el("code", "", a.explanation + (a.uncertain ? "  (inferred link)" : ""))));
@@ -485,6 +491,12 @@ async function shrink(file, max = 1600) { // client-side downscale keeps uploads
   return new Promise((res) => c.toBlob(res, "image/jpeg", 0.9));
 }
 
+function errText(data, status) { // FastAPI may send {detail: [...]} objects; always show readable text
+  const d = data && (data.error || data.detail);
+  if (typeof d === "string") return d;
+  if (Array.isArray(d)) return d.map((x) => x.msg || JSON.stringify(x)).join("; ");
+  return `Request failed (${status})`;
+}
 let currentFiles = []; // shrunk blobs of the current object (re-sent on "Add photo"; server caches each photo)
 
 async function analyze(files) {
@@ -500,7 +512,7 @@ async function analyze(files) {
     catch (err) { throw new Error(err.name === "AbortError" ? "The analysis took over 3 minutes and was stopped. Please try again." : "Can't reach the server. Is uvicorn running?"); }
     finally { clearTimeout(timer); }
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error || data.detail || `Analysis failed (${r.status})`);
+    if (!r.ok) throw new Error(errText(data, r.status));
     currentFiles = files;
     await build(data, { sample: false });
   } catch (err) { $("loading").hidden = true; showError(err.message || "Something went wrong."); }

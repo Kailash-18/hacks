@@ -72,7 +72,7 @@ Rules:
   each button, wheel, knob, key group, lens, cover, panel, logo plate, foot, port, screw group, cable.
   A mouse seen from above is at least: left button, right button, scroll wheel, palm shell.
   Aim for 4-{MAX_PARTS} parts when they exist. Never include the whole object as a part.
-  Skip parts smaller than about 1% of the image.
+  Include small parts like scroll wheels and buttons; skip only specks under about 0.1% of the image.
 - depth_rank: 0 = closest to the camera; larger = further back. Parts can share a rank.
 - "hidden_parts": at most {MAX_HIDDEN} parts that are typically inside this kind of object but are
   NOT visible in this photo. Never list a visible part here. Use [] if unsure.
@@ -102,7 +102,7 @@ LIMITATIONS = [
 ]
 
 MAX_VIEWS = 4
-PIPELINE_VERSION = "4"  # bump when building logic changes, so saved results are rebuilt (model answers stay cached)
+PIPELINE_VERSION = "6"  # bump when building logic changes, so saved results are rebuilt (model answers stay cached)
 
 
 class AnalysisError(Exception):
@@ -197,7 +197,7 @@ def _segment_view(raw: dict, img: np.ndarray, notes: list[str]):
     candidates = [(final_rank[i],) + tuple(candidates[i][1:]) for i in sorted(range(len(candidates)), key=lambda i: areas[i])]
     taken = np.zeros((h, w), np.uint8)
     parts = []
-    min_area = 0.0015 * h * w
+    min_area = 0.0003 * h * w  # small parts (scroll wheels, buttons) matter
     for rank, idx, p, mask, refined_by in candidates:
         if len(parts) >= MAX_PARTS:
             break

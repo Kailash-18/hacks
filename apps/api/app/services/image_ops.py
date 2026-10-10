@@ -187,8 +187,18 @@ def inpainted_plate(img: np.ndarray, object_mask: np.ndarray, holes: np.ndarray)
     hole = cv2.dilate(holes, k, iterations=1)
     # Inpaint at reduced size for speed on large holes, then upsample the fill only.
     h, w = img.shape[:2]
+    # Fill from the object's own colours, not the background: paint everything outside the object
+    # (and the holes) with the object's median colour before inpainting.
+    body = (object_mask > 0) & (hole == 0)
+    src = img.copy()
+    if body.any():
+        src[~body] = np.median(img[body], axis=0).astype(np.uint8)
+    else:
+        obj = object_mask > 0
+        if obj.any():
+            src[~obj] = np.median(img[obj], axis=0).astype(np.uint8)
     s = min(1.0, 512 / max(h, w))
-    small = cv2.resize(img, (max(1, int(w * s)), max(1, int(h * s))), interpolation=cv2.INTER_AREA)
+    small = cv2.resize(src, (max(1, int(w * s)), max(1, int(h * s))), interpolation=cv2.INTER_AREA)
     small_hole = cv2.resize(hole, (small.shape[1], small.shape[0]), interpolation=cv2.INTER_NEAREST)
     filled_small = cv2.inpaint(small, small_hole, 5, cv2.INPAINT_TELEA)
     filled = cv2.resize(filled_small, (w, h), interpolation=cv2.INTER_CUBIC)
