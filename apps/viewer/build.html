@@ -8,6 +8,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/viewer/build.css" />
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
 </head>
 <body>
 <header class="bar">
@@ -46,6 +52,9 @@
     <button role="tab" data-tab="code" aria-selected="true">Rebuilt code</button>
     <button role="tab" data-tab="guide">How to build it</button>
     <button role="tab" data-tab="structure">Structure</button>
+    <button role="tab" data-tab="explode">3D exploded</button>
+    <button role="tab" data-tab="backend">Backend</button>
+    <button role="tab" data-tab="a11y">Accessibility</button>
   </nav>
 
   <p id="status" class="status" role="status"></p>
@@ -57,11 +66,17 @@
         <div class="tools">
           <div class="seg" id="viewSeg"><button data-v="wipe" class="on">Compare</button><button data-v="side">Side by side</button><button data-v="code">Code</button></div>
           <div class="seg" id="targetSeg"><button data-t="html" class="on">HTML</button><button data-t="react">React</button></div>
+          <div class="acc" id="acc" hidden title="How closely the rebuilt page matches the screenshot, measured pixel by pixel">
+            <span class="acc-ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" class="trk"/><circle cx="18" cy="18" r="15" class="bar" id="accBar"/></svg></span>
+            <span class="acc-txt"><b id="accPct">–</b><small id="accLbl">visual match</small></span>
+            <label class="acc-heat"><input type="checkbox" id="accHeat" /> Show differences</label>
+          </div>
         </div>
         <div id="stage" class="stage">
           <div class="wipe" id="wipe">
             <div class="layer rebuilt"><iframe id="frame" title="Rebuilt page" sandbox="allow-scripts"></iframe></div>
             <div class="layer original" id="origLayer"><img id="origImg" alt="Original screenshot" /></div>
+            <canvas id="heat" class="heat" hidden></canvas>
             <div class="catch" aria-hidden="true"></div>
             <div class="handle" id="handle" role="slider" tabindex="0" aria-label="Compare original and rebuilt" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><span></span></div>
             <span class="tag left">Original</span><span class="tag right">Rebuilt</span>
@@ -117,9 +132,69 @@
       </div>
     </div>
   </section>
+
+  <!-- 3D exploded screen -->
+  <section id="tab-explode" class="tab" hidden>
+    <div class="x3d">
+      <div class="x3d-stage" id="x3dStage">
+        <canvas id="x3d"></canvas>
+        <div class="x3d-hud">
+          <label>Explode <input id="x3dExplode" type="range" min="0" max="1" step="0.01" value="1" /></label>
+          <label><input type="checkbox" id="x3dSpin" checked /> Spin</label>
+          <button class="btn small" id="x3dReplay">Replay</button>
+        </div>
+        <div class="x3d-tip" id="x3dTip" hidden></div>
+        <div class="x3d-legend"><span><i class="lg-c"></i>containers</span><span><i class="lg-i"></i>controls</span><span><i class="lg-t"></i>text</span><span><i class="lg-m"></i>media</span></div>
+      </div>
+      <aside class="x3d-side">
+        <h3>Layers</h3>
+        <p class="muted small">Each level of the component tree is lifted onto its own layer: page → sections → cards → controls. Drag to orbit, click a layer to inspect it.</p>
+        <div id="x3dInfo" class="x3d-info"><p class="muted">Click a layer.</p></div>
+        <ol id="x3dDepths" class="x3d-depths"></ol>
+      </aside>
+    </div>
+  </section>
+
+  <!-- back end, reverse-engineered -->
+  <section id="tab-backend" class="tab" hidden>
+    <div class="be">
+      <div class="be-head">
+        <div>
+          <h2>The system behind this screen</h2>
+          <p class="muted" id="beSummary">Inferring the data model and API from what the screen shows…</p>
+        </div>
+        <div class="be-actions">
+          <button class="btn" id="beSql" disabled>Download SQL</button>
+          <button class="btn" id="beOpenApi" disabled>Download OpenAPI</button>
+        </div>
+      </div>
+      <p class="be-badge" id="beBadge"></p>
+      <div class="be-grid">
+        <div class="be-er"><h3>Data model</h3><svg id="beEr" role="img" aria-label="Entity relationship diagram"></svg></div>
+        <div class="be-shot"><h3>Where it shows</h3><div class="shot mini"><img id="beImg" alt="Screenshot" /><div id="beBoxes" class="boxes"></div></div></div>
+      </div>
+      <h3>API endpoints</h3>
+      <div id="beEndpoints" class="be-eps"></div>
+      <div id="beNotes" class="notes"></div>
+    </div>
+  </section>
+
+  <!-- accessibility -->
+  <section id="tab-a11y" class="tab" hidden>
+    <div class="ax">
+      <div class="ax-shot shot"><img id="axImg" alt="Screenshot with accessibility findings" /><div id="axMarks" class="boxes"></div></div>
+      <aside class="ax-side">
+        <div class="ax-score"><div class="ax-grade" id="axGrade">–</div><div><b id="axScoreTxt">Checking…</b><p class="muted small" id="axCounts"></p></div></div>
+        <button class="btn primary" id="axFix" disabled>Fix these in the code</button>
+        <ol id="axList" class="ax-list"></ol>
+        <p class="muted small" id="axMethod"></p>
+      </aside>
+    </div>
+  </section>
 </main>
 
 <div id="toast" class="toast" role="alert" hidden></div>
 <script src="/viewer/build.js"></script>
+<script type="module" src="/viewer/digital3d.js"></script>
 </body>
 </html>

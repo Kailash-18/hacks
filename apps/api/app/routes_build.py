@@ -52,3 +52,27 @@ async def guide(request: Request) -> dict:
     out = await rd._call_model(codegen.generate_guide, analysis, img[0] if img else None, img[1] if img else None,
                                _client_or_none(), _flag(form, "force", False))
     return {"analysisId": analysis.analysisId, **out}
+
+
+@router.post("/backend")
+async def backend(request: Request) -> dict:
+    """multipart: image | analysisId; force. Reverse-engineered data model + API (inferred design)."""
+    from .services import digital_extras
+    form = await request.form()
+    analysis, img = await _resolve(form, "image", "analysisId")
+    out = await rd._call_model(digital_extras.generate_backend, analysis, img[0] if img else None,
+                               img[1] if img else None, _client_or_none(), _flag(form, "force", False))
+    return {"analysisId": analysis.analysisId, **out}
+
+
+@router.post("/a11y")
+async def a11y(request: Request) -> dict:
+    """multipart: image | analysisId. Accessibility audit measured from pixels + boxes (no model call)."""
+    from fastapi.concurrency import run_in_threadpool
+    from .services import digital_extras
+    form = await request.form()
+    analysis, img = await _resolve(form, "image", "analysisId")
+    if not img:
+        raise ApiError(400, "missing_input", "The accessibility audit needs the screenshot itself.")
+    out = await run_in_threadpool(digital_extras.audit_accessibility, analysis, img[0])
+    return {"analysisId": analysis.analysisId, **out}
