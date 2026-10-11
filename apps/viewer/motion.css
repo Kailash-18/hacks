@@ -138,3 +138,17 @@
 .xhelp .mk.d::before { display: none; }
 .xhelp .mk.k { width: auto; height: auto; border: 0; font-style: normal; color: #7fdcff; font-size: 12px; line-height: 1; padding: 0 1px; }
 .xhelp .mk.k::before, .xhelp .mk.k::after { display: none; }
+/* clearer icons in the controls card */
+.xhelp .ic { width: 13px; height: 13px; flex: none; fill: #7fdcff; }
+.xhelp .ic .o { fill: none; stroke: #7fdcff; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+/* focus: one part on its own */
+.unfocus { opacity: 0 !important; pointer-events: none; transition: opacity .3s; }
+.focus-chip { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 5; display: flex; align-items: center; gap: 12px;
+  padding: 6px 6px 6px 14px; border-radius: 99px; background: rgba(12,16,24,.8); border: 1px solid rgba(94,242,255,.35);
+  backdrop-filter: blur(8px); color: #cfd8e3; font-size: 13px; box-shadow: 0 10px 30px -12px rgba(0,0,0,.6); animation: xh-in .35s ease backwards; }
+.focus-chip b { color: #fff; }
+.focus-chip button { appearance: none; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); color: #e8eef5; border-radius: 99px;
+  padding: 4px 10px; font: inherit; font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.focus-chip button:hover { border-color: #5ef2ff; }
+.focus-chip kbd { font: 10.5px "JetBrains Mono", monospace; padding: 0 4px; border-radius: 4px; background: rgba(255,255,255,.1); color: #9fb0c4; }

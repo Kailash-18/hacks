@@ -168,7 +168,7 @@ async function build(analysis, { sample = false } = {}) {
   renderPanel();
   $("explode").value = 0;
   restoreWhatIf(true);
-  $("xray").checked = false; asm.setXray(false); syncHelp();
+  $("xray").checked = false; asm.setXray(false); syncHelp(); asm.setFocus?.(null); $("focusChip") && ($("focusChip").hidden = true);
   const has3D = A.scene.assembly && A.scene.assembly.parts.length;
   if (has3D) asm.build(A.scene.assembly, A.components, viewsOf(A), A.relationships);
   $("empty").hidden = true; $("controls").hidden = false; $("panel").hidden = false; steps(STEP_NAMES.length);
@@ -443,11 +443,22 @@ canvas.parentElement.addEventListener("pointerdown", (e) => { // capture phase: 
 }, { capture: true });
 window.addEventListener("pointermove", (e) => { if (drag) { asm.dragTo(drag, rayFrom(e), e.clientX, e.clientY); $("resetParts").hidden = false; } });
 window.addEventListener("pointerup", () => { if (drag) { drag = null; controls.enabled = true; canvas.style.cursor = ""; } });
+// focus: double-click a part and everything else fades away; Esc, double-click empty space or the chip ends it
+function setFocus(id) {
+  asm.setFocus(id);
+  const chip = $("focusChip");
+  if (id) { const c = A?.components.find((x) => x.id === id); $("focusName").textContent = c?.label || "part"; chip.hidden = false; }
+  else chip.hidden = true;
+}
 canvas.addEventListener("dblclick", (e) => {
   if (mode !== "3d") return;
-  const id = asm.pick(rayFrom(e)); if (!id) return;
-  $("isolate").checked = true; select(id).then(() => asm.focus(id));
+  const id = asm.pick(rayFrom(e));
+  if (!id) { if (asm.focusId) setFocus(null); return; }
+  if (controls.autoRotate) { controls.autoRotate = false; $("spin").checked = false; }
+  select(id).then(() => { setFocus(id); asm.focus(id); });
 });
+addEventListener("keydown", (e) => { if (e.key === "Escape" && asm.focusId) setFocus(null); });
+$("focusExit")?.addEventListener("click", () => setFocus(null));
 $("resetParts").addEventListener("click", () => { asm.resetParts(); $("resetParts").hidden = true; });
 
 let downAt = null;
