@@ -478,7 +478,22 @@ function paint() {
   }
 }
 $("isolate").addEventListener("change", paint);
-$("xray").addEventListener("change", (e) => { if (mode !== "3d") { e.target.checked = false; return; } asm.setXray(e.target.checked); });
+// X-ray: spread the parts out, move to a view that shows all of them, then the scan sweeps across
+let xrayExplodeBefore = null;
+$("xray").addEventListener("change", (e) => {
+  if (mode !== "3d") { e.target.checked = false; return; }
+  const on = e.target.checked, reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (on) {
+    xrayExplodeBefore = parseFloat($("explode").value);
+    if ($("spin").checked) { $("spin").checked = false; $("spin").dispatchEvent(new Event("change")); }  // hold still for the scan
+    if (!reduce) { introExplode(1, 1100); asm.xrayShowAll(1200); }
+    asm.setXray(true, { delay: reduce ? 0 : 1250 });
+  } else {
+    asm.setXray(false);
+    if (xrayExplodeBefore != null && !reduce) introExplode(xrayExplodeBefore, 900);
+    xrayExplodeBefore = null;
+  }
+});
 $("resetView").addEventListener("click", () => { if (mode === "3d" && $("isolate").checked) { $("isolate").checked = false; paint(); } frame(); });
 
 // ---------------------------------------------------------------- panel
