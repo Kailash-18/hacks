@@ -597,6 +597,61 @@ function showAccuracy(r) {
   g.putImageData(img, 0, 0);
   c.hidden = !$("#accHeat").checked;
 }
+// ---------- refine: show the AI how its code renders, let it fix the differences, measure again ----------
+const TARGET_MATCH = 95, MAX_ROUNDS = 4;
+async function measured(v) {
+  const key = `${S.target}:${S.cur[S.target]}`;
+  for (let i = 0; i < 200 && (S.acc[key] === "busy" || S.acc[key] === undefined); i++) {
+    if (S.acc[key] === undefined) measureAccuracy(v, previewDoc(v));
+    await new Promise((ok) => setTimeout(ok, 150));
+  }
+  return S.acc[key];
+}
+function worstRegions(r) {  // a 4 x 3 grid of the difference map, worst cells first, in words the model can use
+  const out = [];
+  for (let gy = 0; gy < 3; gy++) for (let gx = 0; gx < 4; gx++) {
+    let s = 0, n = 0;
+    for (let y = Math.floor(gy * r.gh / 3); y < Math.floor((gy + 1) * r.gh / 3); y++)
+      for (let x = Math.floor(gx * r.gw / 4); x < Math.floor((gx + 1) * r.gw / 4); x++) { s += r.miss[y * r.gw + x]; n++; }
+    out.push({ gx, gy, d: s / Math.max(1, n) });
+  }
+  return out.sort((a, b) => b.d - a.d).slice(0, 4).filter((c) => c.d > 0.08)
+    .map((c) => `x ${c.gx * 25}-${c.gx * 25 + 25}%, y ${Math.round(c.gy * 33.3)}-${Math.round(c.gy * 33.3 + 33.3)}% (${Math.round(c.d * 100)}% off)`).join("; ");
+}
+async function refineLoop() {
+  if (S.target !== "html" || !current()) return;
+  const run = S.run, btn = $("#refineBtn");
+  btn.disabled = true; busy(true);
+  let best = { i: S.cur.html, score: (await measured(current()))?.score ?? 0 };
+  try {
+    for (let round = 1; round <= MAX_ROUNDS && best.score < TARGET_MATCH; round++) {
+      if (run !== S.run) return;
+      S.cur.html = best.i; renderVersions(); renderCode();
+      const v = current(), res = await measured(v);
+      if (!res) throw new Error("the match could not be measured");
+      wait(`Refining, round ${round}: ${res.score}% match, comparing the render with the screenshot…`);
+      status(`Round ${round}: the AI sees its own render next to the screenshot and fixes what differs.`);
+      const png = await (await fetch(await captureDoc(previewDoc(v), S.shot.w, Math.min(S.shot.h, 6000)))).blob();
+      const out = await api("/api/digital/refine", { method: "POST", body: form({ render: new File([png], "render.png", { type: "image/png" }),
+        baseCode: v.code, score: String(res.score), regions: worstRegions(res) }) });
+      if (run !== S.run) return;
+      if (out.source !== "ai") { status(out.notes?.[0] || "Refine unavailable.", true); break; }
+      S.versions.html.push({ code: out.code, notes: out.notes || [], source: out.source, change: out.change, label: `Refined · round ${round}`,
+        model: out.provider?.model, cached: out.cached });
+      S.cur.html = S.versions.html.length - 1; renderVersions(); renderNotes(); renderCode();
+      const now = (await measured(current()))?.score ?? 0;
+      if (now > best.score) best = { i: S.cur.html, score: now };
+    }
+    if (run !== S.run) return;
+    S.cur.html = best.i; renderVersions(); renderNotes(); renderCode();  // keep the best-matching version
+    status(best.score >= TARGET_MATCH ? `Refined to ${best.score}% match.` : `Best so far: ${best.score}% match. Run it again to keep refining.`);
+  } catch (e) {
+    if (run === S.run) status(`Could not refine: ${e.message}`, true);
+  } finally {
+    if (run === S.run) { wait(null); busy(false); btn.disabled = false; }
+  }
+}
+$("#refineBtn").onclick = refineLoop;
 $("#accHeat").onchange = (e) => { $("#heat").hidden = !e.target.checked; if (e.target.checked) setWipe(100); };
 
 // ---------- back end, reverse-engineered ----------

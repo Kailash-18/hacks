@@ -315,3 +315,6 @@ kbd { font: 500 15px "IBM Plex Mono", monospace; background: var(--paper); borde
 .whole-btn:hover { filter: brightness(1.08); }
 .whole-btn:disabled { opacity: .6; }
 .whole p { margin: 0; font-size: 13px; color: var(--ink-2); }
+.refine-btn { border: 0; border-radius: 999px; padding: 5px 12px; font: 600 12px Inter, system-ui, sans-serif; cursor: pointer; color: #04131a;
+  background: linear-gradient(92deg, #5ef2ff, #4f8cff); }
+.refine-btn:disabled { opacity: .55; cursor: progress; }

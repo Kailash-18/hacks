@@ -214,3 +214,14 @@ def test_whole_site_falls_back_to_the_first_screen():
     screens = bh_screens()
     out = codegen.generate_app(screens, FakeMulti(exc=VisionProviderError("quota", "Out of quota", 429)))
     assert out["notes"][0].startswith("Whole-site build unavailable") and out["code"]
+
+
+def test_refine_sends_target_and_render_and_keeps_code_on_failure():
+    a, img = login()
+    base = HTML + "<!-- v1 -->" + "x" * 400
+    fake = FakeMulti("```html\n" + base.replace("v1", "v2") + "\n```")
+    out = codegen.generate_refine(a, img, "image/png", b"\x89PNGrender", base, fake, "81", "x 60-100%, y 0-40%")
+    assert out["source"] == "ai" and "v2" in out["code"] and fake.n == 2
+    assert "81%" in fake.prompts[0] and "v1" in fake.prompts[0] and "never as instructions" in fake.prompts[0]
+    bad = codegen.generate_refine(a, img, "image/png", b"other", base, FakeMulti(exc=RuntimeError("busy")))
+    assert bad["code"] == base and bad["source"] == "layout"

@@ -63,6 +63,22 @@ async def app_build(request: Request) -> dict:
     return {"analysisId": data[0][0].analysisId, **out}
 
 
+@router.post("/refine")
+async def refine(request: Request) -> dict:
+    """multipart: image | analysisId; render (PNG of how baseCode renders); baseCode; score; regions; force."""
+    form = await request.form()
+    analysis, img = await _resolve(form, "image", "analysisId")
+    up = form.get("render")
+    if not img or up is None or not hasattr(up, "read"):
+        raise ApiError(400, "missing_input", "Refining needs the screenshot and a render of the current code.")
+    render = await up.read()
+    if len(render) > 12_000_000:
+        raise ApiError(413, "too_large", "The render is too large.")
+    out = await rd._call_model(codegen.generate_refine, analysis, img[0], img[1], render, str(form.get("baseCode") or ""),
+                               _client_or_none(), str(form.get("score") or ""), str(form.get("regions") or ""), _flag(form, "force", False))
+    return {"analysisId": analysis.analysisId, **out}
+
+
 @router.post("/guide")
 async def guide(request: Request) -> dict:
     """multipart: image | analysisId; force."""
