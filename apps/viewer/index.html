@@ -80,11 +80,16 @@
       <div class="eyebrow" id="modeBadge">Live analysis</div>
       <h2 id="title"></h2>
       <p id="summary" class="muted"></p>
+      <div id="stats" class="stats"></div>
       <div id="product" class="product" hidden></div>
     </div>
 
     <div class="block">
-      <div class="block-head"><h3>Parts</h3><span class="legend"><i class="st observed"></i>seen <i class="st inferred"></i>inferred</span></div>
+      <div class="block-head"><h3>Parts <span id="partsCount" class="count"></span></h3>
+        <div class="seg" id="partsFilter" role="tablist" aria-label="Show parts">
+          <button type="button" data-f="all" class="on">All</button><button type="button" data-f="observed">Seen</button><button type="button" data-f="inferred">Inside</button>
+        </div></div>
+      <input id="partsSearch" class="parts-search" type="search" placeholder="Find a part" autocomplete="off" hidden />
       <ul id="parts" class="parts"></ul>
     </div>
 

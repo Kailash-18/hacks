@@ -350,7 +350,10 @@ $("explode").addEventListener("input", paintSlider);
 // callouts and the 3D model share the hover: the matching row in the parts list lights up too
 asm.onPick = (id) => select(id);
 canvas.addEventListener("pointerleave", () => { $("hover").hidden = true; if (mode === "3d") asm.setHover(null, "canvas"); });
-asm.onHover = (id) => { for (const li of $("parts").children) li.classList.toggle("hov", li.dataset.id === id); };
+asm.onHover = (id, source) => {
+  for (const li of $("parts").children) li.classList.toggle("hov", !!id && li.dataset.id === id);
+  if (id && source !== "list") $("parts").querySelector(`li[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+};
 
 // ---------------------------------------------------------------- depth (browser)
 let depthPipe = null;
@@ -539,20 +542,66 @@ function renderPanel() {
     pe.append(tb, Object.assign(el("div", "teardown"), { id: "teardown" }));
     pe.hidden = false;
   } else pe.hidden = true;
-  renderParts(); renderGraph(); renderDetail(); resetChat();
+  partsQuery = ""; $("partsSearch").value = "";
+  renderStats(); renderParts(); renderGraph(); renderDetail(); resetChat();
   const panel = $("panel"); panel.classList.remove("boot"); void panel.offsetWidth; panel.classList.add("boot"); // boot-up sequence once per result
 }
 
+// part type -> family colour (same families as the system graph and the X-ray wires)
+const FAMILY = { power_source: "power", controller: "control", sensor: "control", display: "control", interface: "control", connector: "control",
+  cable: "control", actuator: "motion", wheel: "motion", mechanism: "motion", structure: "structure", cover: "structure", fastener: "structure" };
+let partsFilter = "all", partsQuery = "";
+function cutoutOf(id) { // the part's own photo cut-out, when it was seen
+  for (const v of viewsOf(A)) { const l = (v.layers || []).find((x) => x.componentId === id); if (l?.cutout) return l.cutout; }
+  return null;
+}
 function renderParts() {
   const ul = $("parts"); ul.innerHTML = "";
-  for (const c of A.components) {
-    const li = el("li", [c.id === selected && "sel", affected.has(c.id) && "affected", c.id === removed && "removed"].filter(Boolean).join(" "));
-    li.append(el("i", `st ${c.status}`), el("span", "", c.label), el("span", "type", c.type));
-    li.onclick = () => select(c.id);
-    li.dataset.id = c.id;
-    li.onmouseenter = () => { if (mode === "3d") asm.setHover(c.id, "list"); };
-    li.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "list"); };
-    ul.append(li);
+  const seen = A.components.filter((c) => c.status === "observed"), inside = A.components.filter((c) => c.status !== "observed");
+  $("partsCount").textContent = A.components.length;
+  $("partsSearch").hidden = A.components.length < 8;
+  const q = partsQuery.trim().toLowerCase();
+  const match = (c) => !q || c.label.toLowerCase().includes(q) || c.type.replace(/_/g, " ").includes(q);
+  const groups = [["observed", "Seen in the photo", seen], ["inferred", "Inside, inferred", inside]]
+    .filter(([k]) => partsFilter === "all" || partsFilter === k);
+  let shown = 0;
+  for (const [, title, list] of groups) {
+    const items = list.filter(match); if (!items.length) continue;
+    ul.append(el("li", "group", `${title} · ${items.length}`));
+    for (const c of items) {
+      shown++;
+      const li = el("li", ["part", c.id === selected && "sel", affected.has(c.id) && "affected", c.id === removed && "removed"].filter(Boolean).join(" "));
+      li.dataset.id = c.id; li.tabIndex = 0;
+      const th = el("span", "thumb " + (FAMILY[c.type] || "other"));
+      const src = cutoutOf(c.id);
+      if (src) { const im = el("img"); im.src = src; im.alt = ""; im.loading = "lazy"; th.append(im); }
+      else th.textContent = c.label.trim()[0]?.toUpperCase() || "?";
+      const txt = el("span", "pname"); txt.append(el("b", "", c.label));
+      if (c.function) txt.append(el("small", "", c.function));
+      li.append(th, txt, el("span", "type " + (FAMILY[c.type] || "other"), c.type.replace(/_/g, " ")));
+      if (c.id === removed) li.append(el("span", "tag gone", "removed"));
+      else if (affected.has(c.id)) li.append(el("span", "tag hit", "affected"));
+      li.onclick = () => select(c.id);
+      li.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(c.id); } };
+      li.onmouseenter = () => { if (mode === "3d") asm.setHover(c.id, "list"); };
+      li.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "list"); };
+      ul.append(li);
+    }
+  }
+  if (!shown) ul.append(el("li", "none", q ? `No part matches “${partsQuery}”.` : "No parts in this group."));
+}
+$("partsFilter").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b || !A) return;
+  partsFilter = b.dataset.f; document.querySelectorAll("#partsFilter button").forEach((x) => x.classList.toggle("on", x === b)); renderParts();
+});
+$("partsSearch").addEventListener("input", (e) => { partsQuery = e.target.value; if (A) renderParts(); });
+
+function renderStats() { // one line of counts under the summary
+  const seen = A.components.filter((c) => c.status === "observed").length, links = A.relationships.length;
+  const box = $("stats"); box.innerHTML = "";
+  for (const [n, l, cls] of [[seen, "seen", "observed"], [A.components.length - seen, "inside", "inferred"], [links, "links", "links"],
+    [viewsOf(A).length, viewsOf(A).length === 1 ? "photo" : "photos", "photos"]]) {
+    const s = el("span", "stat " + cls); s.append(el("b", "", String(n)), document.createTextNode(" " + l)); box.append(s);
   }
 }
 
