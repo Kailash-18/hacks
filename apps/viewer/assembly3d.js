@@ -394,6 +394,7 @@ export class AssemblyView {
     const gg = new THREE.BufferGeometry(); gg.setAttribute("position", new THREE.BufferAttribute(gpos, 3));
     const guides = new THREE.LineSegments(gg, new THREE.LineDashedMaterial({ color: 0x59d8ff, dashSize: 0.1, gapSize: 0.08, transparent: true, opacity: 0,
       depthWrite: false, toneMapped: false }));
+    guides.visible = false; // kept off: the dashed home-to-part lines cluttered the exploded view
     this.root.add(guides);
     // selection frame: four thin corner brackets that close in on the selected part and then hold still
     const lockMat = new THREE.LineBasicMaterial({ color: 0x8fd0ff, transparent: true, opacity: 0.9, depthTest: false, toneMapped: false });
@@ -411,7 +412,7 @@ export class AssemblyView {
   }
 
   updateGuides() {
-    const F = this.fx; if (!F) return;
+    const F = this.fx; if (!F || !F.guides.visible) return;
     const P = F.guides.geometry.attributes.position, t = this.explode, v = new THREE.Vector3();
     this.parts.forEach((p, i) => {
       const home = p.base.clone().add(p.localCenter.clone().applyQuaternion(p.group.quaternion).multiplyScalar(p.fit || 1));

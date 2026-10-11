@@ -4,6 +4,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { AssemblyView } from "./assembly3d.js";
+import { alternativesFor } from "./alternatives.js";
 
 const API = new URLSearchParams(location.search).get("api") || "";
 const TRANSFORMERS_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.1.2";
@@ -197,12 +198,8 @@ function show3D({ intro = false } = {}) {
 function renderTabs() {
   const box = $("viewTabs"); box.innerHTML = "";
   const vs = viewsOf(A);
-  if (A.scene.assembly && A.scene.assembly.parts.length) {
-    const t = el("button", "tab tab3d" + (mode === "3d" ? " on" : ""), "3D model");
-    t.title = "AI-built 3D model: rotate 360°, explode, click parts"; t.onclick = () => { if (mode !== "3d") show3D(); };
-    box.append(t);
-  }
-  vs.forEach((v, i) => {
+  const has3D = !!(A.scene.assembly && A.scene.assembly.parts.length);
+  if (!has3D) vs.forEach((v, i) => { // photo views are only a fallback when no 3D model could be built
     const b = el("button", "tab" + (mode === "layers" && i === currentView ? " on" : ""), `Photo ${i + 1} · ${VIEW_NAMES[v.view] || "Photo"}`);
     b.title = v.filename || ""; b.onclick = () => { if (mode === "3d" || i !== currentView) showView(i, { fromTab: true }).then(paint); };
     box.append(b);
@@ -211,7 +208,7 @@ function renderTabs() {
     const add = el("label", "tab add", "+ Add photo"); add.htmlFor = "addFile";
     add.title = "Add another angle of the same object (bottom, side, opened...)"; box.append(add);
   }
-  box.hidden = false;
+  box.hidden = !box.children.length;
 }
 
 async function showView(vi, { fromTab = false } = {}) {
@@ -617,6 +614,7 @@ function renderDetail() {
   $("dType").textContent = c.type.replace(/_/g, " "); $("dThumb").replaceChildren(thumbOf(c, "thumb lg")); d.className = "detail " + (FAMILY[c.type] || "other");
   $("dFunction").hidden = !c.function; $("dFunction").textContent = c.function ? "Does: " + c.function : "";
   $("dIfRemoved").hidden = !c.ifRemoved; $("dIfRemoved").textContent = c.ifRemoved ? "Without it: " + c.ifRemoved : "";
+  renderAlts(c);
   $("dEvidence").innerHTML = ""; c.evidence.forEach((e) => $("dEvidence").append(el("li", "", e)));
   const rl = $("dRels"); rl.innerHTML = "";
   const rels = A.relationships.filter((r) => r.from === c.id || r.to === c.id);
@@ -634,9 +632,25 @@ function renderDetail() {
   $("whatif").textContent = removed === c.id ? "Put it back" : "What if I remove it?";
 }
 
+// "Could be replaced with": three swaps, each with one advantage and one drawback, built once per selected part
+function renderAlts(c) {
+  const box = $("dAlts"); if (box.dataset.id === c.id) return;
+  box.dataset.id = c.id; box.innerHTML = "";
+  const alts = alternativesFor(c); box.hidden = !alts.length; if (!alts.length) return;
+  const head = el("div", "alts-head"); head.append(el("span", "", "Could be replaced with"), el("span", "alts-note", "rules of thumb"));
+  const list = el("div", "alts-list");
+  alts.forEach((a, i) => {
+    const card = el("div", "alt"); card.style.setProperty("--i", i);
+    const pro = el("div", "pro"), con = el("div", "con");
+    pro.append(el("i", "", "+"), el("span", "", a.pro)); con.append(el("i", "", "−"), el("span", "", a.con));
+    card.append(el("b", "", a.name), pro, con); list.append(card);
+  });
+  box.append(head, list);
+}
+
 async function select(id) {
   const inScene = mode === "3d" ? asm.parts.some((p) => p.id === id) : parts.some((p) => p.id === id);
-  if (id && !inScene) { // part lives in another photo -> switch to it
+  if (id && !inScene && mode !== "3d") { // part lives in another photo -> switch to it
     const vi = viewsOf(A).findIndex((v) => v.layers.some((l) => l.componentId === id));
     if (vi >= 0 && vi !== currentView) await showView(vi);
   }
