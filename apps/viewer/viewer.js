@@ -488,7 +488,8 @@ function renderPanel() {
   $("title").textContent = A.title ? A.title[0].toUpperCase() + A.title.slice(1) : "";
   $("summary").textContent = A.summary || "";
   const mb = $("modeBadge");
-  mb.textContent = isSample ? "Sample mode · saved real result" : "Live analysis";
+  const curated = A.provider?.name === "curated";
+  mb.textContent = curated ? "Sample · curated reference model" : isSample ? "Sample mode · saved real result" : "Live analysis";
   mb.className = "eyebrow" + (isSample ? " sample" : "");
   const pr = A.scene?.product, pe = $("product");
   if (pr && (pr.searchQuery || pr.brand)) {
@@ -792,7 +793,7 @@ function showReveal() {
   const hiddenN = (A.scene.ghostComponentIds || []).length, seen = A.components.length - hiddenN;
   const name = pr && (pr.model ? [pr.brand && !pr.model.toLowerCase().startsWith(pr.brand.toLowerCase()) ? pr.brand : "", pr.model].join(" ").trim() : pr.brand);
   box.innerHTML = "";
-  box.append(el("div", "rk", isSample ? "SAMPLE · SCAN REPLAY" : "SCAN COMPLETE"), el("div", "rt", A.title ? A.title[0].toUpperCase() + A.title.slice(1) : "Object"));
+  box.append(el("div", "rk", A.provider?.name === "curated" ? "SAMPLE · REFERENCE MODEL" : isSample ? "SAMPLE · SCAN REPLAY" : "SCAN COMPLETE"), el("div", "rt", A.title ? A.title[0].toUpperCase() + A.title.slice(1) : "Object"));
   if (name) box.append(el("div", "rs", name + (pr.confidence != null ? ` · ${Math.round(pr.confidence * 100)}% match` : "")));
   const stats = el("div", "rc");
   [[seen, "parts seen"], [hiddenN, "inside (inferred)"], [A.relationships.length, "links"], [(A.scene.assembly?.details || []).length, "details"]].forEach(([n, l]) => {
