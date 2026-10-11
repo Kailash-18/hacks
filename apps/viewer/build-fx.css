@@ -1,0 +1,74 @@
+/* Digital Lab teardown effects: the screenshot is scanned, its parts light up, the screen explodes into
+   3D layers by nesting depth (like the Physical Lab's exploded diagrams), then reassembles into code. */
+:root { --scan: #5ef2ff; --scan-soft: rgba(94, 242, 255, .16); }
+
+/* ---------- start page: headline left, live exploded stack right ---------- */
+.start.hero { max-width: 1240px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 32px 48px; align-items: center; padding-top: 56px; }
+.start.hero > .examples { grid-column: 1 / -1; }
+.start.hero h1 { font-size: clamp(40px, 5vw, 64px); line-height: 1.02; letter-spacing: -.035em; }
+.start.hero h1 .glow { background: linear-gradient(92deg, #fff 0%, var(--scan) 55%, var(--blue) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero-stack { position: relative; height: 470px; perspective: 1700px; }
+.hero-stack .fx-plate { position: absolute; left: 50%; top: 50%; }
+.hero-cap { position: absolute; left: 0; right: 0; bottom: -6px; text-align: center; font: 12px "IBM Plex Mono", monospace; color: var(--ink-2); }
+
+/* ---------- teardown overlay on the code stage ---------- */
+.stage.fx-on { min-height: 560px; }
+.fx { position: absolute; inset: 0; z-index: 8; border-radius: var(--radius); overflow: hidden;
+  background: radial-gradient(ellipse at 50% 40%, #121a2a 0%, #0b0d11 70%); perspective: 1700px; transition: opacity .55s ease; }
+.fx::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+  background-image: linear-gradient(rgba(94,242,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(94,242,255,.05) 1px, transparent 1px);
+  background-size: 32px 32px; mask-image: radial-gradient(ellipse at 50% 45%, #000 30%, transparent 75%); }
+.fx.out { opacity: 0; pointer-events: none; }
+.fx-cap { position: absolute; left: 22px; bottom: 18px; right: 120px; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
+.fx-step { font: 600 12px "IBM Plex Mono", monospace; color: var(--scan); letter-spacing: .04em; }
+.fx-title { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.fx-sub { font: 13px "IBM Plex Mono", monospace; color: var(--ink-2); min-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fx-skip { position: absolute; right: 16px; bottom: 16px; background: rgba(255,255,255,.06); border: 1px solid var(--rule); color: var(--ink-2);
+  border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+.fx-skip:hover { color: var(--ink); border-color: var(--ink-2); }
+
+/* ---------- the plate: screenshot + parts, flat or exploded ---------- */
+.fx-plate { position: absolute; left: 50%; top: 46%; transform-style: preserve-3d; transform: translate(-50%, -50%);
+  transition: transform 1.25s cubic-bezier(.2, .8, .2, 1); }
+.fx-plate.iso { transform: translate(-50%, -50%) rotateX(56deg) rotateZ(-38deg) scale(.86); }
+.fx-plate > img { display: block; width: 100%; height: 100%; border-radius: 6px; box-shadow: 0 30px 80px rgba(0,0,0,.6); transition: filter .8s ease; }
+.fx-plate.iso > img, .fx-plate.ghost > img { filter: brightness(.38) saturate(.6); }
+.fx-beam { position: absolute; left: -4%; right: -4%; height: 90px; top: -90px; pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(94,242,255,.18) 70%, rgba(94,242,255,.9) 96%, transparent);
+  animation: fx-scan 1.6s cubic-bezier(.45, 0, .55, 1) infinite; mix-blend-mode: screen; }
+@keyframes fx-scan { to { top: 100%; } }
+.fx-plate.iso .fx-beam, .fx-plate.idle .fx-beam { display: none; }
+
+/* detected part: outline first, then a lifted layer textured with its own pixels */
+.fx-part { position: absolute; border: 1px solid var(--scan); border-radius: 3px; background-repeat: no-repeat;
+  box-shadow: 0 0 0 1px rgba(94,242,255,.15), 0 0 18px rgba(94,242,255,.25) inset; opacity: 0; transform: translateZ(0) scale(.96);
+  transition: transform 1.1s cubic-bezier(.2, .8, .2, 1), opacity .35s ease, box-shadow .6s ease; transform-style: preserve-3d; }
+.fx-part.on { opacity: 1; transform: translateZ(0) scale(1); }
+.fx-plate.iso .fx-part, .fx-plate.idle .fx-part { opacity: 1; transform: translateZ(calc(var(--d) * 54px)); background-color: rgba(10,14,22,.35);
+  box-shadow: 0 0 0 1px rgba(94,242,255,.35), 0 18px 30px rgba(0,0,0,.45), 0 0 26px rgba(94,242,255,.18); }
+.fx-part.hot { box-shadow: 0 0 0 2px var(--scan), 0 0 30px rgba(94,242,255,.6) !important; z-index: 2; }
+/* the part being written gets a moving label */
+.fx-plate.iso .fx-part.hot::after { content: attr(data-name); position: absolute; right: 0; top: -24px; white-space: nowrap;
+  font: 600 11px "IBM Plex Mono", monospace; color: #04131a; background: #fff; padding: 2px 6px; border-radius: 4px; box-shadow: 0 0 16px rgba(94,242,255,.8); }
+.fx-tag { position: absolute; left: 0; top: -22px; white-space: nowrap; font: 600 11px "IBM Plex Mono", monospace; color: #04131a;
+  background: var(--scan); padding: 2px 6px; border-radius: 4px; opacity: 0; transition: opacity .4s ease; transform: translateZ(2px); }
+.fx-plate.iso .fx-tag, .fx-plate.idle .fx-tag { opacity: 1; }
+
+/* idle hero animation: slow float + mouse parallax (set by JS through --rx/--rz) */
+.fx-plate.idle { transform: translate(-50%, -50%) rotateX(var(--rx, 56deg)) rotateZ(var(--rz, -38deg)) scale(.9); transition: transform .5s ease-out; }
+.fx-plate.idle .fx-part { animation: fx-float 5s ease-in-out infinite; animation-delay: calc(var(--i) * -0.37s); }
+@keyframes fx-float { 50% { transform: translateZ(calc(var(--d) * 54px + 12px)); } }
+
+/* reveal: the compare slider sweeps across once the rebuild appears */
+.wipe.reveal .handle span { box-shadow: 0 0 0 6px rgba(79,140,255,.25), 0 0 28px rgba(79,140,255,.8); }
+
+@media (max-width: 960px) {
+  .start.hero { grid-template-columns: 1fr; }
+  .hero-stack { height: 320px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-beam, .fx-plate.idle .fx-part { animation: none; }
+  .fx-plate, .fx-part { transition: none; }
+}
+.start-left { min-width: 0; }
+.start.hero .drop { height: 190px; }

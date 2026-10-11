@@ -74,6 +74,7 @@ async function loadExamples() {
 function showStart() {
   $("#start").hidden = false; $("#work").hidden = true;
   S.run++;  // late responses from the previous screenshot are ignored
+  window.fx?.abort();
 }
 
 // ---------- main flow ----------
@@ -97,6 +98,7 @@ async function start(blob, name, title = "") {
   $("#guide").innerHTML = `<p class="muted">The build guide appears here once the screenshot is read.</p>`;
   $("#tree").innerHTML = ""; $("#boxes").innerHTML = ""; $("#answer").textContent = "";
   setTarget("html", false); setTab("code"); setView("wipe");
+  window.fx?.scan(url, w, h);  // teardown animation (build-fx.js)
   wait("Reading the screenshot…");
   status("Finding every section, button and text on the screen.");
   renderVersions(); renderNotes();
@@ -109,13 +111,16 @@ async function start(blob, name, title = "") {
     $("#title").textContent = title || a.title;
     $("#summary").textContent = a.summary || "";
     renderStructure();
+    window.fx?.analysed(a);
   } catch (e) {
     if (run !== S.run) return;
+    window.fx?.abort();
     wait(null); status(`Could not read the screenshot: ${e.message}`, true); return;
   }
   wait("Writing the code…");
   status("Writing the code and the build plan. This takes about 20–40 seconds.");
   const code = makeCode({ target: "html" }, "First version", run);
+  code.then(() => { if (run === S.run) window.fx?.done(); });
   const guide = api("/api/digital/guide", { method: "POST", body: form() })
     .then((g) => { if (run === S.run) { S.guide = g; renderGuide(); } })
     .catch((e) => { if (run === S.run) $("#guide").innerHTML = `<p class="fallback">Could not write the guide: ${esc(e.message)}</p>`; });
