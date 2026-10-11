@@ -282,10 +282,13 @@ export class AssemblyView {
       const box = outside.has(p.type) && !p.inferred ? loose : env, E2 = box.getSize(new THREE.Vector3());
       const b = boxes.get(p), z = b.getSize(new THREE.Vector3());
       if (box.containsBox(b)) continue;
-      const k = Math.min(1, 0.96 * E2.x / Math.max(1e-6, z.x), 0.96 * E2.y / Math.max(1e-6, z.y), 0.96 * E2.z / Math.max(1e-6, z.z));
+      // only a thin back panel was found (a phone's glass, no frame): its thickness says nothing about the body,
+      // so that axis neither shrinks parts nor pins them (a battery would end up a fifth of its size)
+      const maxE = Math.max(E2.x, E2.y, E2.z), axes = ["x", "y", "z"].filter((ax) => E2[ax] >= 0.12 * maxE);
+      const k = Math.min(1, ...axes.map((ax) => 0.96 * E2[ax] / Math.max(1e-6, z[ax])));
       p.fit = k;
       const c = b.getCenter(new THREE.Vector3()), h = z.multiplyScalar(k / 2), want = c.clone();
-      for (const ax of ["x", "y", "z"]) want[ax] = Math.min(box.max[ax] - h[ax], Math.max(box.min[ax] + h[ax], c[ax]));
+      for (const ax of axes) want[ax] = Math.min(box.max[ax] - h[ax], Math.max(box.min[ax] + h[ax], c[ax]));
       // scaling happens around the group's pivot, which is not always the box centre
       const off = c.clone().sub(p.base).multiplyScalar(k);
       p.base.copy(want).sub(off);
@@ -1098,6 +1101,36 @@ export class AssemblyView {
       if (this.lastPaint) this.paint(this.lastPaint); else this.applyPose();
       I.onDone?.();
     }
+  }
+
+  // guided-tour camera: glide around the target to an angle (radians, relative to the framed view) and zoom factor
+  // theta: absolute angle around the up axis (0 = in front of the object, +PI/2 = its right side, PI = behind it)
+  orbitTo({ az = 0, theta = null, el = null, zoom = 1, ms = 1800 } = {}) {
+    const tgt = this.controls.target.clone(), s0 = new THREE.Spherical().setFromVector3(this.camera.position.clone().sub(tgt));
+    let th = theta == null ? s0.theta + az : theta;
+    while (th - s0.theta > Math.PI) th -= 2 * Math.PI;
+    while (th - s0.theta < -Math.PI) th += 2 * Math.PI;  // the short way round
+    const s1 = new THREE.Spherical(s0.radius * zoom, el == null ? s0.phi : Math.PI / 2 - el, th);
+    this.sweep = { t0: performance.now(), ms, sFrom: s0, sTo: s1, tgt };
+    return new Promise((ok) => setTimeout(ok, ms + 40));
+  }
+
+  // every part lifts out along its explode direction one after another, then settles back (a moving teardown)
+  ripple({ ms = 3600, amp = 0.9, gap = 0.55 } = {}) {
+    const list = this.parts.filter((p) => p.group.visible), n = Math.max(1, list.length), t0 = performance.now();
+    const base = list.map((p) => p.offset.clone()), reach = TARGET_SIZE * amp * 0.35;
+    const span = ms / (1 + gap * (n - 1) / n * 2), stagger = (ms - span) / Math.max(1, n - 1);
+    const tick = (now) => {
+      let live = false;
+      list.forEach((p, i) => {
+        const k = clamp01((now - t0 - i * stagger) / span); if (k < 1) live = true;
+        p.offset.copy(base[i]).addScaledVector(p.dir, Math.sin(Math.PI * k) * reach * (0.6 + p.dist * 0.4));
+      });
+      this.setExplode(this.explode); this.poke();
+      if (live) requestAnimationFrame(tick); else list.forEach((p, i) => p.offset.copy(base[i]));
+    };
+    requestAnimationFrame(tick);
+    return new Promise((ok) => setTimeout(ok, ms + 60));
   }
 
   // camera swoops in from far and low behind the object to the framed view

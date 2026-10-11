@@ -346,7 +346,7 @@ document.documentElement.addEventListener("mouseleave",()=>{if(on){mark(null);pa
   }
   async function typeInto(el, text) { el.focus(); el.value = ""; for (const ch of text) { el.value += ch; await sleep(38); } }
   async function demo() {
-    const N = 8;
+    const N = 10;
     const say = (n, text) => (window.tour ? window.tour.cap(n, text) : cap(n, N, text));  // full-site tour shares captions
     if (window.tour) await window.tour.bridgeOut();
     document.body.classList.add("demo");
@@ -374,7 +374,11 @@ document.documentElement.addEventListener("mouseleave",()=>{if(on){mark(null);pa
       await sleep(1700);
     }
     setXray(false); setView("wipe");
-    say(5, "Ask for changes in plain English");
+    say(5, "Inspect: the full component tree, every part boxed on the original");
+    setTab("structure");
+    await sleep(4600);
+    setTab("code");
+    say(6, "Ask for changes in plain English");
     scrollTo({ top: 0, behavior: "smooth" });
     await typeInto(q("#change"), "Switch the whole page to a dark theme");
     await sleep(400);
@@ -382,20 +386,26 @@ document.documentElement.addEventListener("mouseleave",()=>{if(on){mark(null);pa
     q("#changeForm").requestSubmit();
     await waitFor(() => S.versions.html.length > before);
     await sleep(500); await slide(100, 50, 1300); await sleep(2200);
-    say(6, "One click turns it into a mobile app: React Native, or Flutter");
+    say(7, "One click turns it into a mobile app: React Native, or Flutter");
     S.cur.html = 0;  // convert the first version (its React Native result is saved with the example)
     q('#targetSeg button[data-t="react-native"]').click();
     await waitFor(() => S.versions["react-native"].length);
     await sleep(4200);
-    say(7, "And a step-by-step plan to build it for real");
+    say(8, "A step-by-step plan to build it for real: stack, steps, effort");
     setTab("guide"); scrollTo({ top: 0 });
     await sleep(1200);
     const g = q("#guide"); const end = g.getBoundingClientRect().top + scrollY + g.offsetHeight - innerHeight;
     for (let y = scrollY; y < end; y += 6) { scrollTo(0, y); await sleep(16); }
     await sleep(800);
-    say(8, "Plus an accessibility audit with one-click fixes");
+    say(9, "It even infers the backend: data models and API endpoints behind the screen");
+    scrollTo({ top: 0 }); setTab("backend");
+    await sleep(5200);
+    say(10, "Plus an accessibility audit: contrast, labels, sizes, with one-click fixes");
     scrollTo({ top: 0 }); setTab("a11y");
-    await sleep(4200);
+    await sleep(2600);
+    const ax = q("#tab-a11y"); const end2 = ax.getBoundingClientRect().top + scrollY + ax.offsetHeight - innerHeight;
+    for (let y = scrollY; y < end2; y += 5) { scrollTo(0, y); await sleep(16); }
+    await sleep(1600);
     if (window.tour) { await sleep(800); await window.tour.outro(); }
     else cap(0, 0, "Visual Reverse Engineering · screenshot in, working system out");
   }

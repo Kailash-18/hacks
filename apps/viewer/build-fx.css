@@ -102,12 +102,12 @@
 .xr-tip code { display: block; font: 12px/1.5 "IBM Plex Mono", monospace; color: #cfe9f3; white-space: pre-wrap; word-break: break-all; max-height: 4.6em; overflow: hidden; }
 
 /* demo captions (for recording) */
-.demo-cap { position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 12px); z-index: 60; max-width: min(92vw, 980px);
-  background: rgba(6, 10, 16, .92); border: 1px solid rgba(94,242,255,.35); border-radius: 14px; padding: 14px 22px;
-  font-size: 22px; font-weight: 600; letter-spacing: -.01em; color: #fff; box-shadow: 0 10px 40px rgba(0,0,0,.5), 0 0 30px rgba(94,242,255,.15);
-  opacity: 0; transition: opacity .45s ease, transform .45s ease; pointer-events: none; }
-.demo-cap.in { opacity: 1; transform: translate(-50%, 0); }
-.demo-cap span { font: 600 13px "IBM Plex Mono", monospace; color: var(--scan); margin-right: 14px; vertical-align: 3px; }
+.demo-cap { position: fixed; left: 0; right: 0; top: 0; height: 56px; z-index: 60; display: flex; align-items: center; justify-content: center;
+  background: rgba(6, 10, 16, .97); border-bottom: 1px solid rgba(94,242,255,.35); padding: 0 24px;
+  font-size: 20px; font-weight: 600; letter-spacing: -.01em; color: #fff; box-shadow: 0 6px 30px rgba(0,0,0,.45);
+  opacity: 0; transform: translateY(-100%); transition: opacity .35s ease, transform .35s ease; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.demo-cap.in { opacity: 1; transform: none; }
+.demo-cap span { font: 600 13px "IBM Plex Mono", monospace; color: var(--scan); margin-right: 14px; }
 
 /* ---------- How to build it: a centered blueprint plan ---------- */
 #tab-guide .guide { max-width: 1080px; margin: 8px auto 40px; background: none; border: 0; padding: 0; }

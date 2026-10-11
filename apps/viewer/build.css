@@ -24,6 +24,10 @@ button, input, textarea { font: inherit; color: inherit; }
 .muted { color: var(--ink-2); }
 :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 [hidden] { display: none !important; }
+/* the two preview views are moved off screen instead of display:none: Chrome leaves a sandboxed preview that loaded
+   while not displayed white when it is shown, and a React Native app would measure a 0 x 0 screen */
+#side[hidden] { display: grid !important; } #wipe[hidden] { display: block !important; }
+#side[hidden], #wipe[hidden] { position: absolute !important; left: -12000px !important; top: 0; width: 1000px; pointer-events: none; }
 
 /* bar */
 .bar { display: flex; align-items: center; gap: 20px; height: 56px; padding: 0 24px; background: var(--sheet); border-bottom: 1px solid var(--rule); }

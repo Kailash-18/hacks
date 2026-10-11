@@ -32,7 +32,7 @@ Everything shown is labelled **seen in photo** or **inferred**. The 3D view is a
 
 Open `/digital`. Upload several screens to map the **workflow** (hypothesised transitions labelled with the control that triggers them), two versions to **compare** (added / removed / moved / reworded, plus optional AI style check), or one screen to **rebuild** it as a starter HTML/React draft with measured design tokens and generated docs. Click any component for its tree position, evidence and a **what-if** (same engine shape as the Physical Lab). Details: `docs/DIGITAL_LAB.md`.
 
-**Guided tour (for the demo video):** open `http://localhost:8000/?tour`. A title card, the Physical Lab (Game Boy: 3D model, explode, X-ray wiring, part details, failure cascade, system graph), a bridge, the Digital Lab (teardown, compare, X-ray, a change request, React Native, build plan, accessibility) and a closing card play by themselves with captions, about 2.5 minutes, from saved results only (no live AI call). `/digital?demo` plays only the Digital Lab part. Keep the Chrome window in front while recording.
+**Guided tour (for the demo video):** open `http://localhost:8000/?tour`. A title card, the Physical Lab (iPhone 17: exact-model identification, 3D model seen from the right, explode with every part lifting out, parts pulled out by hand, X-ray wiring, part details, battery failure cascade, system graph), a bridge, the Digital Lab (teardown, compare, X-ray, Inspect, a change request, React Native, build plan, backend, accessibility) and a closing card play by themselves with captions in a bar over the page header, about 2.5 minutes, from saved results only (no live AI call). `/digital?demo` plays only the Digital Lab part. Keep the Chrome window in front while recording.
 
 ## Run locally
 
@@ -70,4 +70,5 @@ All errors use one shape: `{"error": {"code": "...", "message": "..."}}`.
 - [Depth Anything V2 Small](https://huggingface.co/onnx-community/depth-anything-v2-small) via [transformers.js](https://github.com/huggingface/transformers.js) (Apache-2.0)
 - [three.js](https://threejs.org) (MIT), OpenCV (Apache-2.0), FastAPI (MIT), Pydantic (MIT), Pillow (MIT-CMU)
 - [Playwright](https://playwright.dev) (Apache-2.0) to render the team-made mock UI screens used for evaluation
+- iPhone 17 sample photo: ["Black iPhone 17.jpg"](https://commons.wikimedia.org/wiki/File:Black_iPhone_17.jpg) by Ahmad Ali Karim, CC0, Wikimedia Commons
 - AI tools used in development: Claude (coding assistant), disclosed per event rules.
