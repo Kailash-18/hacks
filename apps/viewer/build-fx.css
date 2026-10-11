@@ -214,7 +214,7 @@
 /* guide: deeper plan (code per step, checks, file tree, back end, pitfalls / tests / deploy) */
 .g-code { position: relative; margin: 10px 0 0; background: #0b0d10; border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; overflow-x: auto;
   font: 12.5px/1.55 "IBM Plex Mono", monospace; color: #dfe4ea; white-space: pre; }
-.g-code span { position: absolute; top: 6px; right: 10px; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-2); }
+.g-code > span { position: absolute; top: 6px; right: 10px; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-2); }
 .g-check { display: flex; gap: 8px; align-items: baseline; margin-top: 8px !important; font-size: 13px !important; color: var(--ok) !important; }
 .g-check i { font-style: normal; font-weight: 700; }
 .g-tree { margin: 0; background: #0b0d10; border: 1px solid var(--rule); border-radius: 12px; padding: 16px 20px; font: 13px/1.6 "IBM Plex Mono", monospace; color: #cfd6df; overflow-x: auto; }
@@ -252,3 +252,16 @@
 .g-step { min-width: 0; }
 .g-code { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; max-width: 100%; }
 .g-code code { white-space: inherit; }
+
+/* recommended stack: three roomy columns instead of five squeezed ones */
+.g-stack { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.g-stack .g-card { padding: 16px 18px; gap: 14px; align-items: flex-start; }
+.g-stack .g-card > div { min-width: 0; }
+.g-stack b { display: inline; margin: 0 8px 0 0; font-size: 15.5px; line-height: 1.35; }
+.g-role { display: inline-block; vertical-align: 2px; font: 500 11px "IBM Plex Sans", sans-serif; font-style: normal; text-transform: capitalize;
+  padding: 1px 8px; border-radius: 99px; color: #9be8f5; background: rgba(94,242,255,.08); border: 1px solid rgba(94,242,255,.25); }
+.g-stack p { margin-top: 6px; font-size: 13.5px; line-height: 1.5; }
+.g-mono { width: 40px; height: 40px; font-size: 14px; }
+/* code snippets: language tag sits in its own strip above the code */
+.g-code { padding-top: 30px; }
+.g-code > span { top: 8px; right: 12px; padding: 1px 7px; border-radius: 5px; background: #161c27; border: 1px solid #253042; color: #8fa0b8; font: 600 10px "IBM Plex Mono", monospace; }
