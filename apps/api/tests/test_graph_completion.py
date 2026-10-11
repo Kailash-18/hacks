@@ -51,3 +51,23 @@ def test_removing_the_board_or_battery_kills_an_electronic_device():
     assert {"left_button", "right_button", "scroll_wheel", "optical_sensor"} <= {a["componentId"] for a in board["affected"]}
     assert what_if(comps, rels, "battery_compartment")["verdict"] == "dead"
     assert what_if(comps, rels, "logo_badge")["verdict"] == "works"  # a logo is decoration
+
+
+def test_the_only_sensor_is_core_and_the_only_screen_cripples():
+    comps, rels = _load("lenovo-mouse.json")
+    rels = complete_relationships(comps, rels)
+    w = what_if(comps, rels, "optical_sensor")
+    assert w["verdict"] == "dead" and w["health"] <= 10 and "optical tracking sensor" in w["consequence"]
+    comps, rels = _load("game-boy.json")
+    rels = complete_relationships(comps, rels)
+    w = what_if(comps, rels, "lcd_screen")
+    assert w["verdict"] == "degraded" and w["health"] <= 30
+    assert what_if(comps, rels, "a_button")["health"] > 80  # one button is a small loss
+
+
+def test_teardown_topic_rejects_other_products():
+    from app.services.teardown import topic_words
+    must = topic_words("wireless mouse")
+    assert must == {"mouse"}
+    assert not (must & topic_words("Lenovo IdeaPad 3-15IAU7 Teardown"))
+    assert must & topic_words("Logitech M325 Mouse Teardown")

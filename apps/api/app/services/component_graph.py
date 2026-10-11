@@ -141,15 +141,20 @@ def what_if(
     else:
         summary = f"No dependency edges lead out of {label}, so the graph predicts no downstream effect."
     # System health: share of importance that keeps working (parts that only come loose count half).
-    weight = {c.id: (0.05 if _DECOR.search(c.label) else c.importance if getattr(c, "importance", None) is not None else 0.5)
-              for c in components}  # a logo or sticker carries almost no function
+    weight = {c.id: _weight(c) for c in components}
     total = sum(weight.values()) or 1.0
     lost = weight[removed_id] + sum(weight[a["componentId"]] * (1.0 if a["severity"] == "fails" else 0.5) for a in affected)
     health = max(0, min(100, round(100 * (1 - lost / total))))
     fails = sum(a["severity"] == "fails" for a in affected)
-    critical = by_id[removed_id].type in CRITICAL_TYPES or (weight[removed_id] >= 0.85)
+    removed = by_id[removed_id]
+    critical = removed.type in CRITICAL_TYPES or (weight[removed_id] >= 0.85)
     # an electronic device without its board or its power source does not work, whatever the graph links say
     electronic = sum(c.type in _ELECTRIC for c in components if c.id != removed_id) >= 2
+    # the only sensor of a device is what it exists for (a mouse without its optical sensor cannot track)
+    core = removed.type in _CORE_IO and not _DECOR.search(removed.label) \
+        and sum(c.type == removed.type and not _DECOR.search(c.label) for c in components) == 1
+    if core and removed.type == "sensor":
+        critical = True
     if (critical and (fails or electronic)) or health < 35:
         verdict = "dead"
     elif affected or weight[removed_id] >= 0.3:
@@ -158,9 +163,11 @@ def what_if(
         verdict = "works"
     if verdict == "dead":  # the main function is gone: what is left working is only passive structure
         health = min(health, 10)
+    elif core:  # the only screen is gone: it still runs, but you cannot use it
+        verdict, health = "degraded", min(health, 30)
     return {
         "removedComponentId": removed_id,
-        "consequence": getattr(by_id[removed_id], "if_removed", "") or "",
+        "consequence": getattr(removed, "if_removed", "") or _why(removed, verdict, core, affected),
         "health": health,
         "verdict": verdict,
         "affected": affected,
@@ -176,6 +183,38 @@ def what_if(
 # types alone. Every added edge is status "inferred" and says so in its evidence; observed edges are
 # never changed and nothing is added where the model already linked the parts.
 _POWER_WORDS = ("batter", "power", "charg", "cell", "psu", "supply")
+# typical share of the device's function when the model gave no importance (0..1)
+_TYPE_WEIGHT = {"controller": 0.95, "power_source": 0.9, "sensor": 0.75, "display": 0.75, "mechanism": 0.7, "actuator": 0.4,
+                "wheel": 0.35, "interface": 0.3, "connector": 0.3, "structure": 0.45, "cover": 0.35, "fastener": 0.15, "cable": 0.3}
+_CORE_IO = {"sensor", "display"}
+
+
+def _why(c: Component, verdict: str, core: bool, affected: list) -> str:
+    """One plain sentence for the impact card when the model gave none."""
+    name = c.label[0].lower() + c.label[1:] if c.label else "this part"
+    if verdict == "dead" and c.type == "power_source":
+        return f"Nothing gets power without the {name}."
+    if verdict == "dead" and c.type == "controller":
+        return f"The {name} runs everything else; without it nothing responds."
+    if verdict == "dead" and core:
+        return f"The {name} is what the device exists for; without it it cannot do its job."
+    if verdict == "dead":
+        return f"The device cannot work without the {name}."
+    if core:
+        return f"It still runs, but without its only {c.type} it cannot be used."
+    if not affected:
+        return f"Nothing else depends on the {name}; you lose only what it does itself."
+    return ""
+
+
+def _weight(c: Component) -> float:
+    if _DECOR.search(c.label):
+        return 0.05  # a logo or sticker carries almost no function
+    if getattr(c, "importance", None) is not None:
+        return c.importance
+    return _TYPE_WEIGHT.get(c.type, 0.4)
+
+
 _ELECTRIC = {"controller", "power_source", "display", "sensor", "actuator", "interface", "mechanism", "light", "speaker"}
 _OUTPUT_TYPES = {"display", "interface", "mechanism", "light", "speaker"}
 _INPUT_TYPES = {"actuator", "sensor", "wheel", "button", "switch"}

@@ -386,3 +386,20 @@ h4 { font: 600 13px var(--note); letter-spacing: .02em; }
   .leaders3d .leader.hov path, .leaders3d .leader.sel path, #detail:not([hidden]) { animation: none; }
   .parts li::before { transition: none; }
 }
+
+/* identification card and teardown photos: compact, one guide, credited */
+.product { margin-top: 14px; padding: 14px; border-radius: 12px; background: rgba(92, 200, 255, .05); border: 1px solid rgba(92, 200, 255, .14); gap: 8px; }
+.product .eyebrow { color: var(--draft); }
+.id-head strong { font: 700 18px var(--note); letter-spacing: .01em; }
+.product > .btn { justify-self: start; }
+.teardown { gap: 8px; }
+.teardown:empty { display: none; }
+.td-head { display: grid; gap: 2px; font-size: 13px; }
+.td-head a { color: #9cd8ff; font: 600 14px var(--note); letter-spacing: .01em; line-height: 1.3; }
+.td-head span { color: var(--muted); font-size: 12px; }
+.tgrid { gap: 6px; }
+.tgrid img { border-radius: 8px; border-width: 1px; border-color: rgba(255, 255, 255, .06); opacity: .9; transition: opacity .15s, transform .15s, border-color .15s; }
+.tgrid img:hover { opacity: 1; transform: scale(1.04); border-color: var(--draft); }
+.tgrid img.on { border: 2px solid var(--accent); }
+.td-note, .td-empty { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.td-empty { padding: 10px 12px; border-radius: 8px; border: 1px dashed var(--line); }

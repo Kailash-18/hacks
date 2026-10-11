@@ -532,7 +532,10 @@ function renderPanel() {
       pe.append(a, el("div", "tiny muted", "Save top / bottom / side shots, then use “+ Add photo”. Up to 4 photos."));
     }
     const tb = el("button", "btn small", "Find teardown photos (iFixit)");
-    tb.onclick = () => showTeardowns(name || pr.searchQuery, tb); // brand + model searches best on iFixit
+    // search the exact model when known, otherwise brand + kind of object; only guides about the same kind of object count
+    const brandWords = new Set((pr.brand || "").toLowerCase().split(/\s+/).filter(Boolean));
+    const kind = (pr.category || A.title || "").split(/\s+/).filter((w) => !brandWords.has(w.toLowerCase())).join(" ");
+    tb.onclick = () => showTeardowns(pr.model ? name : [pr.brand, kind].filter(Boolean).join(" ") || pr.searchQuery || name, tb, kind || A.title);
     pe.append(tb, Object.assign(el("div", "teardown"), { id: "teardown" }));
     pe.hidden = false;
   } else pe.hidden = true;
@@ -873,19 +876,19 @@ function errText(data, status) { // API errors are {error: {code, message}}; old
   return `Request failed (${status})`;
 }
 // ---------------------------------------------------------------- iFixit teardown photos (CC BY-NC-SA, credited)
-async function showTeardowns(query, btn) {
+async function showTeardowns(query, btn, topic = "") {
   const box = $("teardown"); box.innerHTML = ""; btn.disabled = true; btn.textContent = "Searching iFixit…";
   try {
-    const r = await fetch(API + "/api/physical/teardown?q=" + encodeURIComponent(query)); const d = await r.json();
+    const r = await fetch(API + "/api/physical/teardown?q=" + encodeURIComponent(query) + "&topic=" + encodeURIComponent(topic)); const d = await r.json();
     if (!r.ok) throw new Error(errText(d, r.status));
     const guides = d.guides.filter((g) => g.images.length);
-    if (!guides.length) { box.append(el("div", "tiny muted", "No iFixit teardown found for this product.")); return; }
+    if (!guides.length) { box.append(el("div", "td-empty", `No teardown of a ${topic || "matching product"} on iFixit yet. Upload a photo of the inside instead.`)); return; }
     const picked = new Set();
-    for (const g of guides.slice(0, 2)) {
-      const head = el("div", "tiny"); const link = el("a", "", g.title); link.href = g.url; link.target = "_blank"; link.rel = "noopener";
-      head.append(link, document.createTextNode(` · by ${g.author}`)); box.append(head);
+    for (const g of guides.slice(0, 1)) { // the best match only: a wall of photos from other products helps no one
+      const head = el("div", "td-head"); const link = el("a", "", g.title); link.href = g.url; link.target = "_blank"; link.rel = "noopener";
+      head.append(link, el("span", "", `by ${g.author} · CC BY-NC-SA`)); box.append(head);
       const grid = el("div", "tgrid");
-      for (const im of g.images.slice(0, 12)) {
+      for (const im of g.images.slice(0, 8)) {
         const t = el("img"); t.src = im.thumb; t.alt = im.caption || `Step ${im.step}`; t.title = `Step ${im.step}: ${im.caption}`; t.loading = "lazy";
         t.onclick = () => {
           if (picked.has(im.url)) { picked.delete(im.url); t.classList.remove("on"); }
@@ -896,7 +899,7 @@ async function showTeardowns(query, btn) {
       }
       box.append(grid);
     }
-    const add = el("button", "btn small primary", "Add to the model"); add.disabled = true;
+    const add = el("button", "btn small primary", "Add to the model"); add.disabled = true; add.hidden = isSample;
     add.onclick = async () => {
       add.disabled = true; add.textContent = "Downloading…";
       const blobs = [];
@@ -910,7 +913,8 @@ async function showTeardowns(query, btn) {
       const all = currentFiles.concat(blobs).slice(0, 4);
       if (blobs.length) analyze(all, { added: blobs });
     };
-    box.append(add, el("div", "tiny muted", isSample ? "Sample mode: upload your own photo to add teardown photos." : "Pick up to 3 photos that show the inside. " + d.license));
+    box.append(add, el("div", "td-note", isSample ? "Reference photos only in sample mode. Upload your own photos to add these to the model."
+      : "Pick up to 3 photos that show the inside, then add them to the model."));
   } catch (err) { box.append(el("div", "tiny muted", "iFixit search failed: " + err.message)); }
   finally { btn.disabled = false; btn.textContent = "Find teardown photos (iFixit)"; }
 }

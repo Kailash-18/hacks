@@ -25,11 +25,22 @@ def _get_json(url: str, timeout: float = 15) -> dict | list:
         return json.loads(r.read().decode("utf-8"))
 
 
-def find_teardowns(query: str, cache_dir: Path | None = None, limit: int = 3) -> dict:
+# words that say nothing about what kind of object it is
+_GENERIC = {"wireless", "wired", "portable", "compact", "digital", "electronic", "device", "the", "and", "with", "for",
+            "new", "mini", "pro", "plus", "max", "series", "model", "black", "white", "silver", "grey", "gray", "optical"}
+
+
+def topic_words(text: str) -> set[str]:
+    """Words that name the kind of object ("mouse", "console", "kettle"): a guide must mention one of them."""
+    return {w for w in re.findall(r"[a-z]{3,}", (text or "").lower()) if w not in _GENERIC}
+
+
+def find_teardowns(query: str, cache_dir: Path | None = None, limit: int = 3, topic: str = "") -> dict:
     q = re.sub(r"\s+", " ", query).strip()[:80]
     if not q:
         return {"query": q, "guides": [], "license": LICENSE}
-    key = re.sub(r"[^a-z0-9]+", "-", q.lower())[:60]
+    must = topic_words(topic)
+    key = re.sub(r"[^a-z0-9]+", "-", (q + " " + " ".join(sorted(must))).lower())[:60]
     cached = cache_dir / f"ifixit-{key}.json" if cache_dir else None
     if cached and cached.exists():
         return json.loads(cached.read_text(encoding="utf-8"))
@@ -53,6 +64,9 @@ def find_teardowns(query: str, cache_dir: Path | None = None, limit: int = 3) ->
                 continue
             seen.add(gid)
             title = g.get("title", "")
+            # a Lenovo mouse must not show a Lenovo laptop teardown: the guide has to be about the same kind of object
+            if must and not (must & topic_words(title + " " + str(g.get("category", "")))):
+                continue
             score = 2 if re.search(r"teardown|disassembl|replacement", title, re.I) else 1
             guides.append((score, gid, title, g.get("url", "")))
         if len(guides) >= limit * 2:
