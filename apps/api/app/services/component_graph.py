@@ -141,13 +141,21 @@ def what_if(
     else:
         summary = f"No dependency edges lead out of {label}, so the graph predicts no downstream effect."
     # System health: share of importance that keeps working (parts that only come loose count half).
-    weight = {c.id: (c.importance if getattr(c, "importance", None) is not None else 0.5) for c in components}
+    weight = {c.id: _weight(c) for c in components}
     total = sum(weight.values()) or 1.0
     lost = weight[removed_id] + sum(weight[a["componentId"]] * (1.0 if a["severity"] == "fails" else 0.5) for a in affected)
     health = max(0, min(100, round(100 * (1 - lost / total))))
     fails = sum(a["severity"] == "fails" for a in affected)
-    critical = by_id[removed_id].type in CRITICAL_TYPES or (weight[removed_id] >= 0.85)
-    if (critical and fails) or health < 35:
+    removed = by_id[removed_id]
+    critical = removed.type in CRITICAL_TYPES or (weight[removed_id] >= 0.85)
+    # an electronic device without its board or its power source does not work, whatever the graph links say
+    electronic = sum(c.type in _ELECTRIC for c in components if c.id != removed_id) >= 2
+    # the only sensor of a device is what it exists for (a mouse without its optical sensor cannot track)
+    core = removed.type in _CORE_IO and not _DECOR.search(removed.label) \
+        and sum(c.type == removed.type and not _DECOR.search(c.label) for c in components) == 1
+    if core and removed.type == "sensor":
+        critical = True
+    if (critical and (fails or electronic)) or health < 35:
         verdict = "dead"
     elif affected or weight[removed_id] >= 0.3:
         verdict = "degraded"
@@ -155,9 +163,11 @@ def what_if(
         verdict = "works"
     if verdict == "dead":  # the main function is gone: what is left working is only passive structure
         health = min(health, 10)
+    elif core:  # the only screen is gone: it still runs, but you cannot use it
+        verdict, health = "degraded", min(health, 30)
     return {
         "removedComponentId": removed_id,
-        "consequence": getattr(by_id[removed_id], "if_removed", "") or "",
+        "consequence": getattr(removed, "if_removed", "") or _why(removed, verdict, core, affected),
         "health": health,
         "verdict": verdict,
         "affected": affected,
@@ -173,6 +183,39 @@ def what_if(
 # types alone. Every added edge is status "inferred" and says so in its evidence; observed edges are
 # never changed and nothing is added where the model already linked the parts.
 _POWER_WORDS = ("batter", "power", "charg", "cell", "psu", "supply")
+# typical share of the device's function when the model gave no importance (0..1)
+_TYPE_WEIGHT = {"controller": 0.95, "power_source": 0.9, "sensor": 0.75, "display": 0.75, "mechanism": 0.7, "actuator": 0.4,
+                "wheel": 0.35, "interface": 0.3, "connector": 0.3, "structure": 0.45, "cover": 0.35, "fastener": 0.15, "cable": 0.3}
+_CORE_IO = {"sensor", "display"}
+
+
+def _why(c: Component, verdict: str, core: bool, affected: list) -> str:
+    """One plain sentence for the impact card when the model gave none."""
+    name = c.label[0].lower() + c.label[1:] if c.label else "this part"
+    if verdict == "dead" and c.type == "power_source":
+        return f"Nothing gets power without the {name}."
+    if verdict == "dead" and c.type == "controller":
+        return f"The {name} runs everything else; without it nothing responds."
+    if verdict == "dead" and core:
+        return f"The {name} is what the device exists for; without it it cannot do its job."
+    if verdict == "dead":
+        return f"The device cannot work without the {name}."
+    if core:
+        return f"It still runs, but without its only {c.type} it cannot be used."
+    if not affected:
+        return f"Nothing else depends on the {name}; you lose only what it does itself."
+    return ""
+
+
+def _weight(c: Component) -> float:
+    if _DECOR.search(c.label):
+        return 0.05  # a logo or sticker carries almost no function
+    if getattr(c, "importance", None) is not None:
+        return c.importance
+    return _TYPE_WEIGHT.get(c.type, 0.4)
+
+
+_ELECTRIC = {"controller", "power_source", "display", "sensor", "actuator", "interface", "mechanism", "light", "speaker"}
 _OUTPUT_TYPES = {"display", "interface", "mechanism", "light", "speaker"}
 _INPUT_TYPES = {"actuator", "sensor", "wheel", "button", "switch"}
 _DECOR = re.compile(r"logo|badge|sticker|label|decal|emblem|print", re.I)
@@ -188,6 +231,8 @@ def complete_relationships(components: list[Component], relationships: list[Rela
         return relationships
     rels = list(relationships)
     linked = {(r.from_, r.to) for r in rels} | {(r.to, r.from_) for r in rels}
+    typed = {(r.from_, r.to, r.type) for r in rels}
+    functional = {(r.from_, r.to) for r in rels if r.type in ("controls", "powers", "feeds", "depends_on", "drives")}
     degree: dict[str, int] = {}
     for r in rels:
         degree[r.from_] = degree.get(r.from_, 0) + 1
@@ -201,12 +246,12 @@ def complete_relationships(components: list[Component], relationships: list[Rela
 
     def add(a: Component, b: Component, typ: str, why: str) -> None:
         nonlocal n
-        if a.id == b.id or (a.id, b.id) in linked:
+        if a.id == b.id or (a.id, b.id, typ) in typed or (typ in ("contains", "supports") and (a.id, b.id) in linked):
             return
         n += 1
         rels.append(Relationship(id=f"auto-{n}-{a.id}-{b.id}"[:80], **{"from": a.id}, to=b.id, type=typ, status="inferred",
                                  evidence=[f"Not seen in the photo: inferred from the part types ({why})."]))
-        linked.add((a.id, b.id)); linked.add((b.id, a.id))
+        linked.add((a.id, b.id)); linked.add((b.id, a.id)); typed.add((a.id, b.id, typ))
         degree[a.id] = degree.get(a.id, 0) + 1
         degree[b.id] = degree.get(b.id, 0) + 1
 
@@ -218,10 +263,11 @@ def complete_relationships(components: list[Component], relationships: list[Rela
                 add(c, board, "powers", "a battery or power input feeds the main board")
             elif c.type in _OUTPUT_TYPES and c.id not in controlled and not _DECOR.search(c.label):
                 add(board, c, "controls", "the main board drives screens, speakers and motors")
-            elif c.type in _INPUT_TYPES and degree.get(c.id, 0) <= 1:
-                add(c, board, "connected_to", "buttons and sensors send their signal to the main board")
+            elif c.type in _INPUT_TYPES and (board.id, c.id) not in functional:
+                # what-if direction: without the board a button or sensor has nothing to report to
+                add(board, c, "controls", "buttons and sensors only do something through the main board")
             elif c.type == "connector" and not _is_power(c):
-                add(c, board, "connected_to", "connectors are wired to the main board")
+                add(board, c, "depends_on", "a connector is only useful while the board behind it works")
             elif c.type == "controller":
                 add(board, c, "controls", "secondary boards are run by the main board")
     if board is not None and housing is not None:

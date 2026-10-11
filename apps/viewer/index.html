@@ -66,6 +66,9 @@
       <label class="slider">Explode
         <input id="explode" type="range" min="0" max="1" step="0.01" value="0" />
       </label>
+      <div class="seg layout-seg" id="layoutSeg" role="group" aria-label="Object orientation">
+        <button type="button" data-l="auto" class="on" title="As the AI built it">Natural</button><button type="button" data-l="horizontal" title="Object lies flat, parts come apart up and down"><i class="ic-h"></i>Horizontal</button><button type="button" data-l="vertical" title="Object stands up, parts come apart left and right"><i class="ic-v"></i>Vertical</button>
+      </div>
       <label class="check"><input id="isolate" type="checkbox" /> Isolate selected</label>
       <label class="check"><input id="spin" type="checkbox" /> Spin</label>
       <label class="check xray"><input id="xray" type="checkbox" /> X-ray wiring</label>
@@ -77,53 +80,63 @@
   </section>
 
   <aside class="panel" id="panel" hidden>
-    <div class="block">
+    <header class="p-head">
       <div class="eyebrow" id="modeBadge">Live analysis</div>
       <h2 id="title"></h2>
-      <p id="summary" class="muted"></p>
-      <div id="product" class="product" hidden></div>
-    </div>
+      <div id="stats" class="stats"></div>
+    </header>
+    <nav class="ptabs" id="ptabs" role="tablist" aria-label="Panel">
+      <button type="button" role="tab" data-tab="overview">Overview</button>
+      <button type="button" role="tab" data-tab="parts" class="on">Parts</button>
+      <button type="button" role="tab" data-tab="links">Connections</button>
+      <button type="button" role="tab" data-tab="ask">Ask</button>
+      <span class="ptab-ink" id="ptabInk"></span>
+    </nav>
+    <div class="pviews">
+      <section class="pview" data-view="overview" hidden>
+        <p id="summary" class="summary"></p>
+        <div id="flow" class="flow"></div>
+        <div id="product" class="product" hidden></div>
+      </section>
 
-    <div class="block">
-      <div class="block-head"><h3>Parts</h3><span class="legend"><i class="st observed"></i>seen <i class="st inferred"></i>inferred</span></div>
-      <ul id="parts" class="parts"></ul>
-    </div>
+      <section class="pview on" data-view="parts">
+        <div id="detail" class="detail" hidden>
+          <div class="d-top"><span id="dThumb" class="d-thumb"></span><div class="d-name"><span id="dType" class="d-type"></span><h3 id="dLabel"></h3></div><span id="dStatus" class="chip"></span></div>
+          <p id="dFunction" class="dfun" hidden></p>
+          <p id="dIfRemoved" class="dif" hidden></p>
+          <div id="dAlts" class="alts" hidden></div>
+          <ul id="dEvidence" class="evidence"></ul>
+          <ul id="dRels" class="rels" hidden></ul>
+          <div class="row d-acts">
+            <button id="whatif" class="btn small danger">What if I remove it?</button>
+            <button id="forward" class="btn small ghost" title="Move towards you">Bring forward</button>
+            <button id="backward" class="btn small ghost" title="Move away from you">Send back</button>
+          </div>
+          <div id="whatifOut" class="whatif" hidden></div>
+        </div>
+        <div class="parts-bar">
+          <div class="seg" id="partsFilter" aria-label="Show parts">
+            <button type="button" data-f="all" class="on">All <span id="partsCount"></span></button><button type="button" data-f="observed">Seen</button><button type="button" data-f="inferred">Inside</button>
+          </div>
+          <input id="partsSearch" class="parts-search" type="search" placeholder="Find…" autocomplete="off" />
+        </div>
+        <ul id="parts" class="parts"></ul>
+      </section>
 
-    <div class="block" id="detail" hidden>
-      <div class="block-head"><h3 id="dLabel"></h3><span id="dStatus" class="chip"></span></div>
-      <div class="kv"><span>Type</span><b id="dType"></b></div>
-      <p id="dFunction" class="dfun" hidden></p>
-      <p id="dIfRemoved" class="dif" hidden></p>
-      <ul id="dEvidence" class="evidence"></ul>
-      <h4>Connections</h4>
-      <ul id="dRels" class="rels"></ul>
-      <div class="row">
-        <button id="forward" class="btn small" title="Fix depth order">Bring forward</button>
-        <button id="backward" class="btn small">Send back</button>
-        <button id="whatif" class="btn small danger">What if I remove it?</button>
-      </div>
-      <div id="whatifOut" class="whatif" hidden></div>
-    </div>
+      <section class="pview" data-view="links" hidden>
+        <div id="links" class="links"></div>
+      </section>
 
-    <div class="block chat" id="chatBlock">
-      <div class="block-head"><h3>Ask about this object</h3><span class="legend" id="chatCtx"></span></div>
-      <div id="chatLog" class="chat-log" aria-live="polite"></div>
-      <div id="chatChips" class="chat-chips"></div>
-      <form id="chatForm" class="chat-form">
-        <input id="chatInput" autocomplete="off" maxlength="500" placeholder="e.g. What does the main board do?" />
-        <button class="btn small primary" id="chatSend">Ask</button>
-      </form>
+      <section class="pview chat" data-view="ask" hidden id="chatBlock">
+        <div class="chat-ctx" id="chatCtx"></div>
+        <div id="chatLog" class="chat-log" aria-live="polite"></div>
+        <div id="chatChips" class="chat-chips"></div>
+        <form id="chatForm" class="chat-form">
+          <input id="chatInput" autocomplete="off" maxlength="500" placeholder="Ask about any part…" />
+          <button class="btn small primary" id="chatSend" aria-label="Send">Ask <span aria-hidden="true">→</span></button>
+        </form>
+      </section>
     </div>
-    <div class="block">
-      <div class="block-head"><h3>System graph</h3><span id="graphStats" class="legend"></span></div>
-      <svg id="graph" viewBox="0 0 340 300" role="img" aria-label="Component relationship graph"></svg>
-      <div class="glegend">
-        <span><i style="background:#ffb020"></i>power</span><span><i style="background:#36d6ff"></i>control / signal</span>
-        <span><i style="background:#ff5fd2"></i>motion</span><span><i style="background:#8fa3bf"></i>structure</span>
-      </div>
-      <p class="tiny muted">Arrow points to the part that depends on the other · dashed = inferred · bigger node = more important. Click a node to inspect it.</p>
-    </div>
-
   </aside>
 </main>
 <script type="module" src="/viewer/viewer.js"></script>

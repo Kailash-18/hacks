@@ -4,6 +4,9 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { installAxes } from "./orient3d.js";
+import { installSwap } from "./swap3d.js";
+import { installHolo } from "./holo3d.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
@@ -148,7 +151,7 @@ export class AssemblyView {
   }
 
   setActive(on) {
-    this.root.visible = on; this.labels.domElement.hidden = !on;
+    this.root.visible = on; this.labels.domElement.hidden = !on; if (this.gizmo) this.gizmo.box.hidden = !on;
     this.stage.classList.toggle("studio", on);
     this.scene.background = on ? this.background : null;
     this.scene.fog = on ? this.fog : null;
@@ -274,6 +277,9 @@ export class AssemblyView {
       div.textContent = c.label;
       if (inferred) { const tag = document.createElement("small"); tag.textContent = "inferred"; div.append(tag); }
       geom.computeBoundingBox();
+      div.addEventListener("pointerenter", () => this.setHover(a.componentId, "label"));
+      div.addEventListener("pointerleave", () => this.setHover(null, "label"));
+      div.addEventListener("click", (e) => { e.stopPropagation(); this.onPick?.(a.componentId); });
       const label = new CSS2DObject(div); label.position.set(0, geom.boundingBox.max.y + 0.12, 0); label.center.set(0.5, 1);
       group.add(label);
       this.root.add(group);
@@ -305,6 +311,9 @@ export class AssemblyView {
     this.addAutoDetails(assembly.details || []);
     this.addDecals(views);
     this.buildWires(relationships);
+    this.orientQ = this.orientTarget(this.orientation);
+    this.buildEffects();
+    this.buildGizmo();
     this.setExplode(this.explode);
   }
 
@@ -373,7 +382,8 @@ export class AssemblyView {
   orderExplode() {
     const sum = [0, 0, 0];
     for (const p of this.parts) { sum[0] += Math.abs(p.dir.x) * p.dist; sum[1] += Math.abs(p.dir.y) * p.dist; sum[2] += Math.abs(p.dir.z) * p.dist; }
-    const e = new THREE.Vector3(); e.setComponent(sum.indexOf(Math.max(...sum)), 1);
+    this.mainAxis = sum.indexOf(Math.max(...sum));
+    const e = new THREE.Vector3(); e.setComponent(this.mainAxis, 1);
     const span = this.size.getComponent(sum.indexOf(Math.max(...sum))) || 1;
     for (const p of this.parts) {
       const along = p.dir.dot(e);
@@ -400,6 +410,105 @@ export class AssemblyView {
       }
       const top = Math.max(0, ...members.map((m) => m.p.dist * m.along));
       if (top > 2.2) for (const m of members) m.p.dist *= 2.2 / top; // keep the whole diagram on screen
+    }
+  }
+
+  // ---------------------------------------------------------------- effects
+  // A machined display plinth under the model, exploded-view guide lines from each part back to
+  // where it sits, a target-lock reticle around the selected part, and a small lift toward you on hover.
+  buildEffects() {
+    if (this.fx) for (const o of [this.fx.group, this.fx.guides, this.fx.lock]) { this.root.remove(o); o.traverse((q) => { q.geometry?.dispose(); q.material?.dispose?.(); }); }
+    const g = new THREE.Group(), os = this.orientedSize?.() || this.size, R = Math.hypot(os.x, os.z) * 0.55 + 0.35; // just wider than the assembled object
+    const add = (o) => { g.add(o); return o; };
+    // display plinth: a dark machined disc the object stands on, with a lit edge and a slowly turning engraved ring
+    const H = 0.34, top = new THREE.Group(); g.add(top);
+    const metal = new THREE.MeshPhysicalMaterial({ color: 0x0e131c, metalness: 0.7, roughness: 0.42, clearcoat: 0.4, clearcoatRoughness: 0.35, envMapIntensity: 0.55 });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 1.04, H, 128, 1), metal); body.position.y = -H / 2; body.receiveShadow = true;
+    const lipMat = new THREE.MeshPhysicalMaterial({ color: 0x1a2232, metalness: 0.85, roughness: 0.3, clearcoat: 0.8, envMapIntensity: 0.6 });
+    const lip = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.06, R * 1.08, H * 0.22, 128, 1), lipMat); lip.position.y = -H - H * 0.11;
+    const face = new THREE.Mesh(new THREE.CircleGeometry(R * 0.985, 128), new THREE.MeshPhysicalMaterial({ color: 0x080b11, metalness: 0.35, roughness: 0.62,
+      clearcoat: 0.35, clearcoatRoughness: 0.5, envMapIntensity: 0.35, bumpMap: tiled(brushedTexture(), 3, 3), bumpScale: 0.1 }));
+    face.rotation.x = -Math.PI / 2; face.position.y = 0.001; face.receiveShadow = true;
+    const glowMat = (col, i) => new THREE.MeshBasicMaterial({ color: new THREE.Color(col).multiplyScalar(i), toneMapped: false });
+    const edge = new THREE.Mesh(new THREE.TorusGeometry(R * 0.995, 0.012, 8, 192), glowMat(0x59d8ff, 2.2)); edge.rotation.x = Math.PI / 2; edge.position.y = 0.004;
+    const foot = new THREE.Mesh(new THREE.TorusGeometry(R * 1.075, 0.008, 8, 192), glowMat(0x4f8cff, 1.4)); foot.rotation.x = Math.PI / 2; foot.position.y = -H - H * 0.22;
+    const ticks = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([...Array(120)].flatMap((_, i) => {
+      const a = (i / 120) * Math.PI * 2, r1 = R * 0.9, r0 = R * (i % 10 ? 0.875 : 0.84);
+      return [new THREE.Vector3(Math.cos(a) * r0, 0.004, Math.sin(a) * r0), new THREE.Vector3(Math.cos(a) * r1, 0.004, Math.sin(a) * r1)]; })),
+      new THREE.LineBasicMaterial({ color: 0x59d8ff, transparent: true, opacity: 0.35, toneMapped: false }));
+    const innerRing = new THREE.Mesh(new THREE.RingGeometry(R * 0.6, R * 0.605, 160), new THREE.MeshBasicMaterial({ color: 0x59d8ff, transparent: true, opacity: 0.18,
+      toneMapped: false, side: THREE.DoubleSide })); innerRing.rotation.x = -Math.PI / 2; innerRing.position.y = 0.003;
+    top.add(body, lip, face, edge, foot, ticks, innerRing);
+    const c = document.createElement("canvas"); c.width = c.height = 128; const x = c.getContext("2d");
+    const grd = x.createRadialGradient(64, 64, 0, 64, 64, 64); grd.addColorStop(0, "rgba(70,150,255,.28)"); grd.addColorStop(1, "rgba(70,150,255,0)");
+    x.fillStyle = grd; x.fillRect(0, 0, 128, 128);
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(R * 1.9, 64), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false,
+      blending: THREE.AdditiveBlending, toneMapped: false }));
+    pool.rotation.x = -Math.PI / 2; pool.position.y = -H - H * 0.22 - 0.01; top.add(pool);
+    const pad = face, ring1 = ticks, ring2 = innerRing, tick = edge;
+    // exploded-view guide lines: one dashed line per part from where it sits to where it is now
+    const gpos = new Float32Array(this.parts.length * 6);
+    const gg = new THREE.BufferGeometry(); gg.setAttribute("position", new THREE.BufferAttribute(gpos, 3));
+    const guides = new THREE.LineSegments(gg, new THREE.LineDashedMaterial({ color: 0x59d8ff, dashSize: 0.1, gapSize: 0.08, transparent: true, opacity: 0,
+      depthWrite: false, toneMapped: false }));
+    guides.visible = false; // kept off: the dashed home-to-part lines cluttered the exploded view
+    this.root.add(guides);
+    // selection: a holographic scan. A laser grid sweeps through the part, a light beam rises to it from the
+    // plinth, and the part's edges glow. Rectangular and straight, so it reads as instrumentation, not a ring.
+    const lock = new THREE.Group(); lock.visible = false; lock.renderOrder = 20;
+    const addMat = (map, op) => new THREE.MeshBasicMaterial({ map, color: 0xffffff, transparent: true, opacity: op, blending: THREE.AdditiveBlending,
+      depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
+    const scan = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), addMat(scanTexture(), 0.9)); scan.renderOrder = 21;
+    const scanEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2)),
+      new THREE.LineBasicMaterial({ color: new THREE.Color(0x8fe8ff).multiplyScalar(2.2), transparent: true, opacity: 1, toneMapped: false, depthWrite: false }));
+    scan.add(scanEdge);
+    const beamTex = beamTexture(); beamTex.wrapT = THREE.RepeatWrapping;
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.3, 1, 4, 1, true).rotateY(Math.PI / 4).translate(0, 0.5, 0), addMat(beamTex, 0.55)); beam.renderOrder = 19;
+    const beamFoot = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), addMat(footTexture(), 0.9)); beamFoot.renderOrder = 19;
+    lock.add(scan, beam, beamFoot); this.root.add(lock);
+    const outer = scan, inner = beam;
+    g.position.y = this.floor.position.y + 0.01;
+    this.root.add(g);
+    this.fx = { group: g, pad, ring1, ring2, tick, R, H, guides, lock, outer, inner, lockT: 0 };
+    this.floor.visible = false; // the plinth face catches the shadows now
+    this.fxOn = true;
+    this.updateGuides();
+  }
+
+  updateGuides() {
+    const F = this.fx; if (!F || !F.guides.visible) return;
+    const P = F.guides.geometry.attributes.position, t = this.explode, v = new THREE.Vector3();
+    this.parts.forEach((p, i) => {
+      const home = p.base.clone().add(p.localCenter.clone().applyQuaternion(p.group.quaternion).multiplyScalar(p.fit || 1));
+      p.group.updateMatrixWorld(true); v.copy(this.centerOf(p));
+      P.setXYZ(i * 2, home.x, home.y, home.z); P.setXYZ(i * 2 + 1, v.x, v.y, v.z);
+    });
+    P.needsUpdate = true; F.guides.geometry.computeBoundingSphere(); F.guides.computeLineDistances();
+    F.guides.material.opacity = Math.min(0.55, Math.max(0, (t - 0.08) * 1.2));
+  }
+
+  updateEffects(now, dt) {
+    const F = this.fx; if (!F) return;
+    // the plinth follows the lowest point of the model (it drops as the parts spread out)
+    const want = this.floor.position.y + 0.01;
+    F.group.position.y += (want - F.group.position.y) * Math.min(1, dt * 8 || 1);
+    this.grid.position.y = F.group.position.y - F.H * 1.3 - 0.02;
+    F.tick.material.color.setRGB(0.35, 0.85, 1).multiplyScalar(1.9 + 0.35 * Math.sin(now / 1100)); // the lit edge breathes gently
+    // the selected part is shown as a hologram blueprint (holo3d.js)
+    const sel = this.parts.find((p) => p.id === this.lastPaint?.selected && p.group.visible);
+    F.lock.visible = false;
+    this.updateHolo(now, sel);
+    // hover lift: the part under the pointer rises a little toward you
+    if (this._liftAnim) {
+      const k = clamp01((now - this._liftAnim) / 220); let moving = false;
+      for (const p of this.parts) {
+        const want = p.id === this.hoverId && p.id !== this.lastPaint?.selected
+          ? this.camera.position.clone().sub(this.centerOf(p)).normalize().multiplyScalar(TARGET_SIZE * 0.035) : new THREE.Vector3();
+        p.lift = p.lift || new THREE.Vector3(); p.lift.lerp(want, 0.25 + 0.75 * k);
+        if (p.lift.distanceToSquared(want) > 1e-6) moving = true;
+      }
+      this.applyPose();
+      if (!moving && k >= 1) this._liftAnim = 0;
     }
   }
 
@@ -702,15 +811,17 @@ export class AssemblyView {
 
   applyPose() {
     this.poke();
-    const t = this.explode, reach = TARGET_SIZE * 0.8, I = new THREE.Quaternion();
+    const t = this.explode, reach = TARGET_SIZE * 0.8, I = new THREE.Quaternion(), Q = this.orientQ || I;
     for (const p of this.parts) {
       if (p.moved && p.dragT < 0.02 && t > p.dragT) p.dragT = t; // moved while assembled: tie it to this explode
       const s = this.pullScale(p);
-      p.group.position.copy(p.base).addScaledVector(p.dir, t * p.dist * reach).addScaledVector(p.offset, s).add(p.fx.offset);
-      p.group.quaternion.copy(p.fx.quat).multiply(I.clone().slerp(p.userQuat, s)).multiply(p.baseQuat);
+      p.group.position.copy(p.base).addScaledVector(p.dir, t * p.dist * reach).applyQuaternion(Q).addScaledVector(p.offset, s).add(p.fx.offset);
+      if (p.lift) p.group.position.add(p.lift);
+      p.group.quaternion.copy(p.fx.quat).multiply(I.clone().slerp(p.userQuat, s)).multiply(Q).multiply(p.baseQuat);
       p.group.scale.setScalar(p.fx.scale * (p.fit || 1));
     }
     this.poseVersion = (this.poseVersion || 0) + 1;
+    this.updateGuides?.();
   }
 
   setExplode(t) {
@@ -730,7 +841,7 @@ export class AssemblyView {
     for (const p of this.parts) {
       if (!p.mesh.geometry.boundingSphere) p.mesh.geometry.computeBoundingSphere();
       const r = p.mesh.geometry.boundingSphere.radius;
-      v.copy(p.base).addScaledVector(p.dir, t * p.dist * reach);
+      v.copy(p.base).addScaledVector(p.dir, t * p.dist * reach).applyQuaternion(this.orientQ || new THREE.Quaternion());
       box.expandByPoint(v.clone().addScalar(r)); box.expandByPoint(v.clone().addScalar(-r));
     }
     if (box.isEmpty()) box.set(new THREE.Vector3(-3, -3, -3), new THREE.Vector3(3, 3, 3));
@@ -742,9 +853,9 @@ export class AssemblyView {
     const d = (fit / 2) / Math.tan(Math.min(vfov, hfov) / 2) * 1.25 + fit * 0.15; // fits short and narrow windows
     // look across the main explode axis so the gaps between parts are visible
     const axis = [0, 0, 0];
-    for (const p of this.parts) { axis[0] += Math.abs(p.dir.x) * p.dist; axis[1] += Math.abs(p.dir.y) * p.dist; axis[2] += Math.abs(p.dir.z) * p.dist; }
+    for (const p of this.parts) { const d = p.dir.clone().applyQuaternion(this.orientQ || new THREE.Quaternion()); axis[0] += Math.abs(d.x) * p.dist; axis[1] += Math.abs(d.y) * p.dist; axis[2] += Math.abs(d.z) * p.dist; }
     const main = axis.indexOf(Math.max(...axis));
-    const [az, el] = main === 2 ? [0.68, 0.3] : main === 0 ? [0.3, 0.35] : [0.75, 0.3];
+    const [az, el] = main === 2 ? [0.68, 0.3] : main === 0 ? [0.95, 0.28] : this.orientation === "horizontal" ? [0.7, 0.5] : [0.75, 0.3];
     this.camera.position.set(ctr.x + d * Math.sin(az) * Math.cos(el), ctr.y + d * Math.sin(el), ctr.z + d * Math.cos(az) * Math.cos(el));
     this.controls.target.copy(ctr); this.controls.update();
     this.fog.near = d * 1.6; this.fog.far = d * 4.5; // fog only fades the far floor, never the model
@@ -777,6 +888,16 @@ export class AssemblyView {
   }
 
   anyMoved() { return this.parts.some((p) => p.moved); }
+
+  // Pointing at a part, its callout or its row in the list lights up all three.
+  setHover(id, source = "") {
+    if (this.hoverId === id) return;
+    this.hoverId = id;
+    this._liftAnim = performance.now();
+    this._leaders?.classList.toggle("focus", !!id);
+    if (this.lastPaint) this.paint(this.lastPaint); else this.poke();
+    this.onHover?.(id, source);
+  }
 
   // "Bring forward" / "Send back": slide the part towards or away from the viewer, animated.
   nudge(id, dir, ms = 260) {
@@ -834,8 +955,10 @@ export class AssemblyView {
     for (const p of this.parts) {
       if (!this.whatif) p.group.visible = p.id !== removed;
       const dim = (isolate && selected && p.id !== selected && !related.has(p.id)) || (xr && p.id !== selected);
-      const glow = p.id === selected ? 0x2a6df4 : affected.has(p.id) ? 0xff5040 : 0x000000;
-      p.mat.emissive.setHex(glow); p.mat.emissiveIntensity = glow ? 0.55 : 0;
+      const hov = p.id === this.hoverId && p.id !== selected;
+      const glow = p.id === selected ? 0x2a6df4 : affected.has(p.id) ? 0xff5040 : hov ? 0x1b8fd0 : 0x000000;
+      p.mat.emissive.setHex(glow); p.mat.emissiveIntensity = glow ? (hov ? 0.4 : 0.55) : 0;
+      p.label.element.classList.toggle("hov", p.id === this.hoverId);
       const baseOpacity = p.mat.userData.baseOpacity ??= p.mat.opacity;
       const dimOp = xr ? 0.16 : 0.1;
       p.mat.transparent = dim || baseOpacity < 1; p.mat.opacity = dim ? dimOp : baseOpacity; p.mat.depthWrite = !dim;
@@ -852,6 +975,7 @@ export class AssemblyView {
       w.mat.opacity = (w.structural ? 0.45 : 0.8) * (on ? 1 : 0.18);
       for (const sp of w.sprites) sp.material.opacity = on ? 1 : 0.15;
     }
+    this.applyHolo(selected);
     this.setExplode(this.explode);
   }
 
@@ -863,6 +987,7 @@ export class AssemblyView {
     const c = this.renderer.domElement, w = c.clientWidth, h = c.clientHeight, key = w + "x" + h;
     if (key !== this._size && w && h) { this._size = key; this.composer.setPixelRatio(this.renderer.getPixelRatio()); this.composer.setSize(w, h); }
     if (this.lowQuality) this.renderer.render(this.scene, this.camera); else this.composer.render();
+    this.updateGizmo();
     this.watchSpeed(now);
     return true;
   }
@@ -871,7 +996,9 @@ export class AssemblyView {
   poke() { this._active = performance.now(); }
   busy(now = performance.now()) {
     return !!(this.intro || this.whatif || this.sweep || this.ringT0 || this.xray || this.sparks?.length
-      || (this.bloomT0 && now - this.bloomT0 < 1500) || now - (this._active || 0) < 700);
+      || (this.bloomT0 && now - this.bloomT0 < 1500) || now - (this._active || 0) < 700
+      || (this.fxOn && ((!this.lowQuality && !!this.lastPaint?.selected) || Math.abs((this.fx?.group.position.y ?? 0) - this.floor.position.y - 0.01) > 1e-3))
+      || !!this._liftAnim || (this._selAnimUntil && now < this._selAnimUntil && !!this.lastPaint?.selected));
   }
 
   // Slow computer (integrated graphics): drop the glow pass, soft shadows and extra pixels so the page stays responsive.
@@ -967,7 +1094,9 @@ export class AssemblyView {
             g.lastChild.setAttribute("r", "3");
             svg.append(g); this._leaderEls.set(i.p.id, g);
           }
-          g.setAttribute("class", "leader" + (i.p.inferred ? " inf" : "") + (i.e.classList.contains("sel") ? " sel" : "") + (i.e.classList.contains("hit") ? " hit" : ""));
+          const cls = "leader" + (i.p.inferred ? " inf" : "") + (i.e.classList.contains("sel") ? " sel" : "") + (i.e.classList.contains("hit") ? " hit" : "")
+            + (i.p.id === this.hoverId ? " hov" : "");
+          if (g.getAttribute("class") !== cls) g.setAttribute("class", cls); // unchanged class keeps the draw-in animation from restarting
           g.firstChild.setAttribute("d", `M${sx.toFixed(1)},${sy.toFixed(1)} L${ex.toFixed(1)},${sy.toFixed(1)} L${i.ax.toFixed(1)},${i.ay.toFixed(1)}`);
           g.lastChild.setAttribute("cx", i.ax.toFixed(1)); g.lastChild.setAttribute("cy", i.ay.toFixed(1));
           g.style.display = ""; live.add(i.p.id);
@@ -1229,6 +1358,7 @@ export class AssemblyView {
   update(now) {
     const dt = Math.min(0.05, (now - (this._last || now)) / 1000); this._last = now;
     this.updateSweep(now); this.updateIntro(now); this.updateWhatIf(now); this.updateSparks(now, dt); this.updateWires(now);
+    this.updateEffects(now, dt);
     if (this.ringT0) { // shockwave ring when the object locks together
       const k = clamp01((now - this.ringT0) / 1100);
       this.ring.scale.setScalar(0.5 + easeOut(k) * Math.max(this.size.x, this.size.z) * 2.2); this.ring.material.opacity = 1 - k;
@@ -1237,3 +1367,32 @@ export class AssemblyView {
     this.bloom.strength = 0.18 + (this.bloomT0 ? 0.85 * Math.exp(-(now - this.bloomT0) / 380) : 0);
   }
 }
+
+installAxes(AssemblyView);
+installSwap(AssemblyView);
+
+// ---------------------------------------------------------------- holographic selection textures
+function scanTexture() { // fine cyan grid with a bright rim and a glowing centre band
+  const c = document.createElement("canvas"); c.width = c.height = 256; const g = c.getContext("2d");
+  const grd = g.createRadialGradient(128, 128, 10, 128, 128, 180); grd.addColorStop(0, "rgba(90,220,255,.35)"); grd.addColorStop(1, "rgba(90,220,255,.06)");
+  g.fillStyle = grd; g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = "rgba(140,235,255,.55)"; g.lineWidth = 1;
+  for (let i = 0; i <= 256; i += 16) { g.beginPath(); g.moveTo(i + 0.5, 0); g.lineTo(i + 0.5, 256); g.stroke(); g.beginPath(); g.moveTo(0, i + 0.5); g.lineTo(256, i + 0.5); g.stroke(); }
+  g.strokeStyle = "rgba(200,250,255,.95)"; g.lineWidth = 6; g.strokeRect(3, 3, 250, 250);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function beamTexture() { // vertical light: strong at the base, fading upward, with faint bands that drift up
+  const c = document.createElement("canvas"); c.width = 8; c.height = 256; const g = c.getContext("2d");
+  for (let y = 0; y < 256; y++) {
+    const v = y / 255, band = 0.55 + 0.45 * Math.sin(v * Math.PI * 10) ** 2;
+    g.fillStyle = `rgba(90,215,255,${(0.08 + 0.5 * band) * (0.35 + 0.65 * v)})`; g.fillRect(0, y, 8, 1);
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function footTexture() { // soft square glow where the beam meets the plinth
+  const c = document.createElement("canvas"); c.width = c.height = 128; const g = c.getContext("2d");
+  const grd = g.createRadialGradient(64, 64, 4, 64, 64, 64); grd.addColorStop(0, "rgba(140,235,255,.9)"); grd.addColorStop(0.35, "rgba(90,215,255,.35)"); grd.addColorStop(1, "rgba(90,215,255,0)");
+  g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+installHolo(AssemblyView);

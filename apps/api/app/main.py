@@ -236,10 +236,10 @@ def get_sample(sample_id: str):
 
 
 @app.get("/api/physical/teardown")
-async def physical_teardown(q: str):
+async def physical_teardown(q: str, topic: str = ""):
     """Teardown reference photos for an identified product (iFixit public API, CC BY-NC-SA, with credit)."""
     from .services.teardown import find_teardowns
-    return await run_in_threadpool(find_teardowns, q, CACHE_DIR)
+    return await run_in_threadpool(find_teardowns, q, CACHE_DIR, 3, topic)
 
 
 @app.get("/api/physical/teardown/image")

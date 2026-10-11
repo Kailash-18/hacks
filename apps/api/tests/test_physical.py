@@ -187,7 +187,8 @@ def test_api_end_to_end(monkeypatch, tmp_path):
     assert d["domain"] == "physical" and d["analysisId"].startswith("physical-")
     w = client.post("/api/physical/whatif", json={"analysisId": d["analysisId"], "removedComponentId": "battery"})
     assert w.status_code == 200
-    assert [a["componentId"] for a in w.json()["affected"]] == ["board", "screen"]
+    # the board, and everything that only works through it (button, screen), fails
+    assert [a["componentId"] for a in w.json()["affected"]] == ["board", "button", "screen"]
     # cached second call
     assert client.post("/api/physical/analyze", files={"image": ("d.png", synthetic_device(), "image/png")}).json() == d
 

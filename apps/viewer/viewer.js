@@ -4,6 +4,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { AssemblyView } from "./assembly3d.js";
+import { alternativesFor, lookFor } from "./alternatives.js";
 
 const API = new URLSearchParams(location.search).get("api") || "";
 const TRANSFORMERS_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.1.2";
@@ -161,7 +162,7 @@ function viewsOf(a) {
 const VIEW_NAMES = { top: "Top", bottom: "Bottom", front: "Front", back: "Back", left: "Left side", right: "Right side", "three-quarter": "Angle", inside: "Inside", unknown: "Photo", photo: "Photo" };
 
 async function build(analysis, { sample = false } = {}) {
-  A = analysis; isSample = sample; selected = removed = null; affected = new Set();
+  A = analysis; isSample = sample; selected = removed = null; affected = new Set(); swaps.clear();
   for (const k in depthCache) delete depthCache[k];
   if (!A.scene) { showError("This analysis has no physical scene data."); return; }
   renderPanel();
@@ -171,6 +172,7 @@ async function build(analysis, { sample = false } = {}) {
   const has3D = A.scene.assembly && A.scene.assembly.parts.length;
   if (has3D) asm.build(A.scene.assembly, A.components, viewsOf(A), A.relationships);
   $("empty").hidden = true; $("controls").hidden = false; $("panel").hidden = false; steps(STEP_NAMES.length);
+  setPanelTab(panelTab); requestAnimationFrame(moveInk);
   if (has3D) show3D({ intro: true });
   else { await showView(0); introExplode(); }
 }
@@ -196,12 +198,8 @@ function show3D({ intro = false } = {}) {
 function renderTabs() {
   const box = $("viewTabs"); box.innerHTML = "";
   const vs = viewsOf(A);
-  if (A.scene.assembly && A.scene.assembly.parts.length) {
-    const t = el("button", "tab tab3d" + (mode === "3d" ? " on" : ""), "3D model");
-    t.title = "AI-built 3D model: rotate 360°, explode, click parts"; t.onclick = () => { if (mode !== "3d") show3D(); };
-    box.append(t);
-  }
-  vs.forEach((v, i) => {
+  const has3D = !!(A.scene.assembly && A.scene.assembly.parts.length);
+  if (!has3D) vs.forEach((v, i) => { // photo views are only a fallback when no 3D model could be built
     const b = el("button", "tab" + (mode === "layers" && i === currentView ? " on" : ""), `Photo ${i + 1} · ${VIEW_NAMES[v.view] || "Photo"}`);
     b.title = v.filename || ""; b.onclick = () => { if (mode === "3d" || i !== currentView) showView(i, { fromTab: true }).then(paint); };
     box.append(b);
@@ -210,7 +208,7 @@ function renderTabs() {
     const add = el("label", "tab add", "+ Add photo"); add.htmlFor = "addFile";
     add.title = "Add another angle of the same object (bottom, side, opened...)"; box.append(add);
   }
-  box.hidden = false;
+  box.hidden = !box.children.length;
 }
 
 async function showView(vi, { fromTab = false } = {}) {
@@ -338,12 +336,31 @@ function introExplode(target = 0.65, ms = 1600) { // animate apart once a result
   const e = $("explode"), from = parseFloat(e.value), t0 = performance.now();
   const tick = (now) => {
     const k = Math.min(1, (now - t0) / ms), ease = 1 - Math.pow(1 - k, 3);
-    e.value = from + (target - from) * ease; applyExplode();
+    e.value = from + (target - from) * ease; applyExplode(); paintSlider();
     if (k < 1) requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
 }
 $("explode").addEventListener("input", applyExplode);
+// the slider track fills up to the grip
+const paintSlider = () => { const e = $("explode"); e.style.setProperty("--fill", e.value * 100 + "%"); };
+$("explode").addEventListener("input", paintSlider);
+// orientation: the whole object lies flat (explodes up/down) or stands up (explodes left/right)
+$("layoutSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-l]"); if (!b || mode !== "3d" || b.classList.contains("on")) return;
+  document.querySelectorAll("#layoutSeg button").forEach((x) => x.classList.toggle("on", x === b));
+  controls.autoRotate = false; $("spin").checked = false;
+  asm.setOrientation(b.dataset.l);
+});
+asm.onExplode = (t) => { $("explode").value = t; paintSlider(); };
+
+// callouts and the 3D model share the hover: the matching row in the parts list lights up too
+asm.onPick = (id) => select(id);
+canvas.addEventListener("pointerleave", () => { $("hover").hidden = true; if (mode === "3d") asm.setHover(null, "canvas"); });
+asm.onHover = (id, source) => {
+  for (const li of $("parts").children) li.classList.toggle("hov", !!id && li.dataset.id === id);
+  if (id && source !== "list") $("parts").querySelector(`li[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+};
 
 // ---------------------------------------------------------------- depth (browser)
 let depthPipe = null;
@@ -432,8 +449,12 @@ canvas.addEventListener("pointerup", (e) => {
 canvas.addEventListener("pointermove", (e) => {
   if (!A) return;
   const id = pick(e), h = $("hover");
-  if (id) { const r = canvas.getBoundingClientRect(); h.textContent = compById(id).label; h.style.left = e.clientX - r.left + "px"; h.style.top = e.clientY - r.top + "px"; h.hidden = false; canvas.style.cursor = "pointer"; }
-  else { h.hidden = true; canvas.style.cursor = ""; }
+  if (id) {
+    const r = canvas.getBoundingClientRect(), c = compById(id);
+    h.textContent = c.label; h.append(el("em", "", c.type.replace(/_/g, " ")));
+    h.style.left = e.clientX - r.left + "px"; h.style.top = e.clientY - r.top + "px"; h.hidden = false; canvas.style.cursor = "pointer";
+  } else { h.hidden = true; canvas.style.cursor = ""; }
+  if (mode === "3d" && !drag) asm.setHover(id, "canvas");
 });
 
 // ---------------------------------------------------------------- highlight
@@ -521,20 +542,76 @@ function renderPanel() {
       pe.append(a, el("div", "tiny muted", "Save top / bottom / side shots, then use “+ Add photo”. Up to 4 photos."));
     }
     const tb = el("button", "btn small", "Find teardown photos (iFixit)");
-    tb.onclick = () => showTeardowns(name || pr.searchQuery, tb); // brand + model searches best on iFixit
+    // search the exact model when known, otherwise brand + kind of object; only guides about the same kind of object count
+    const brandWords = new Set((pr.brand || "").toLowerCase().split(/\s+/).filter(Boolean));
+    const kind = (pr.category || A.title || "").split(/\s+/).filter((w) => !brandWords.has(w.toLowerCase())).join(" ");
+    tb.onclick = () => showTeardowns(pr.model ? name : [pr.brand, kind].filter(Boolean).join(" ") || pr.searchQuery || name, tb, kind || A.title);
     pe.append(tb, Object.assign(el("div", "teardown"), { id: "teardown" }));
     pe.hidden = false;
   } else pe.hidden = true;
-  renderParts(); renderGraph(); renderDetail(); resetChat();
+  partsQuery = ""; $("partsSearch").value = "";
+  $("parts").classList.add("intro"); clearTimeout(renderPanel.t); renderPanel.t = setTimeout(() => $("parts").classList.remove("intro"), 900);
+  renderStats(); renderParts(); renderGraph(); renderDetail(); resetChat();
+  const panel = $("panel"); panel.classList.remove("boot"); void panel.offsetWidth; panel.classList.add("boot"); // boot-up sequence once per result
 }
 
+// part type -> family colour (same families as the system graph and the X-ray wires)
+const FAMILY = { power_source: "power", controller: "control", sensor: "control", display: "control", interface: "control", connector: "control",
+  cable: "control", actuator: "motion", wheel: "motion", mechanism: "motion", structure: "structure", cover: "structure", fastener: "structure" };
+let partsFilter = "all", partsQuery = "";
+function cutoutOf(id) { // the part's own photo cut-out, when it was seen
+  for (const v of viewsOf(A)) { const l = (v.layers || []).find((x) => x.componentId === id); if (l?.cutout) return l.cutout; }
+  return null;
+}
 function renderParts() {
   const ul = $("parts"); ul.innerHTML = "";
-  for (const c of A.components) {
-    const li = el("li", [c.id === selected && "sel", affected.has(c.id) && "affected", c.id === removed && "removed"].filter(Boolean).join(" "));
-    li.append(el("i", `st ${c.status}`), el("span", "", c.label), el("span", "type", c.type));
-    li.onclick = () => select(c.id);
-    ul.append(li);
+  const seen = A.components.filter((c) => c.status === "observed"), inside = A.components.filter((c) => c.status !== "observed");
+  $("partsCount").textContent = A.components.length;
+  const q = partsQuery.trim().toLowerCase();
+  const match = (c) => !q || c.label.toLowerCase().includes(q) || c.type.replace(/_/g, " ").includes(q);
+  const groups = [["observed", "Seen in the photo", seen], ["inferred", "Inside, inferred", inside]]
+    .filter(([k]) => partsFilter === "all" || partsFilter === k);
+  let shown = 0;
+  for (const [, title, list] of groups) {
+    const items = list.filter(match); if (!items.length) continue;
+    const gh = el("li", "group"); gh.append(el("span", "", title), el("span", "gcount", String(items.length))); ul.append(gh);
+    for (const c of items) {
+      shown++;
+      const li = el("li", ["part", c.id === selected && "sel", affected.has(c.id) && "affected", c.id === removed && "removed"].filter(Boolean).join(" "));
+      li.dataset.id = c.id; li.tabIndex = 0;
+      const fam = FAMILY[c.type] || "other";
+      li.classList.add(fam); li.style.animationDelay = Math.min(shown, 12) * 25 + "ms";
+      const th = el("span", "thumb" + (c.status === "observed" ? "" : " ghost"));
+      const src = cutoutOf(c.id);
+      if (src) { const im = el("img"); im.src = src; im.alt = ""; im.loading = "lazy"; th.append(im); }
+      const txt = el("span", "pname"); txt.append(el("b", "", c.label), el("small", "", c.type.replace(/_/g, " ")));
+      li.append(th, txt);
+      if (c.id === removed) li.append(el("span", "tag gone", "removed"));
+      else if (swaps.has(c.id)) li.append(el("span", "tag sw", "swapped"));
+      else if (affected.has(c.id)) li.append(el("span", "tag hit", "affected"));
+      else li.append(el("span", "chev", "›"));
+      li.onclick = () => select(c.id);
+      li.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(c.id); } };
+      li.onmouseenter = () => { if (mode === "3d") asm.setHover(c.id, "list"); };
+      li.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "list"); };
+      ul.append(li);
+    }
+  }
+  if (!shown) ul.append(el("li", "none", q ? `No part matches “${partsQuery}”.` : "No parts in this group."));
+}
+$("partsFilter").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b || !A) return;
+  partsFilter = b.dataset.f; document.querySelectorAll("#partsFilter button").forEach((x) => x.classList.toggle("on", x === b)); renderParts();
+});
+$("partsSearch").addEventListener("input", (e) => { partsQuery = e.target.value; if (A) renderParts(); });
+
+function renderStats() { // one quiet line of counts under the title; the numbers count up once
+  const seen = A.components.filter((c) => c.status === "observed").length, links = A.relationships.length;
+  const box = $("stats"); box.innerHTML = "";
+  for (const [n, l, cls] of [[seen, "seen", "observed"], [A.components.length - seen, "inside", "inferred"], [links, "links", "lnk"]]) {
+    const s = el("span", "stat " + cls), b = el("b", "", "0"); s.append(b, el("span", "", l)); box.append(s);
+    const t0 = performance.now(), up = (now) => { const k = Math.min(1, (now - t0) / 700); b.textContent = Math.round(n * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(up); };
+    requestAnimationFrame(up);
   }
 }
 
@@ -544,9 +621,10 @@ function renderDetail() {
   const c = compById(selected); d.hidden = false;
   $("dLabel").textContent = c.label;
   const st = $("dStatus"); st.className = `chip ${c.status}`; st.textContent = c.status === "observed" ? "seen in photo" : c.status;
-  $("dType").textContent = c.type;
+  $("dType").textContent = c.type.replace(/_/g, " "); $("dThumb").replaceChildren(thumbOf(c, "thumb lg")); d.className = "detail " + (FAMILY[c.type] || "other");
   $("dFunction").hidden = !c.function; $("dFunction").textContent = c.function ? "Does: " + c.function : "";
   $("dIfRemoved").hidden = !c.ifRemoved; $("dIfRemoved").textContent = c.ifRemoved ? "Without it: " + c.ifRemoved : "";
+  renderAlts(c);
   $("dEvidence").innerHTML = ""; c.evidence.forEach((e) => $("dEvidence").append(el("li", "", e)));
   const rl = $("dRels"); rl.innerHTML = "";
   const rels = A.relationships.filter((r) => r.from === c.id || r.to === c.id);
@@ -564,13 +642,51 @@ function renderDetail() {
   $("whatif").textContent = removed === c.id ? "Put it back" : "What if I remove it?";
 }
 
+// "Could be replaced with": three swaps, each with one advantage and one drawback, built once per selected part
+function renderAlts(c) {
+  const box = $("dAlts");
+  if (box.dataset.id === c.id) { syncAlts(c); return; }
+  box.dataset.id = c.id; box.innerHTML = "";
+  const alts = alternativesFor(c); box.hidden = !alts.length; if (!alts.length) return;
+  const head = el("div", "alts-head"); head.append(el("span", "", "Could be replaced with"), el("span", "alts-note", mode === "3d" ? "tap to try in 3D" : "rules of thumb"));
+  const list = el("div", "alts-list");
+  alts.forEach((a, i) => {
+    const card = el("button", "alt"); card.type = "button"; card.style.setProperty("--i", i); card.dataset.name = a.name;
+    const pro = el("div", "pro"), con = el("div", "con");
+    pro.append(el("i", "", "+"), el("span", "", a.pro)); con.append(el("i", "", "−"), el("span", "", a.con));
+    const top = el("div", "alt-top"); top.append(el("i", "alt-sw"), el("b", "", a.name), el("span", "alt-state", "in 3D"));
+    top.querySelector(".alt-sw").style.background = lookFor(a.name).color;
+    card.append(top, pro, con);
+    card.onclick = () => trySwap(c.id, a.name);
+    list.append(card);
+  });
+  const reset = el("button", "alt-reset", "↺ Back to the original"); reset.type = "button"; reset.onclick = () => trySwap(c.id, null);
+  box.append(head, list, reset);
+  syncAlts(c);
+}
+// which replacement (if any) is on the model right now
+const swaps = new Map();
+function syncAlts(c) {
+  const on = swaps.get(c.id) || null, box = $("dAlts");
+  box.querySelectorAll(".alt").forEach((b) => b.classList.toggle("on", b.dataset.name === on));
+  box.querySelector(".alt-reset")?.toggleAttribute("hidden", !on);
+}
+function trySwap(id, name) {
+  if (mode !== "3d") return;
+  if (!name || swaps.get(id) === name) { swaps.delete(id); asm.restorePart(id); }
+  else { swaps.set(id, name); asm.swapPart(id, lookFor(name), name); }
+  const c = compById(id); syncAlts(c); renderParts();
+}
+
 async function select(id) {
   const inScene = mode === "3d" ? asm.parts.some((p) => p.id === id) : parts.some((p) => p.id === id);
-  if (id && !inScene) { // part lives in another photo -> switch to it
+  if (id && !inScene && mode !== "3d") { // part lives in another photo -> switch to it
     const vi = viewsOf(A).findIndex((v) => v.layers.some((l) => l.componentId === id));
     if (vi >= 0 && vi !== currentView) await showView(vi);
   }
   selected = id; renderParts(); renderDetail(); renderGraph(); paint(); renderChips();
+  if (id && panelTab === "overview") setPanelTab("parts");
+  if (id && panelTab === "parts") $("detail").scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
 function nudge(dir) {
@@ -678,158 +794,233 @@ function showReveal() {
 }
 $("reveal").addEventListener("click", () => { $("reveal").classList.add("out"); setTimeout(() => ($("reveal").hidden = true), 700); });
 
-const EDGE_COL = { powers: "#ffb020", feeds: "#ffb020", controls: "#36d6ff", connected_to: "#36d6ff", depends_on: "#9b8cff", drives: "#ff5fd2",
-  transmits: "#ff5fd2", supports: "#8fa3bf", mounts: "#8fa3bf", contains: "#8fa3bf", attached_to: "#8fa3bf", covers: "#8fa3bf", adjacent_to: "#8fa3bf" };
-// where each kind of part sits around the hub (degrees, 0 = right): power above, outputs right, inputs left, structure below
-const ROLE_ANGLE = { power_source: -90, controller: -50, display: -15, interface: 15, mechanism: 35, actuator: 200, sensor: 160, wheel: 180,
-  connector: -130, cable: -140, structure: 90, cover: 110, fastener: 70 };
-const GW = 340; let GH = 300;
-let graphLayout = { id: null, pos: {} };
-const hashTxt = (t) => { let h = 7; for (const ch of t) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
-function layoutGraph() { // small deterministic force layout: linked parts cluster, everything stays readable
-  const cs = A.components, n = cs.length, pos = {};
-  GH = Math.round(290 + Math.max(0, n - 6) * 22); // taller canvas for bigger systems
-  $("graph").setAttribute("viewBox", `0 0 ${GW} ${GH}`);
-  // seed: the most connected part (usually the main board) in the middle, its neighbours on a ring grouped by role
-  const deg = {}; for (const r of A.relationships) { deg[r.from] = (deg[r.from] || 0) + 1; deg[r.to] = (deg[r.to] || 0) + 1; }
-  const hub = [...cs].sort((a, b) => (deg[b.id] || 0) - (deg[a.id] || 0) || (b.type === "controller") - (a.type === "controller"))[0];
-  const nb = new Set(A.relationships.flatMap((r) => (r.from === hub.id ? [r.to] : r.to === hub.id ? [r.from] : [])));
-  const ring = (list, R) => {
-    const ang = (c) => (ROLE_ANGLE[c.type] ?? 45 + (hashTxt(c.id) % 90)) * Math.PI / 180;
-    const sorted = [...list].sort((a, b) => ang(a) - ang(b));
-    sorted.forEach((c, i) => { // keep the role direction but spread evenly so nodes never start on top of each other
-      const a = 0.5 * ang(c) + 0.5 * (-Math.PI / 2 + (i / Math.max(1, sorted.length)) * Math.PI * 2);
-      pos[c.id] = { x: GW / 2 + R * 1.15 * Math.cos(a), y: GH / 2 + R * Math.sin(a) };
+// ---------------------------------------------------------------- connections (focus view)
+// One part at a time, in plain words: where its power and orders come from, what it runs, and what holds it.
+// Clicking any neighbour moves the focus there, so you walk the system instead of reading a hairball.
+const REL_IN = { powers: "Gets power from", feeds: "Gets power from", controls: "Controlled by", connected_to: "Gets signals from",
+  depends_on: "Needed by", drives: "Driven by", transmits: "Driven by" };
+const REL_OUT = { powers: "Powers", feeds: "Powers", controls: "Controls", connected_to: "Sends signals to",
+  depends_on: "Needs", drives: "Drives", transmits: "Drives" };
+const REL_ORDER = ["Gets power from", "Controlled by", "Gets signals from", "Needs", "Driven by", "Powers", "Controls", "Sends signals to", "Drives", "Needed by"];
+const REL_KIND = { "Gets power from": "power", Powers: "power", "Driven by": "motion", Drives: "motion" }; // the rest carry signals
+const UPSTREAM = new Set(["Gets power from", "Controlled by", "Gets signals from", "Needs", "Driven by"]);
+const HOLD = new Set(["supports", "mounts", "contains", "attached_to", "covers", "adjacent_to"]);
+function degrees() { const d = {}; for (const r of A.relationships) { d[r.from] = (d[r.from] || 0) + 1; d[r.to] = (d[r.to] || 0) + 1; } return d; }
+function hubId() { // the most connected part is the natural place to start
+  const deg = degrees(); return [...A.components].sort((a, b) => (deg[b.id] || 0) - (deg[a.id] || 0))[0]?.id;
+}
+function thumbOf(c, cls = "thumb") { // photo cut-out when the part was seen, a soft family-coloured ghost when inferred
+  const th = el("span", cls + (c.status === "observed" ? "" : " ghost")), src = cutoutOf(c.id);
+  if (src) { const im = el("img"); im.src = src; im.alt = ""; im.loading = "lazy"; th.append(im); }
+  return th;
+}
+const nameList = (ids) => { const n = ids.map((id) => compById(id).label); return n.length <= 2 ? n.join(" and ") : `${n.slice(0, 2).join(", ")} and ${n.length - 2} more`; };
+function relGroups(fid) {
+  const groups = new Map(), holds = [];
+  for (const r of A.relationships) {
+    let label = null, other = null;
+    if (r.to === fid && REL_IN[r.type]) [label, other] = [REL_IN[r.type], r.from];
+    else if (r.from === fid && REL_OUT[r.type]) [label, other] = [REL_OUT[r.type], r.to];
+    else if ((r.from === fid || r.to === fid) && HOLD.has(r.type)) { const o = r.from === fid ? r.to : r.from; if (compById(o) && !holds.some(([, x]) => x === o)) holds.push([r, o]); continue; }
+    if (!label || !compById(other) || other === fid) continue;
+    if (!groups.has(label)) groups.set(label, []);
+    const g = groups.get(label); if (!g.some(([, x]) => x === other)) g.push([r, other]);
+  }
+  const wired = new Set([...groups.values()].flat().map(([, id]) => id));
+  return { holds: holds.filter(([, id]) => !wired.has(id)), groups: REL_ORDER.filter((l) => groups.has(l)).map((l) => [l, groups.get(l)]) };
+}
+function renderGraph() { renderLinks(); renderOverview(); }
+let linkTrail = [];
+function renderLinks() {
+  const box = $("links"); if (!box || !A) return;
+  const fid = selected && compById(selected) ? selected : hubId(); const f = compById(fid);
+  box.innerHTML = ""; if (!f) return;
+  if (linkTrail[linkTrail.length - 1] !== fid) { linkTrail = linkTrail.filter((id) => id !== fid && compById(id)); linkTrail.push(fid); linkTrail = linkTrail.slice(-5); }
+  const { groups, holds } = relGroups(fid);
+  const nIn = groups.filter(([l]) => UPSTREAM.has(l)).reduce((s, [, g]) => s + g.length, 0), nOut = groups.reduce((s, [, g]) => s + g.length, 0) - nIn;
+
+  // where you have been: a short trail to step back along
+  if (linkTrail.length > 1) {
+    const tr = el("div", "lk-trail");
+    linkTrail.forEach((id, i) => {
+      if (i) tr.append(el("span", "lk-sep", "›"));
+      const b = el("button", "lk-crumb" + (id === fid ? " on" : ""), compById(id).label); b.type = "button";
+      if (id !== fid) b.onclick = () => select(id);
+      tr.append(b);
     });
-  };
-  pos[hub.id] = { x: GW / 2, y: GH / 2 };
-  ring(cs.filter((c) => nb.has(c.id)), Math.min(GW, GH) * 0.3);
-  ring(cs.filter((c) => c.id !== hub.id && !nb.has(c.id)), Math.min(GW, GH) * 0.44);
-  const edges = A.relationships.filter((r) => pos[r.from] && pos[r.to]);
-  const k = Math.sqrt((GW * GH) / Math.max(1, n)) * 0.95;
-  for (let it = 0; it < 260; it++) {
-    const temp = 7 * (1 - it / 260) + 0.4, disp = {};
-    for (const c of cs) disp[c.id] = { x: 0, y: 0 };
-    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
-      const a = pos[cs[i].id], b = pos[cs[j].id]; let dx = a.x - b.x, dy = a.y - b.y; const d = Math.max(1, Math.hypot(dx, dy));
-      const f = (k * k) / d * (1 + 0.08 * Math.min(deg[cs[i].id] || 0, deg[cs[j].id] || 0)); dx /= d; dy /= d; // hubs push each other apart
-      disp[cs[i].id].x += dx * f; disp[cs[i].id].y += dy * f; disp[cs[j].id].x -= dx * f; disp[cs[j].id].y -= dy * f;
-    }
-    for (const e of edges) {
-      const a = pos[e.from], b = pos[e.to]; let dx = a.x - b.x, dy = a.y - b.y; const d = Math.max(1, Math.hypot(dx, dy));
-      const f = (d * d) / k; dx /= d; dy /= d;
-      disp[e.from].x -= dx * f; disp[e.from].y -= dy * f; disp[e.to].x += dx * f; disp[e.to].y += dy * f;
-    }
-    for (const c of cs) {
-      const p = pos[c.id], d = disp[c.id]; d.x += (GW / 2 - p.x) * 0.9; d.y += (GH / 2 - p.y) * 0.9;
-      const m = Math.max(1, Math.hypot(d.x, d.y));
-      p.x = Math.min(GW - 34, Math.max(34, p.x + (d.x / m) * Math.min(m, temp)));
-      p.y = Math.min(GH - 22, Math.max(18, p.y + (d.y / m) * Math.min(m, temp)));
-    }
+    box.append(tr);
   }
-  // labels: try below / above / right / left of each node, skip ones that would overlap (hover shows them)
-  const boxes = cs.map((c) => { const p = pos[c.id], r = 5 + (c.importance ?? 0.45) * 7; return { x0: p.x - r, y0: p.y - r, x1: p.x + r, y1: p.y + r }; });
-  const hit = (b) => boxes.some((o) => b.x0 < o.x1 && b.x1 > o.x0 && b.y0 < o.y1 && b.y1 > o.y0);
-  const labels = {};
-  const order = [...cs].sort((a, b) => (b.importance ?? 0.45) - (a.importance ?? 0.45));
-  for (const c of order) {
-    const p = pos[c.id], r = 5 + (c.importance ?? 0.45) * 7, text = c.label.length > 16 ? c.label.slice(0, 15) + "…" : c.label;
-    const w = text.length * 4.6 + 4, h = 10;
-    const tries = [[p.x, p.y + r + 10, "middle"], [p.x, p.y - r - 4, "middle"], [p.x + r + 3, p.y + 3, "start"], [p.x - r - 3, p.y + 3, "end"]];
-    for (const [x, y, anchor] of tries) {
-      const x0 = anchor === "middle" ? x - w / 2 : anchor === "start" ? x : x - w;
-      const b = { x0, y0: y - h + 2, x1: x0 + w, y1: y + 2 };
-      if (b.x0 < 0 || b.x1 > GW || b.y0 < 0 || b.y1 > GH || hit(b)) continue;
-      boxes.push(b); labels[c.id] = { x, y, anchor, text }; break;
+
+  // the focused part, with one sentence that says what it is plugged into
+  const fam = FAMILY[f.type] || "other";
+  const fc = el("div", "lk-focus " + fam);
+  const ft = el("div", "lk-ftop"); ft.append(thumbOf(f, "thumb lg"));
+  const fn = el("div", "lk-fname"); fn.append(el("span", "lk-ftype", f.type.replace(/_/g, " ") + (f.status !== "observed" ? " · inferred" : "")), el("strong", "", f.label));
+  ft.append(fn); fc.append(ft);
+  const sentence = groups.slice(0, 2).map(([l, g]) => `${l} ${nameList(g.map(([, id]) => id))}`).join(". ");
+  fc.append(el("p", "lk-say", sentence ? sentence + "." : holds.length ? `A structural part, held with ${nameList(holds.map(([, id]) => id))}.` : "Nothing is wired to it directly."));
+  const meta = el("div", "lk-meta");
+  meta.append(el("span", "m-in", `${nIn} in`), el("span", "m-out", `${nOut} out`), el("span", "", `${holds.length} held`));
+  fc.append(meta);
+  const acts = el("div", "lk-acts");
+  const go = (tab) => async () => { if (selected !== fid) await select(fid); setPanelTab(tab); };
+  const b1 = el("button", "btn small ghost", "Part details"); b1.type = "button"; b1.onclick = go("parts");
+  const b2 = el("button", "btn small ghost", "Ask about it"); b2.type = "button"; b2.onclick = go("ask");
+  acts.append(b1, b2); fc.append(acts);
+  if (!selected) fc.append(el("div", "lk-hint", "Showing the most connected part. Pick any part to follow its connections."));
+  fc.onmouseenter = () => { if (mode === "3d") asm.setHover(fid, "links"); };
+  fc.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "links"); };
+  box.append(fc);
+
+  // one tidy section per kind of link
+  let k = 0;
+  for (const [label, items] of groups) {
+    const sec = el("section", `lk-sec ${REL_KIND[label] || "control"} ${UPSTREAM.has(label) ? "in" : "out"}`);
+    const cap = el("div", "lk-cap"); cap.append(el("i", "lk-glyph"), el("span", "", label), el("span", "lk-n", String(items.length)));
+    sec.append(cap);
+    for (const [r, id] of items) {
+      const c = compById(id), row = el("button", ["lk-row", FAMILY[c.type] || "other", r.status !== "observed" && "inf", affected.has(id) && "hit", id === removed && "gone"].filter(Boolean).join(" "));
+      row.type = "button"; row.style.animationDelay = Math.min(k++, 14) * 30 + "ms";
+      const nm = el("span", "pname"); nm.append(el("b", "", c.label), el("small", "", c.type.replace(/_/g, " ")));
+      row.append(thumbOf(c), nm, r.status !== "observed" ? el("span", "lk-tag", "inferred") : el("span", "chev", "›"));
+      row.title = (r.evidence || []).join(" · ");
+      row.onclick = () => select(id);
+      row.onmouseenter = () => { if (mode === "3d") asm.setHover(id, "links"); };
+      row.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "links"); };
+      sec.append(row);
     }
+    box.append(sec);
   }
-  graphLayout = { id: A.analysisId + ":" + n + ":" + edges.length, pos, labels };
+  if (!groups.length && !holds.length) box.append(el("div", "lk-empty", "No links were found for this part."));
+  if (holds.length) {
+    const hg = el("section", "lk-sec hold"); const cap = el("div", "lk-cap"); cap.append(el("i", "lk-glyph"), el("span", "", "Held with"), el("span", "lk-n", String(holds.length)));
+    const row = el("div", "lk-chips");
+    for (const [r, id] of holds) {
+      const c = compById(id), b = el("button", "lk-chip" + (r.status !== "observed" ? " inf" : "")); b.type = "button";
+      b.append(thumbOf(c, "thumb xs"), el("span", "", c.label)); b.onclick = () => select(id);
+      b.onmouseenter = () => { if (mode === "3d") asm.setHover(id, "links"); }; b.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "links"); };
+      row.append(b);
+    }
+    hg.append(cap, row); box.append(hg);
+  }
 }
 
-function renderGraph() {
-  const svg = $("graph"); svg.innerHTML = "";
-  const NS = "http://www.w3.org/2000/svg", cs = A.components;
-  if (graphLayout.id !== A.analysisId + ":" + cs.length + ":" + A.relationships.length) layoutGraph();
-  const pos = graphLayout.pos;
-  $("graphStats").textContent = `${cs.length} parts · ${A.relationships.length} links`;
-  const mk = (tag, attrs, parent = svg) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); parent.append(e); return e; };
-  const defs = mk("defs", {});
-  const colors = new Set([...Object.values(EDGE_COL), "#5b6472", "#ff4a3a"]);
-  for (const c of colors) {
-    const m = mk("marker", { id: "arr" + c.slice(1), viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 5, markerHeight: 5, orient: "auto-start-reverse" }, defs);
-    mk("path", { d: "M0,0L10,5L0,10z", fill: c }, m);
-  }
-  const rad = (c) => 5 + (c.importance ?? 0.45) * 7;
-  const hot = (r) => affected.has(r.to) && (r.from === removed || affected.has(r.from));
-  const touch = (r) => selected && (r.from === selected || r.to === selected);
-  const eg = mk("g", {});
-  for (const r of A.relationships) {
-    const a = pos[r.from], b = pos[r.to]; if (!a || !b) continue;
-    const ca = compById(r.from), cb = compById(r.to);
-    const dx = b.x - a.x, dy = b.y - a.y, d = Math.max(1, Math.hypot(dx, dy));
-    const ra = rad(ca) + 2, rb = rad(cb) + 4;
-    const x1 = a.x + (dx / d) * ra, y1 = a.y + (dy / d) * ra, x2 = b.x - (dx / d) * rb, y2 = b.y - (dy / d) * rb;
-    const mx = (x1 + x2) / 2 - (dy / d) * d * 0.12, my = (y1 + y2) / 2 + (dx / d) * d * 0.12; // gentle curve
-    const col = hot(r) ? "#ff4a3a" : EDGE_COL[r.type] || "#5b6472";
-    const dim = selected && !touch(r) && !hot(r);
-    const path = mk("path", { d: `M${x1},${y1} Q${mx},${my} ${x2},${y2}`, fill: "none", stroke: col, "stroke-width": hot(r) ? 2.2 : touch(r) ? 1.9 : 1.3,
-      opacity: dim ? 0.18 : 0.9, "marker-end": `url(#arr${col.slice(1)})`, class: "gedge" + (hot(r) ? " hot" : "") }, eg);
-    if (r.status !== "observed" && !hot(r)) path.setAttribute("stroke-dasharray", "4 3");
-    mk("title", {}, path).textContent = `${ca.label} ${r.type.replace(/_/g, " ")} ${cb.label}${r.evidence[0] ? " — " + r.evidence[0] : ""}`;
-  }
-  const colorsN = { observed: "#3ccf8e", inferred: "#9b8cff", estimated: "#4f8cff", unknown: "#8b93a1" };
-  for (const c of cs) {
-    const p = pos[c.id]; if (!p) continue;
-    const g = mk("g", { class: "node" + (affected.has(c.id) ? " hit" : "") + (c.id === removed ? " gone" : "") });
-    g.onclick = () => select(c.id);
-    const dim = selected && c.id !== selected && !A.relationships.some((r) => (r.from === selected && r.to === c.id) || (r.to === selected && r.from === c.id));
-    g.setAttribute("opacity", dim ? 0.35 : 1);
-    if (c.id === selected) mk("circle", { cx: p.x, cy: p.y, r: rad(c) + 5, fill: "none", stroke: "#4f8cff", "stroke-width": 2, class: "gsel" }, g);
-    mk("circle", { cx: p.x, cy: p.y, r: rad(c), fill: c.id === removed ? "#2a2d33" : affected.has(c.id) ? "#ff4a3a" : colorsN[c.status],
-      stroke: c.id === removed ? "#ff4a3a" : "rgba(0,0,0,.35)", "stroke-width": c.id === removed ? 2 : 1 }, g);
-    if (c.id === removed) mk("path", { d: `M${p.x - 4},${p.y - 4}L${p.x + 4},${p.y + 4}M${p.x + 4},${p.y - 4}L${p.x - 4},${p.y + 4}`, stroke: "#ff4a3a", "stroke-width": 2 }, g);
-    const L = graphLayout.labels[c.id];
-    if (L || c.id === selected) { // overlapping labels stay hidden; hover or select a node to read it
-      const l = L || { x: p.x, y: p.y + rad(c) + 10, anchor: "middle", text: c.label };
-      const t = mk("text", { x: l.x, y: l.y, "text-anchor": l.anchor, class: "glabel" + (L ? "" : " gfloat") }, g);
-      t.textContent = l.text;
+// ---------------------------------------------------------------- overview: how it works, at a glance
+function powerPath() { // power source -> the part it feeds (usually the board) -> what that part runs
+  const outs = (id, types) => A.relationships.filter((r) => r.from === id && types.includes(r.type)).map((r) => r.to).filter((x) => compById(x));
+  const srcs = A.components.filter((c) => c.type === "power_source" && outs(c.id, ["powers", "feeds"]).length);
+  const src = srcs[0] || A.components.find((c) => outs(c.id, ["powers", "feeds"]).length); if (!src) return null;
+  const fed = outs(src.id, ["powers", "feeds"]);
+  const brain = fed.map(compById).find((c) => c.type === "controller") || compById(fed[0]);
+  const work = [...new Set(outs(brain.id, ["controls", "drives", "powers", "feeds", "connected_to", "transmits"]))].filter((x) => x !== src.id && x !== brain.id);
+  return { src, brain, work };
+}
+function renderOverview() {
+  const box = $("flow"); if (!box || !A) return; box.innerHTML = "";
+  const p = powerPath();
+  if (p) {
+    const sec = el("section", "ov-sec"); sec.append(el("div", "ov-cap", "How it works"));
+    const chain = el("div", "ov-chain");
+    const step = (kind, title, c, extra) => {
+      const s = el("button", "ov-step " + kind); s.type = "button";
+      const t = el("span", "pname"); t.append(el("small", "", title), el("b", "", c.label)); s.append(thumbOf(c), t);
+      if (extra) s.append(el("span", "ov-more", extra));
+      s.onclick = () => select(c.id);
+      s.onmouseenter = () => { if (mode === "3d") asm.setHover(c.id, "links"); }; s.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "links"); };
+      return s;
+    };
+    chain.append(step("power", "Power comes from", p.src));
+    if (p.brain.id !== p.src.id) chain.append(el("span", "ov-link power"), step("control", "It feeds", p.brain));
+    if (p.work.length) {
+      chain.append(el("span", "ov-link control"));
+      const w = el("div", "ov-work"); w.append(el("small", "", "Which runs"));
+      const row = el("div", "lk-chips");
+      p.work.slice(0, 6).forEach((id) => { const c = compById(id), b = el("button", "lk-chip"); b.type = "button"; b.append(thumbOf(c, "thumb xs"), el("span", "", c.label)); b.onclick = () => select(id); row.append(b); });
+      if (p.work.length > 6) row.append(el("span", "ov-more", `+${p.work.length - 6}`));
+      w.append(row); chain.append(w);
     }
-    mk("title", {}, g).textContent = `${c.label} (${c.type}, ${c.status})${c.function ? " — " + c.function : ""}`;
+    sec.append(chain); box.append(sec);
+  }
+  const deg = degrees(), key = [...A.components].filter((c) => deg[c.id]).sort((a, b) => (deg[b.id] || 0) - (deg[a.id] || 0)).slice(0, 4);
+  if (key.length) {
+    const sec = el("section", "ov-sec"); sec.append(el("div", "ov-cap", "Key parts"));
+    const grid = el("div", "ov-grid");
+    key.forEach((c, i) => {
+      const t = el("button", "ov-tile " + (FAMILY[c.type] || "other")); t.type = "button"; t.style.animationDelay = i * 60 + "ms";
+      const nm = el("span", "pname"); nm.append(el("b", "", c.label), el("small", "", `${deg[c.id]} links · ${c.status === "observed" ? "seen" : "inside"}`));
+      t.append(thumbOf(c), nm); t.onclick = () => select(c.id);
+      t.onmouseenter = () => { if (mode === "3d") asm.setHover(c.id, "links"); }; t.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "links"); };
+      grid.append(t);
+    });
+    sec.append(grid); box.append(sec);
   }
 }
+
+// ---------------------------------------------------------------- panel tabs
+let panelTab = "parts";
+function setPanelTab(t) {
+  panelTab = t;
+  document.querySelectorAll("#ptabs button").forEach((b) => { const on = b.dataset.tab === t; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); });
+  document.querySelectorAll(".pview").forEach((v) => { const on = v.dataset.view === t; v.hidden = !on; v.classList.toggle("on", on); });
+  moveInk();
+  if (t === "links") renderLinks();
+}
+function moveInk() { // the underline slides to the active tab
+  const b = document.querySelector("#ptabs button.on"), ink = $("ptabInk"); if (!b || !ink) return;
+  ink.style.width = b.offsetWidth + "px"; ink.style.transform = `translateX(${b.offsetLeft}px)`;
+}
+$("ptabs").addEventListener("click", (e) => { const b = e.target.closest("button[data-tab]"); if (b) setPanelTab(b.dataset.tab); });
+addEventListener("resize", moveInk);
 
 // ---------------------------------------------------------------- chat: ask about the object and its parts
 // Answers come from the server's grounded chat over this analysis (parts, links, functions); the photo is not resent.
 let chatBusy = false;
 function resetChat() {
   $("chatLog").innerHTML = "";
-  chatMsg("bot", `Ask me anything about this ${A.title || "object"}: what a part does, how it is powered, or what breaks without it.`);
+  const hi = el("div", "chat-hello");
+  hi.append(el("div", "ch-mark"), el("b", "", `Ask about this ${A.title || "object"}`),
+    el("span", "", "What a part does, how it is powered, or what breaks without it. Answers come only from this analysis."));
+  $("chatLog").append(hi);
   renderChips();
 }
 function chatMsg(who, text, refs = []) {
+  $("chatLog").querySelector(".chat-hello")?.classList.add("gone");
   const m = el("div", "msg " + who);
-  m.append(el("div", "bubble", text));
+  const bub = el("div", "bubble");
+  if (who.includes("pending")) { bub.append(el("i"), el("i"), el("i")); bub.setAttribute("aria-label", "Thinking"); }
+  else bub.textContent = text;
+  m.append(bub);
   if (refs.length) {
     const row = el("div", "refs");
-    for (const id of refs) { const c = compById(id); if (!c) continue; const b = el("button", "ref", c.label); b.type = "button"; b.onclick = () => select(id); row.append(b); }
+    for (const id of refs) {
+      const c = compById(id); if (!c) continue;
+      const b = el("button", "ref"); b.type = "button"; b.append(thumbOf(c, "thumb xs"), el("span", "", c.label)); b.onclick = () => select(id);
+      b.onmouseenter = () => { if (mode === "3d") asm.setHover(id, "links"); }; b.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "links"); };
+      row.append(b);
+    }
     m.append(row);
   }
-  $("chatLog").append(m); $("chatLog").scrollTop = $("chatLog").scrollHeight;
+  $("chatLog").append(m); $("chatLog").scrollTo({ top: $("chatLog").scrollHeight, behavior: "smooth" });
   return m;
 }
 function renderChips() {
   if (!A) return;
-  const c = selected && compById(selected), box = $("chatChips"); box.innerHTML = "";
-  $("chatCtx").textContent = c ? `about: ${c.label}` : "";
+  const c = selected && compById(selected), box = $("chatChips"), ctx = $("chatCtx"); box.innerHTML = ""; ctx.innerHTML = "";
+  if (c) {
+    const pill = el("div", "ctx-pill " + (FAMILY[c.type] || "other"));
+    const x = el("button", "ctx-x", "×"); x.type = "button"; x.title = "Ask about the whole object"; x.onclick = () => select(null);
+    pill.append(thumbOf(c, "thumb xs"), el("span", "", "Asking about "), el("b", "", c.label), x);
+    ctx.append(pill);
+  }
   const qs = c ? [`What does the ${c.label} do?`, `What stops working without the ${c.label}?`, `What is the ${c.label} connected to?`]
     : ["How does it work?", "What powers it?", "Which part is the most important?"];
-  for (const q of qs) { const b = el("button", "chip-q", q); b.type = "button"; b.onclick = () => ask(q); box.append(b); }
+  for (const q of qs) { const b = el("button", "chip-q"); b.type = "button"; b.append(el("span", "", q), el("i", "", "↗")); b.onclick = () => ask(q); box.append(b); }
 }
 async function ask(q) {
   if (!A || chatBusy || !q.trim()) return;
-  chatBusy = true; $("chatSend").disabled = true;
+  chatBusy = true; $("chatSend").disabled = true; $("chatBlock").classList.add("busy");
   chatMsg("me", q);
-  const wait = chatMsg("bot pending", "Thinking…");
+  const wait = chatMsg("bot pending", "");
   try {
     const r = await fetch(API + `/api/analysis/${encodeURIComponent(A.analysisId)}/chat`, { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question: q.slice(0, 1000), selectedComponentIds: selected ? [selected] : [] }) });
@@ -838,7 +1029,7 @@ async function ask(q) {
     if (!r.ok) throw new Error(errText(d, r.status));
     wait.remove(); chatMsg("bot", d.answer, (d.referencedComponentIds || []).filter((id) => id !== selected).slice(0, 6));
   } catch (e) { wait.remove(); chatMsg("bot err", e.message || "Could not get an answer."); }
-  finally { chatBusy = false; $("chatSend").disabled = false; }
+  finally { chatBusy = false; $("chatSend").disabled = false; $("chatBlock").classList.remove("busy"); }
 }
 $("chatForm").addEventListener("submit", (e) => { e.preventDefault(); const q = $("chatInput").value.trim(); if (q) { $("chatInput").value = ""; ask(q); } });
 
@@ -859,19 +1050,19 @@ function errText(data, status) { // API errors are {error: {code, message}}; old
   return `Request failed (${status})`;
 }
 // ---------------------------------------------------------------- iFixit teardown photos (CC BY-NC-SA, credited)
-async function showTeardowns(query, btn) {
+async function showTeardowns(query, btn, topic = "") {
   const box = $("teardown"); box.innerHTML = ""; btn.disabled = true; btn.textContent = "Searching iFixit…";
   try {
-    const r = await fetch(API + "/api/physical/teardown?q=" + encodeURIComponent(query)); const d = await r.json();
+    const r = await fetch(API + "/api/physical/teardown?q=" + encodeURIComponent(query) + "&topic=" + encodeURIComponent(topic)); const d = await r.json();
     if (!r.ok) throw new Error(errText(d, r.status));
     const guides = d.guides.filter((g) => g.images.length);
-    if (!guides.length) { box.append(el("div", "tiny muted", "No iFixit teardown found for this product.")); return; }
+    if (!guides.length) { box.append(el("div", "td-empty", `No teardown of a ${topic || "matching product"} on iFixit yet. Upload a photo of the inside instead.`)); return; }
     const picked = new Set();
-    for (const g of guides.slice(0, 2)) {
-      const head = el("div", "tiny"); const link = el("a", "", g.title); link.href = g.url; link.target = "_blank"; link.rel = "noopener";
-      head.append(link, document.createTextNode(` · by ${g.author}`)); box.append(head);
+    for (const g of guides.slice(0, 1)) { // the best match only: a wall of photos from other products helps no one
+      const head = el("div", "td-head"); const link = el("a", "", g.title); link.href = g.url; link.target = "_blank"; link.rel = "noopener";
+      head.append(link, el("span", "", `by ${g.author} · CC BY-NC-SA`)); box.append(head);
       const grid = el("div", "tgrid");
-      for (const im of g.images.slice(0, 12)) {
+      for (const im of g.images.slice(0, 8)) {
         const t = el("img"); t.src = im.thumb; t.alt = im.caption || `Step ${im.step}`; t.title = `Step ${im.step}: ${im.caption}`; t.loading = "lazy";
         t.onclick = () => {
           if (picked.has(im.url)) { picked.delete(im.url); t.classList.remove("on"); }
@@ -882,7 +1073,7 @@ async function showTeardowns(query, btn) {
       }
       box.append(grid);
     }
-    const add = el("button", "btn small primary", "Add to the model"); add.disabled = true;
+    const add = el("button", "btn small primary", "Add to the model"); add.disabled = true; add.hidden = isSample;
     add.onclick = async () => {
       add.disabled = true; add.textContent = "Downloading…";
       const blobs = [];
@@ -896,7 +1087,8 @@ async function showTeardowns(query, btn) {
       const all = currentFiles.concat(blobs).slice(0, 4);
       if (blobs.length) analyze(all, { added: blobs });
     };
-    box.append(add, el("div", "tiny muted", isSample ? "Sample mode: upload your own photo to add teardown photos." : "Pick up to 3 photos that show the inside. " + d.license));
+    box.append(add, el("div", "td-note", isSample ? "Reference photos only in sample mode. Upload your own photos to add these to the model."
+      : "Pick up to 3 photos that show the inside, then add them to the model."));
   } catch (err) { box.append(el("div", "tiny muted", "iFixit search failed: " + err.message)); }
   finally { btn.disabled = false; btn.textContent = "Find teardown photos (iFixit)"; }
 }
