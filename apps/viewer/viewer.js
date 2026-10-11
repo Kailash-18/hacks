@@ -540,6 +540,7 @@ function renderPanel() {
     pe.hidden = false;
   } else pe.hidden = true;
   renderParts(); renderGraph(); renderDetail(); resetChat();
+  const panel = $("panel"); panel.classList.remove("boot"); void panel.offsetWidth; panel.classList.add("boot"); // boot-up sequence once per result
 }
 
 function renderParts() {
