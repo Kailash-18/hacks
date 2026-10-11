@@ -187,7 +187,7 @@ function show3D({ intro = false } = {}) {
     asm.cameraSweep(3000);
     asm.materialize(2300, () => {
       controls.enabled = true; showReveal(); introExplode(0.65, 1700);
-      setTimeout(() => { if (!drag && mode === "3d") { controls.autoRotate = true; $("spin").checked = true; } }, 2000);
+      setTimeout(() => { if (!drag && mode === "3d" && !$("xray").checked) { controls.autoRotate = true; $("spin").checked = true; } }, 2000);
     });
   }
   $("depthBadge").textContent = "3D model: AI-estimated shapes (approximate)";
@@ -479,7 +479,11 @@ function paint() {
 }
 $("isolate").addEventListener("change", paint);
 // X-ray: a scan plane sweeps across and the wiring appears where it has passed
-$("xray").addEventListener("change", (e) => { if (mode !== "3d") { e.target.checked = false; return; } asm.setXray(e.target.checked); });
+$("xray").addEventListener("change", (e) => {
+  if (mode !== "3d") { e.target.checked = false; return; }
+  if (e.target.checked) { controls.autoRotate = false; $("spin").checked = false; }  // hold still for the scan
+  asm.setXray(e.target.checked);
+});
 $("resetView").addEventListener("click", () => { if (mode === "3d" && $("isolate").checked) { $("isolate").checked = false; paint(); } frame(); });
 
 // ---------------------------------------------------------------- panel

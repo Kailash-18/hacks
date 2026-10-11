@@ -108,8 +108,8 @@
     await sleep(900);
     await slide(ex, 1, 0.7, 900);
     cap(5, "X-ray the wiring: how power and signals flow between the parts");
-    setCheck("#xray", true);   // the scan sweeps across and the wiring appears behind it
-    await A.orbitTo({ theta: 2.6, el: 0.4, ms: 4200 });
+    setCheck("#xray", true);   // glides to the full view while the scan reveals the wiring
+    await sleep(4000);
     setCheck("#xray", false);
     cap(6, "Click any part: what it does, what it is made of, what it connects to");
     q('#ptabs [data-tab="parts"]')?.click();
