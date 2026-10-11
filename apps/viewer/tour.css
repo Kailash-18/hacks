@@ -1,0 +1,58 @@
+/* Full-site guided tour (/?tour): title cards + captions shared by the Physical and Digital Labs. */
+:root { --tour-scan: #5ef2ff; --tour-blue: #4f8cff; }
+/* captions sit in a bar over the page header, so they never cover the content being shown */
+.tour-cap { position: fixed; left: 0; right: 0; top: 0; height: 56px; z-index: 90; display: flex; align-items: center; justify-content: center;
+  background: rgba(6, 10, 16, .97); border-bottom: 1px solid rgba(94,242,255,.35); padding: 0 24px;
+  font: 600 20px/1.2 Inter, "IBM Plex Sans", system-ui, sans-serif; letter-spacing: -.01em; color: #fff; white-space: nowrap;
+  box-shadow: 0 6px 30px rgba(0,0,0,.45); opacity: 0; transform: translateY(-100%); transition: opacity .35s ease, transform .35s ease; pointer-events: none; }
+.tour-cap.in { opacity: 1; transform: none; }
+.tour-cap .txt { overflow: hidden; text-overflow: ellipsis; }
+.tour-cap .n { font: 600 13px "JetBrains Mono", "IBM Plex Mono", monospace; color: var(--tour-scan); margin-right: 14px; flex: none; }
+.tour-cap .lab { font: 600 11px "JetBrains Mono", "IBM Plex Mono", monospace; color: #04131a; background: var(--tour-scan); border-radius: 5px;
+  padding: 2px 7px; margin-right: 12px; letter-spacing: .06em; flex: none; }
+.tour-bar { position: fixed; left: 0; top: 53px; height: 3px; z-index: 91; background: linear-gradient(90deg, var(--tour-scan), var(--tour-blue));
+  box-shadow: 0 0 12px rgba(94,242,255,.7); transition: width .8s ease; }
+/* the element a step talks about gets a glow */
+.tour-hi { outline: 2px solid var(--tour-scan) !important; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(94,242,255,.15), 0 0 30px rgba(94,242,255,.45) !important;
+  border-radius: 10px; transition: outline-color .3s, box-shadow .3s; }
+
+/* title cards */
+.tour-card { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; overflow: hidden; color: #fff;
+  background: radial-gradient(ellipse at 50% 45%, #0f1a2c 0%, #06080c 70%); opacity: 0; transition: opacity .7s ease;
+  font-family: Inter, "IBM Plex Sans", system-ui, sans-serif; }
+.tour-card.in { opacity: 1; }
+.tour-card::before { content: ""; position: absolute; inset: -50%; opacity: .5;
+  background-image: linear-gradient(rgba(94,242,255,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(94,242,255,.07) 1px, transparent 1px);
+  background-size: 44px 44px; transform: perspective(900px) rotateX(58deg) translateY(-8%); animation: tour-grid 14s linear infinite;
+  mask-image: radial-gradient(ellipse at 50% 60%, #000 20%, transparent 70%); }
+@keyframes tour-grid { to { background-position: 0 440px; } }
+.tour-card .beam { position: absolute; left: 0; right: 0; height: 2px; top: 0; background: linear-gradient(90deg, transparent, var(--tour-scan), transparent);
+  box-shadow: 0 0 24px var(--tour-scan); animation: tour-beam 2.6s cubic-bezier(.45,0,.55,1) infinite; opacity: .7; }
+@keyframes tour-beam { from { top: 8%; } to { top: 92%; } }
+.tour-inner { position: relative; text-align: center; max-width: 1100px; padding: 0 32px; }
+.tour-kicker { font: 600 14px "JetBrains Mono", "IBM Plex Mono", monospace; letter-spacing: .3em; color: var(--tour-scan); text-transform: uppercase; }
+.tour-title { font-size: clamp(44px, 7vw, 96px); font-weight: 800; letter-spacing: -.045em; line-height: .98; margin: 18px 0 18px; }
+.tour-title .w { display: inline-block; opacity: 0; transform: translateY(26px) scale(.98); filter: blur(8px);
+  animation: tour-word .9s cubic-bezier(.2,.8,.2,1) forwards; animation-delay: calc(.25s + var(--i) * .12s); }
+@keyframes tour-word { to { opacity: 1; transform: none; filter: none; } }
+.tour-sub { font-size: clamp(18px, 2vw, 26px); color: #a9b4c4; opacity: 0; animation: tour-fade .8s ease forwards; animation-delay: 1s; }
+@keyframes tour-fade { to { opacity: 1; } }
+.tour-pair { display: grid; grid-template-columns: 1fr auto 1fr; gap: 28px; align-items: stretch; margin-top: 44px; text-align: left; }
+.tour-lab { border: 1px solid rgba(94,242,255,.28); border-radius: 18px; padding: 22px 26px; background: rgba(10,16,26,.75);
+  box-shadow: 0 0 40px rgba(94,242,255,.08); opacity: 0; transform: translateY(20px); animation: tour-word .8s cubic-bezier(.2,.8,.2,1) forwards; }
+.tour-lab:nth-child(1) { animation-delay: 1.5s; } .tour-lab:nth-child(3) { animation-delay: 1.8s; }
+.tour-lab b { display: block; font: 600 12px "JetBrains Mono", "IBM Plex Mono", monospace; letter-spacing: .14em; color: var(--tour-scan); margin-bottom: 8px; }
+.tour-lab h3 { margin: 0 0 8px; font-size: 26px; letter-spacing: -.02em; }
+.tour-lab p { margin: 0; color: #a9b4c4; font-size: 16px; line-height: 1.5; }
+.tour-mid { display: grid; place-items: center; font: 700 16px "JetBrains Mono", monospace; color: var(--tour-scan); opacity: 0;
+  animation: tour-fade .6s ease forwards 2.1s; }
+.tour-mid span { display: block; text-align: center; padding: 10px 14px; border: 1px dashed rgba(94,242,255,.5); border-radius: 12px; line-height: 1.5; }
+.tour-team { margin-top: 36px; font: 500 14px "JetBrains Mono", "IBM Plex Mono", monospace; color: #7d8898; letter-spacing: .08em; opacity: 0;
+  animation: tour-fade .8s ease forwards 2.6s; }
+.tour-skip { position: fixed; right: 18px; top: 14px; z-index: 96; background: rgba(255,255,255,.06); border: 1px solid #2a2f38; color: #8b93a1;
+  border-radius: 8px; padding: 6px 12px; font: 13px Inter, system-ui, sans-serif; cursor: pointer; }
+@media (max-width: 900px) { .tour-pair { grid-template-columns: 1fr; } .tour-mid { display: none; } }
+@media (prefers-reduced-motion: reduce) { .tour-card::before, .tour-card .beam { animation: none; } .tour-title .w, .tour-sub, .tour-lab, .tour-mid, .tour-team { animation-duration: .01s; animation-delay: 0s; } }
+/* the labs' own heading styles (uppercase small headings) must not leak into the cards */
+.tour-card h1, .tour-card h3 { text-transform: none; color: #fff; font-family: Inter, "IBM Plex Sans", system-ui, sans-serif; }
+.tour-card .tour-lab h3 { font-size: 26px; font-weight: 700; letter-spacing: -.02em; }

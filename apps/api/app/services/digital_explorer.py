@@ -632,6 +632,83 @@ def _sat(rgb) -> float:
     return 0.0 if mx == 0 else (mx - mn) / mx
 
 
+def _open_rgb(image_bytes: bytes):
+    """PIL image, or an OpenCV-backed stand-in with the same few methods when Pillow is not installed."""
+    try:
+        from PIL import Image
+
+        return Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    except ImportError:
+        return _CvImage.from_bytes(image_bytes)
+
+
+class _CvImage:
+    """Minimal stand-in for the PIL.Image calls used by the token code (size, crop, convert, thumbnail,
+    quantize, numpy conversion). OpenCV is installed anyway for the Physical Lab."""
+
+    def __init__(self, arr):
+        self.arr = arr  # H x W x 3, uint8, RGB
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> "_CvImage":
+        import cv2
+        import numpy as np
+
+        bgr = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+        if bgr is None:
+            raise ValueError("Could not read the screenshot.")
+        return cls(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
+
+    @property
+    def size(self) -> tuple[int, int]:
+        return self.arr.shape[1], self.arr.shape[0]
+
+    def crop(self, box) -> "_CvImage":
+        h, w = self.arr.shape[:2]
+        x0, y0 = min(max(0, int(box[0])), w - 1), min(max(0, int(box[1])), h - 1)
+        x1, y1 = max(x0 + 1, min(w, int(box[2]))), max(y0 + 1, min(h, int(box[3])))
+        return _CvImage(self.arr[y0:y1, x0:x1].copy())
+
+    def convert(self, mode: str = "RGB") -> "_CvImage":
+        return _CvImage(self.arr.copy())
+
+    def thumbnail(self, size) -> None:
+        import cv2
+
+        h, w = self.arr.shape[:2]
+        s = min(1.0, size[0] / w, size[1] / h)
+        if s < 1:
+            self.arr = cv2.resize(self.arr, (max(1, int(w * s)), max(1, int(h * s))), interpolation=cv2.INTER_AREA)
+
+    def quantize(self, colors: int = 4, method: int = 0) -> "_Quantized":
+        return _Quantized(self.arr, colors)
+
+    def __array__(self, dtype=None, copy=None):
+        return self.arr.astype(dtype) if dtype is not None else self.arr
+
+
+class _Quantized:
+    """k-means palette with PIL's getpalette()/getcolors() shape."""
+
+    def __init__(self, arr, k: int):
+        import cv2
+        import numpy as np
+
+        px = arr.reshape(-1, 3).astype(np.float32)
+        k = max(1, min(k, len(np.unique(px, axis=0))))
+        crit = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 20, 1.0)
+        _, labels, centers = cv2.kmeans(px, k, None, crit, 3, cv2.KMEANS_PP_CENTERS)
+        self._pal = [int(round(float(v))) for c in centers for v in c]
+        counts = np.bincount(labels.ravel(), minlength=k)
+        self._colors = [(int(n), i) for i, n in enumerate(counts) if n]
+
+    def getpalette(self) -> list[int]:
+        return self._pal
+
+    def getcolors(self) -> list[tuple[int, int]]:
+        return self._colors
+
+
 def _dominant(img, box: BBox | None = None, k: int = 4) -> list[tuple[tuple[int, int, int], float]]:
     if box is not None:
         w, h = img.size
@@ -652,9 +729,7 @@ def _round4(px: float) -> int:
 
 def extract_tokens(analysis: SystemAnalysis, image_bytes: bytes) -> dict[str, Any]:
     """Measured design tokens. Colours from pixels, sizes from boxes x image size. All approximate."""
-    from PIL import Image
-
-    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    img = _open_rgb(image_bytes)
     W, H = img.size
     page = _dominant(img, k=8)
     background = page[0][0]

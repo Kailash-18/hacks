@@ -37,7 +37,9 @@ Return ONLY one JSON object, no prose:
 Rules: confidence is 0-1 (>=0.8 only when printed text or an exact visual match confirms it).
 "candidates" holds up to 3 OTHER likely models, most likely first. Never invent a model number."""
 
-USER_HINT = "The user says the product is: \"{hint}\". Verify this and use it unless the photo clearly contradicts it."
+USER_HINT = ("The user confirms the exact product is: \"{hint}\". Use exactly this model name and its real dimensions. "
+             "Only override it if the photo shows a different brand or a different kind of product: products newer than "
+             "your training data look like their predecessors, so trust the user on the generation.")
 
 
 def _s(v, n=120) -> str:

@@ -17,7 +17,7 @@ from .vision_client import VisionClient
 
 log = logging.getLogger("uvicorn.error")
 
-SHAPES = ("box", "rounded_box", "cylinder", "disc", "sphere", "ellipsoid", "dome", "capsule", "cone", "torus", "plate")
+SHAPES = ("box", "rounded_box", "cylinder", "disc", "sphere", "ellipsoid", "dome", "capsule", "cone", "torus", "plate", "frame")
 DETAIL_SHAPES = SHAPES + ("cross", "slots")
 MAX_DETAILS = 40
 MAX_EXTRA = 6
@@ -66,6 +66,10 @@ rotation in degrees (XYZ). Shapes:
   mouse top shell, helmet, lamp shade): size = full extents [x, y, z], the flat open side faces -y
 - capsule: size = [diameter, total length, diameter]
 - torus: size = [outer diameter, tube thickness, outer diameter]
+- frame = a closed band around the edge of a slab-shaped body (the metal side frame of a phone, tablet or
+  watch; a bezel; a picture frame): size = outer [x, y, z], "wall" = band thickness in mm.
+Optional on box, rounded_box, plate and frame: "corner_radius" in mm = how rounded the corners look when you
+face the part's large face (a phone body ~ 15% of its width, a camera plateau, keycaps and cards are rounded).
 Materials: {materials}.
 Rules:
 - Give EVERY listed id exactly one entry, including inferred internal parts (place them where they
@@ -105,6 +109,11 @@ Rules:
 - Prefer upright shapes: a "dome" opens downwards (do not rotate it 180 degrees; for a cup that opens upwards
   use a cylinder or rounded_box).
 - importance: 0-1, how much the object's main function depends on the part (battery/main board ~1, logo ~0.05).
+- Slab devices (phones, tablets, e-readers, watches): build them like the real teardown, front to back:
+  display (thin, front), the side "frame" (an extra part if not listed), internals in one layer inside the
+  frame (board, battery, speakers, haptic motor, ports, camera modules), back cover (thin, back). Give the
+  display, frame, back cover and camera plateau the real corner_radius. Lenses are "disc"s of glass inside a
+  thin metal "torus" ring; the flash is a small disc. Never use a detail as the whole body or to cover a face.
 - Keep it compact. No prose.
 """
 
@@ -157,6 +166,21 @@ def _fit_inside_envelope(parts: list[AssemblyPart], types: dict[str, str]) -> No
             p.position[i] = min(max(p.position[i], lo[i] + half[i]), hi[i] - half[i])
 
 
+def _radius(v, size: list[float]) -> float | None:
+    """Plan-view corner radius, at most half the smaller of the two large sides."""
+    r = _num(v, 0.0, 0.0, 5000.0)
+    if r <= 0:
+        return None
+    a, b = sorted(size)[1:]
+    return min(r, a / 2, b / 2)
+
+
+def _too_big(size: list[float], parts: list[AssemblyPart]) -> bool:
+    lo = [min(p.position[i] - p.size[i] / 2 for p in parts) for i in range(3)]
+    hi = [max(p.position[i] + p.size[i] / 2 for p in parts) for i in range(3)]
+    return sum(size[i] >= 0.8 * (hi[i] - lo[i]) for i in range(3)) >= 3
+
+
 def parse_assembly(raw: dict, component_ids: set[str], types: dict[str, str] | None = None) -> Assembly | None:
     parts: list[AssemblyPart] = []
     seen = set()
@@ -184,6 +208,8 @@ def parse_assembly(raw: dict, component_ids: set[str], types: dict[str, str] | N
             rotation=_vec(p.get("rotation"), lo=-360, hi=360),
             color=color, material=mat, explodeDir=d,
             explodeDist=_num(p.get("explode_dist"), 1.0, 0.0, 3.0),
+            cornerRadius=_radius(p.get("corner_radius"), size),
+            wall=_num(p.get("wall"), 0.0, 0.0, 500.0) or None if shape == "frame" else None,
         ))
     if len(parts) < 2:
         return None
@@ -200,12 +226,15 @@ def parse_assembly(raw: dict, component_ids: set[str], types: dict[str, str] | N
         color = str(d.get("color", "#30343b"))
         mat = str(d.get("material", "plastic")).lower()
         size = [max(0.1, abs(x)) for x in _vec(d.get("size"), default=2.0, lo=-2000, hi=2000)]
+        if _too_big(size, parts):  # a "detail" the size of the whole object (a body shell) would hide everything
+            continue
         details.append(AssemblyDetail(
             parentId=parent, shape=shape if shape in DETAIL_SHAPES else "rounded_box", size=size,
             position=_vec(d.get("position"), lo=-5000, hi=5000), rotation=_vec(d.get("rotation"), lo=-360, hi=360),
             color=color if re.fullmatch(r"#[0-9a-fA-F]{6}", color) else "#30343b",
             material=mat if mat in MATERIALS else "plastic",
             count=int(_num(d.get("count"), 1, 1, 24)),
+            cornerRadius=_radius(d.get("corner_radius"), size),
         ))
     overall = [abs(x) for x in _vec(raw.get("overall_size"), default=0.0, lo=-5000, hi=5000)]
     if min(overall) <= 0:  # derive from the parts

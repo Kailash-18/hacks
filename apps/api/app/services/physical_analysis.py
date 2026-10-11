@@ -29,7 +29,7 @@ from .vision_client import VisionClient
 
 log = logging.getLogger("uvicorn.error")
 MAX_PARTS = 10
-MAX_HIDDEN = 6
+MAX_HIDDEN = 10  # dense devices (phones, laptops) have many internals; all are labelled inferred
 PART_TYPES = {
     "power_source", "actuator", "controller", "sensor", "structure", "fastener", "connector",
     "mechanism", "interface", "display", "cover", "wheel", "light", "storage", "cable", "unknown",
@@ -75,7 +75,10 @@ Rules:
   Include small parts like scroll wheels and buttons; skip only specks under about 0.1% of the image.
 - depth_rank: 0 = closest to the camera; larger = further back. Parts can share a rank.
 - "hidden_parts": at most {MAX_HIDDEN} parts that are typically inside this kind of object but are
-  NOT visible in this photo. Never list a visible part here. Use [] if unsure.
+  NOT visible in this photo. Never list a visible part here. Use [] if unsure. For dense electronics
+  (phones, tablets, laptops, consoles) list each main internal module separately (aim for at least 8), e.g.
+  battery, logic board, display, loudspeaker, earpiece, haptic motor, camera sensor modules, wireless charging
+  coil, charging port, antennas, SIM tray, shields.
 - "product": brand/model only if a logo or printed text supports it; otherwise null. Never guess a
   model number you cannot read.
 - part type must be one of: {", ".join(sorted(PART_TYPES))}.
@@ -500,6 +503,21 @@ def _apply_identification(result: SystemAnalysis, ident: dict | None) -> None:
     pr.user_hint = ident.get("user_hint") or ""
     pr.web_checked = bool(pr.sources)
     result.scene.product = pr
+    hint = (pr.user_hint or "").strip()
+    if hint and pr.model and pr.model.lower() in hint.lower():  # the user named the exact product: name it everywhere, drop look-alike guesses
+        for c in pr.candidates:
+            g = c.get if isinstance(c, dict) else (lambda k, c=c: getattr(c, k, None))
+            old = " ".join(x for x in (g("brand"), g("model")) if x)
+            for o in (old, g("model")):
+                if o and o.lower() not in hint.lower():
+                    result.summary = re.sub(re.escape(o), hint, result.summary or "", flags=re.I)
+        pr.candidates = []
+        pr.search_query = hint
+    if pr.model:
+        name = pr.model if (pr.brand or "").lower() in pr.model.lower() else f"{pr.brand or ''} {pr.model}".strip()
+        generic = (result.title or "").strip().lower() in {"", "photographed object", (pr.category or "").lower()}
+        if generic or hint:
+            result.title = name
 
 
 def analyze_physical_images(files: list[tuple[bytes, str]], vision_client: VisionClient, cache_dir=None,

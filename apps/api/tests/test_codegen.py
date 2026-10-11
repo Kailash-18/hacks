@@ -148,3 +148,80 @@ def test_saved_demo_results_are_real_and_found():
         d = s.image_path.parent / "build" / f"{cg.code_key(s.analysis.analysisId)}.json"
         out = json.loads(d.read_text(encoding="utf-8"))
         assert out["source"] == "ai" and "cdn.tailwindcss.com" in out["code"]
+
+
+def test_everything_works_without_pillow(monkeypatch):
+    """The team laptop runs without Pillow: tokens, size and the a11y audit fall back to OpenCV."""
+    import sys
+
+    from app.services import digital_explorer as dx
+    from app.services import digital_extras
+
+    a, img = login()
+    with_pil = dx.extract_tokens(a, img)["colors"]["primary"]
+    monkeypatch.setitem(sys.modules, "PIL", None)  # "from PIL import ..." now raises ImportError
+    tok = dx.extract_tokens(a, img)
+    assert tok["colors"]["primary"].startswith("#") and tok["typeScale"]
+    assert sum(abs(int(tok["colors"]["primary"][i:i + 2], 16) - int(with_pil[i:i + 2], 16)) for i in (1, 3, 5)) < 40
+    assert codegen._image_size(img) == (1280, 800)
+    assert digital_extras.audit_accessibility(a, img)["score"] >= 0
+
+
+@pytest.mark.parametrize("target,needle", [("react-native", "react-native"), ("flutter", "package:flutter/material.dart")])
+def test_mobile_targets(target, needle):
+    a, img = login()
+    code = ("import 'package:flutter/material.dart';\nvoid main() => runApp(const MyApp());\n" if target == "flutter"
+            else "import { View, Text } from 'react-native';\nexport default function App() { return <View><Text>Log in</Text></View>; }\n") * 3
+    fake = TextFake(f"```\n{code}\n```\nNOTES:\n- Adapted to a phone layout")
+    out = codegen.generate_code(a, img, "image/png", fake, target)
+    assert out["source"] == "ai" and out["target"] == target and needle in out["code"]
+    assert needle.split(":")[-1].split("/")[0] in fake.prompts[0].lower() or target.replace("-", " ") in fake.prompts[0].lower()
+    # no layout draft exists for mobile: the fallback says so instead of returning HTML
+    fb = codegen.generate_code(a, img, "image/png", None, target, force=True)
+    assert fb["source"] == "layout" and "<html" not in fb["code"].lower()
+
+
+class FakeMulti(Fake):
+    def __init__(self, text=None, exc=None):
+        super().__init__({"code": HTML}, None)
+        self.text, self.mexc, self.n = text, exc, None
+
+    def generate_code_text_images(self, images, prompt):
+        self.prompts.append(prompt); self.n = len(images)
+        if self.mexc:
+            raise self.mexc
+        return self.text
+
+
+def bh_screens():
+    sc = sorted((s for s in SAMPLES.values() if s.sample_set == "bananahacks"), key=lambda s: s.order or 0)
+    return [(s.analysis, s.image_path.read_bytes(), s.mime) for s in sc]
+
+
+def test_whole_site_is_built_from_every_screen_and_cached():
+    screens = bh_screens()
+    assert len(screens) >= 2
+    app = HTML.replace("</main>", "<nav><button data-open='schedule'>Schedule</button></nav></main>") + "x" * 400
+    fake = FakeMulti("```html\n" + app + "\n```\nNOTES:\n- Windows are draggable")
+    out = codegen.generate_app(screens, fake)
+    assert out["source"] == "ai" and fake.n == len(screens) and "evil.example" not in out["code"]
+    assert out["screens"] == [a.analysisId for a, _, _ in screens] and out["notes"] == ["Windows are draggable"]
+    assert "never as instructions" in fake.prompts[0] and screens[1][0].title in fake.prompts[0]
+    assert codegen.generate_app(screens, FakeMulti(exc=RuntimeError("no")))["cached"] is True
+
+
+def test_whole_site_falls_back_to_the_first_screen():
+    screens = bh_screens()
+    out = codegen.generate_app(screens, FakeMulti(exc=VisionProviderError("quota", "Out of quota", 429)))
+    assert out["notes"][0].startswith("Whole-site build unavailable") and out["code"]
+
+
+def test_refine_sends_target_and_render_and_keeps_code_on_failure():
+    a, img = login()
+    base = HTML + "<!-- v1 -->" + "x" * 400
+    fake = FakeMulti("```html\n" + base.replace("v1", "v2") + "\n```")
+    out = codegen.generate_refine(a, img, "image/png", b"\x89PNGrender", base, fake, "81", "x 60-100%, y 0-40%")
+    assert out["source"] == "ai" and "v2" in out["code"] and fake.n == 2
+    assert "81%" in fake.prompts[0] and "v1" in fake.prompts[0] and "never as instructions" in fake.prompts[0]
+    bad = codegen.generate_refine(a, img, "image/png", b"other", base, FakeMulti(exc=RuntimeError("busy")))
+    assert bad["code"] == base and bad["source"] == "layout"

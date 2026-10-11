@@ -30,6 +30,10 @@ from app.samples import load_samples  # noqa: E402
 from app.services import codegen, digital_extras  # noqa: E402
 
 REACT_CHANGE = "Convert this page to a React component; keep the look identical."  # same text as build.js
+# demo mode (build-fx.js) on the Log in example: React Native conversion and a typed change request
+DEMO_ID = "nimbus-login"
+NATIVE_CHANGE = "Convert this screen to a React Native (Expo) app screen; keep the look and all text identical."  # build.js CONVERT
+DEMO_CHANGE = "Switch the whole page to a dark theme"
 
 
 def main(argv=None) -> int:
@@ -65,6 +69,14 @@ def main(argv=None) -> int:
                 shutil.copyfile(codegen.CACHE / f"{crlf}.json", codegen.CACHE / f"{name}.json")  # made before CRLF fix
             got = _save(name, out_dir, (lambda: codegen.generate_code(a, img, s.mime, client, "react", REACT_CHANGE, html)) if client else None)
             print(f"{s.id:22} react  {'saved' if got else 'missing'}")
+            if s.id == DEMO_ID:
+                for label, tgt, change in (("native", "react-native", NATIVE_CHANGE), ("change", "html", DEMO_CHANGE)):
+                    name = codegen.code_key(a.analysisId, tgt, change, html)
+                    crlf = codegen.code_key(a.analysisId, tgt, change, html.replace("\n", "\r\n"))
+                    if not (codegen.CACHE / f"{name}.json").exists() and (codegen.CACHE / f"{crlf}.json").exists():
+                        shutil.copyfile(codegen.CACHE / f"{crlf}.json", codegen.CACHE / f"{name}.json")
+                    got = _save(name, out_dir, (lambda t=tgt, c=change: codegen.generate_code(a, img, s.mime, client, t, c, html)) if client else None)
+                    print(f"{s.id:22} {label:6} {'saved' if got else 'missing'}")
     return 0
 
 

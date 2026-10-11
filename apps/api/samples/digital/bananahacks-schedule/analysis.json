@@ -1,0 +1,760 @@
+{
+  "analysisId": "digital-caff80479ac100cb",
+  "domain": "digital",
+  "title": "Schedule Window",
+  "source": {
+    "kind": "image",
+    "filename": "bananahacks-schedule.png"
+  },
+  "assetId": null,
+  "components": [
+    {
+      "id": "window-header",
+      "label": "Window titlebar: SCHEDULE",
+      "type": "header",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Titlebar with window control icons and SCHEDULE title"
+      ],
+      "bbox": {
+        "x": 0.004,
+        "y": 0.0,
+        "width": 0.991,
+        "height": 0.069
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "controls-section",
+      "label": "Header Controls Section",
+      "type": "section",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Yellow top panel containing title, date range, timezone, and legend"
+      ],
+      "bbox": {
+        "x": 0.005,
+        "y": 0.069,
+        "width": 0.988,
+        "height": 0.183
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "schedule-title",
+      "label": "Schedule",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text: Schedule"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.103,
+        "width": 0.083,
+        "height": 0.021
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "date-range-text",
+      "label": "Oct 9-12, 2026 \u00b7 times in EDT",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text: Oct 9-12, 2026 \u00b7 times in EDT"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.14,
+        "width": 0.225,
+        "height": 0.018
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "timezone-label",
+      "label": "TIME ZONE",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text: TIME ZONE"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.194,
+        "width": 0.069,
+        "height": 0.016
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "timezone-select",
+      "label": "Eastern, EDT (GMT-04:00), default",
+      "type": "select",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Dropdown select input with down arrow"
+      ],
+      "bbox": {
+        "x": 0.11,
+        "y": 0.18,
+        "width": 0.367,
+        "height": 0.048
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "use-mine-btn",
+      "label": "USE MINE",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Button labeled USE MINE"
+      ],
+      "bbox": {
+        "x": 0.488,
+        "y": 0.18,
+        "width": 0.081,
+        "height": 0.046
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "tag-kickoff",
+      "label": "KICKOFF",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Checkbox indicator and label KICKOFF"
+      ],
+      "bbox": {
+        "x": 0.636,
+        "y": 0.118,
+        "width": 0.069,
+        "height": 0.019
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "tag-workshop",
+      "label": "WORKSHOP",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Teal indicator and label WORKSHOP"
+      ],
+      "bbox": {
+        "x": 0.715,
+        "y": 0.118,
+        "width": 0.077,
+        "height": 0.019
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "tag-deadline",
+      "label": "DEADLINE",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Dark indicator and label DEADLINE"
+      ],
+      "bbox": {
+        "x": 0.801,
+        "y": 0.118,
+        "width": 0.077,
+        "height": 0.019
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "tag-ceremony",
+      "label": "CEREMONY",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Tan indicator and label CEREMONY"
+      ],
+      "bbox": {
+        "x": 0.887,
+        "y": 0.118,
+        "width": 0.078,
+        "height": 0.019
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "day-friday-badge",
+      "label": "FRI, OCT 9",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Yellow pill badge FRI, OCT 9"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.278,
+        "width": 0.104,
+        "height": 0.041
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "event-1-time",
+      "label": "8:00 - 8:45 PM",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text: 8:00 - 8:45 PM"
+      ],
+      "bbox": {
+        "x": 0.07,
+        "y": 0.351,
+        "width": 0.11,
+        "height": 0.017
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "event-1-card",
+      "label": "Opening Ceremony Card",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Rounded card containing event details"
+      ],
+      "bbox": {
+        "x": 0.232,
+        "y": 0.34,
+        "width": 0.736,
+        "height": 0.099
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "event-1-badge",
+      "label": "KICKOFF",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Yellow pill badge KICKOFF"
+      ],
+      "bbox": {
+        "x": 0.886,
+        "y": 0.356,
+        "width": 0.064,
+        "height": 0.035
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "event-2-time",
+      "label": "8:45 PM",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text: 8:45 PM"
+      ],
+      "bbox": {
+        "x": 0.07,
+        "y": 0.463,
+        "width": 0.057,
+        "height": 0.015
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "event-2-card",
+      "label": "Hacking Begins Card",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Rounded card containing event details"
+      ],
+      "bbox": {
+        "x": 0.232,
+        "y": 0.453,
+        "width": 0.736,
+        "height": 0.068
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "event-2-badge",
+      "label": "KICKOFF",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Yellow pill badge KICKOFF"
+      ],
+      "bbox": {
+        "x": 0.886,
+        "y": 0.467,
+        "width": 0.064,
+        "height": 0.037
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "event-3-time",
+      "label": "9:00 - 10:00 PM",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text: 9:00 - 10:00 PM"
+      ],
+      "bbox": {
+        "x": 0.071,
+        "y": 0.543,
+        "width": 0.117,
+        "height": 0.017
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "event-3-card",
+      "label": "Python Workshop (Run 1) Card",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card containing event details"
+      ],
+      "bbox": {
+        "x": 0.232,
+        "y": 0.535,
+        "width": 0.736,
+        "height": 0.098
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "event-3-badge",
+      "label": "WORKSHOP",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Teal badge WORKSHOP"
+      ],
+      "bbox": {
+        "x": 0.879,
+        "y": 0.548,
+        "width": 0.071,
+        "height": 0.037
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "day-saturday-badge",
+      "label": "SAT, OCT 10",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Yellow pill badge SAT, OCT 10"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.671,
+        "width": 0.114,
+        "height": 0.042
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "event-4-time",
+      "label": "8:00 - 9:00 AM",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text: 8:00 - 9:00 AM"
+      ],
+      "bbox": {
+        "x": 0.071,
+        "y": 0.744,
+        "width": 0.109,
+        "height": 0.018
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "event-4-card",
+      "label": "Machine Learning Workshop (Run 1) Card",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card containing event details"
+      ],
+      "bbox": {
+        "x": 0.232,
+        "y": 0.734,
+        "width": 0.736,
+        "height": 0.1
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "event-4-badge",
+      "label": "WORKSHOP",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Teal badge WORKSHOP"
+      ],
+      "bbox": {
+        "x": 0.879,
+        "y": 0.749,
+        "width": 0.071,
+        "height": 0.037
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "event-5-time",
+      "label": "9:00 - 10:00 AM",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text: 9:00 - 10:00 AM"
+      ],
+      "bbox": {
+        "x": 0.071,
+        "y": 0.856,
+        "width": 0.117,
+        "height": 0.016
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "event-5-card",
+      "label": "Python Workshop (Run 2) Card",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card containing event details"
+      ],
+      "bbox": {
+        "x": 0.232,
+        "y": 0.846,
+        "width": 0.736,
+        "height": 0.1
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "event-5-badge",
+      "label": "WORKSHOP",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Teal badge WORKSHOP"
+      ],
+      "bbox": {
+        "x": 0.879,
+        "y": 0.862,
+        "width": 0.071,
+        "height": 0.036
+      },
+      "modelNodeId": null,
+      "transform": null
+    }
+  ],
+  "relationships": [
+    {
+      "id": "controls-section--contains--schedule-title",
+      "from": "controls-section",
+      "to": "schedule-title",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "controls-section--contains--date-range-text",
+      "from": "controls-section",
+      "to": "date-range-text",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "controls-section--contains--timezone-label",
+      "from": "controls-section",
+      "to": "timezone-label",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "controls-section--contains--timezone-select",
+      "from": "controls-section",
+      "to": "timezone-select",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "controls-section--contains--use-mine-btn",
+      "from": "controls-section",
+      "to": "use-mine-btn",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "controls-section--contains--tag-kickoff",
+      "from": "controls-section",
+      "to": "tag-kickoff",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "controls-section--contains--tag-workshop",
+      "from": "controls-section",
+      "to": "tag-workshop",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "controls-section--contains--tag-deadline",
+      "from": "controls-section",
+      "to": "tag-deadline",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "controls-section--contains--tag-ceremony",
+      "from": "controls-section",
+      "to": "tag-ceremony",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "event-1-card--contains--event-1-badge",
+      "from": "event-1-card",
+      "to": "event-1-badge",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "event-2-card--contains--event-2-badge",
+      "from": "event-2-card",
+      "to": "event-2-badge",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "event-3-card--contains--event-3-badge",
+      "from": "event-3-card",
+      "to": "event-3-badge",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "event-4-card--contains--event-4-badge",
+      "from": "event-4-card",
+      "to": "event-4-badge",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "event-5-card--contains--event-5-badge",
+      "from": "event-5-card",
+      "to": "event-5-badge",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "timezone-label--label_for--timezone-select",
+      "from": "timezone-label",
+      "to": "timezone-select",
+      "type": "label_for",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "TIME ZONE text sits adjacent to the dropdown selector"
+      ]
+    },
+    {
+      "id": "timezone-select--adjacent_to--use-mine-btn",
+      "from": "timezone-select",
+      "to": "use-mine-btn",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "USE MINE button is placed horizontally beside the select input"
+      ]
+    },
+    {
+      "id": "event-1-time--visually_aligned_with--event-1-card",
+      "from": "event-1-time",
+      "to": "event-1-card",
+      "type": "visually_aligned_with",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Time text horizontally aligned with the event card"
+      ]
+    },
+    {
+      "id": "event-2-time--visually_aligned_with--event-2-card",
+      "from": "event-2-time",
+      "to": "event-2-card",
+      "type": "visually_aligned_with",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Time text horizontally aligned with the event card"
+      ]
+    },
+    {
+      "id": "event-3-time--visually_aligned_with--event-3-card",
+      "from": "event-3-time",
+      "to": "event-3-card",
+      "type": "visually_aligned_with",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Time text horizontally aligned with the event card"
+      ]
+    },
+    {
+      "id": "event-4-time--visually_aligned_with--event-4-card",
+      "from": "event-4-time",
+      "to": "event-4-card",
+      "type": "visually_aligned_with",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Time text horizontally aligned with the event card"
+      ]
+    },
+    {
+      "id": "event-5-time--visually_aligned_with--event-5-card",
+      "from": "event-5-time",
+      "to": "event-5-card",
+      "type": "visually_aligned_with",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Time text horizontally aligned with the event card"
+      ]
+    }
+  ],
+  "summary": "This is an event schedule window displaying dates, times, and activities styled in a retro computing aesthetic. It includes a timezone selector, category filter tags/legend, and schedule items grouped by day.",
+  "limitations": [
+    "Bottom of the window is cut off, partially truncating later events.",
+    "A single screenshot shows layout and visible text only; it does not reveal event handlers, API calls, data sources or where any control navigates.",
+    "Bounding boxes are model estimates and may be offset slightly from the true element edges.",
+    "confidence is null because the model does not produce calibrated probabilities."
+  ],
+  "provider": {
+    "name": "google-gemini",
+    "model": "gemini-3.7-flash"
+  }
+}
