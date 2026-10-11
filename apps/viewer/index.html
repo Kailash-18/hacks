@@ -4,56 +4,196 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Physical Lab · Visual Reverse Engineering</title>
+<script>
+try { document.documentElement.dataset.theme = localStorage.getItem("vre-theme") === "light" ? "light" : "dark"; }
+catch { document.documentElement.dataset.theme = "dark"; }
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/viewer/style.css" />
 <link rel="stylesheet" href="/viewer/labswitch.css" />
 <link rel="stylesheet" href="/viewer/tour.css" />
+<link rel="stylesheet" href="/viewer/physical-ui.css?v=20261012-interactive-floor" />
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
 } }
 </script>
-<link rel="stylesheet" href="/viewer/motion.css" />
 </head>
-<body>
+<body class="physical-site">
 <header class="topbar">
-  <div class="brand"><span class="dot"></span>Visual Reverse Engineering <nav class="labswitch"><a href="/" class="on">Physical</a><a href="/digital">Digital</a></nav></div>
+  <div class="brand">
+    <a class="brand-home" href="/" aria-label="Form and Frame Physical Lab">
+      <svg class="physical-mark" viewBox="0 0 48 48" aria-hidden="true">
+        <path d="M24 3.5 43 14.2v19.6L24 44.5 5 33.8V14.2L24 3.5Z" fill="url(#mark-face)" stroke="rgba(223,241,255,.8)" stroke-width="1.2" />
+        <path d="m5.8 14.8 18.2 10 18.2-10M24 24.8v18.4M13 10l18 10" fill="none" stroke="rgba(237,247,255,.76)" stroke-width="1.1" />
+        <defs><linearGradient id="mark-face" x1="9" y1="5" x2="39" y2="44" gradientUnits="userSpaceOnUse"><stop stop-color="#8be6ef"/><stop offset=".5" stop-color="#648fff"/><stop offset="1" stop-color="#9474f7"/></linearGradient></defs>
+      </svg>
+      <span class="brand-copy"><strong>FORM / FRAME</strong><small>VISUAL REVERSE ENGINEERING</small></span>
+    </a>
+    <nav class="labswitch" aria-label="Choose a studio">
+      <a href="/" class="on" aria-current="page">Physical</a>
+      <a href="/digital">Digital</a>
+    </nav>
+  </div>
   <div class="actions">
-    <label class="btn primary" for="file">Upload photos</label>
+    <label class="btn primary physical-top-upload" for="file"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14"/></svg><span>Add photos</span></label>
     <input id="file" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden />
     <input id="addFile" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden />
-    <select id="samples" class="btn" title="Saved results of earlier real analyses"><option value="">Samples…</option></select>
+    <button id="themeToggle" class="btn physical-theme-toggle" type="button" aria-label="Switch to light mode" aria-pressed="false" title="Switch to light mode">
+      <svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.1 15.2A8.7 8.7 0 0 1 8.8 3.9a8.9 8.9 0 1 0 11.3 11.3Z"/></svg>
+      <svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
+      <span>Light mode</span>
+    </button>
   </div>
 </header>
 
 <main class="layout">
   <section class="stage">
     <canvas id="c"></canvas>
-    <div id="empty" class="empty">
-      <div class="empty-copy">
-        <h1>Photo in.<br />Exploded diagram out.</h1>
-        <p>Upload 1–4 photos of any object. The AI finds its parts, cuts them out, estimates depth and pulls them apart so you can inspect each one. More angles, more real parts.</p>
-        <ul class="tips">
-          <li>One object, filling most of the frame</li>
-          <li>Plain background, good light</li>
-          <li>Visible parts work best: a bike, a keyboard, an open PC, a drone</li>
-          <li>A bottom or opened-up shot reveals parts hidden from the top</li>
-        </ul>
-        <label class="btn primary big" for="file">Choose photos</label>
-      </div>
-      <figure class="xphone" aria-hidden="true">
-        <div class="xp-stack">
-          <div class="xp-l back" style="--i:0"><i class="cam"></i><i class="cam b"></i><i class="cam c"></i><span>Back glass</span></div>
-          <div class="xp-l batt" style="--i:1"><i></i><span>Battery</span></div>
-          <div class="xp-l board" style="--i:2"><i class="soc"></i><i class="chip a"></i><i class="chip b"></i><i class="chip c"></i><span>Logic board</span></div>
-          <div class="xp-l frame" style="--i:3"><span>Frame</span></div>
-          <div class="xp-l oled" style="--i:4"><span>Display</span></div>
-          <div class="xp-l glass" style="--i:5"><i class="island"></i><span>Cover glass</span></div>
+    <div id="empty" class="empty physical-empty">
+      <section class="physical-landing" aria-labelledby="physical-title">
+        <div class="physical-copy">
+          <p class="physical-kicker"><i></i> IMAGE → OBJECT MAP <b>01 — PHYSICAL</b></p>
+          <h1 id="physical-title">One photo in.<br/><span>Every part mapped.</span></h1>
+          <p class="physical-lede">Start from a real photograph. The Physical Lab maps visible parts back to their image evidence, marks hidden components as inferred, then separates the photo into layers you can inspect.</p>
+          <div class="physical-capabilities" aria-label="What the Physical Lab reveals">
+            <span><i>01</i> Image evidence</span><span><i>02</i> Visible + inferred parts</span><span><i>03</i> Depth + links</span>
+          </div>
+          <div class="physical-actions">
+            <label class="physical-upload" for="file"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14"/></svg><span>Analyze an object photo</span><b>↑</b></label>
+            <select id="samples" class="physical-samples physical-samples-bridge" title="Open a saved object study" tabindex="-1" aria-hidden="true"><option value="">Explore a sample</option></select>
+          </div>
+          <div class="physical-note"><span>JPG · PNG · WEBP</span><i></i><span>1–4 views of the same object</span></div>
+          <a class="physical-scroll-link" href="#physicalScrollStory"><span>Follow the image into its layers</span><i aria-hidden="true">↓</i></a>
         </div>
-        <figcaption>iPhone 17 · 16 parts found · pulled apart layer by layer</figcaption>
-      </figure>
+
+        <aside class="physical-visual" aria-label="Photo based component and depth preview">
+          <div class="visual-grid" aria-hidden="true"></div>
+          <svg class="visual-traces" viewBox="0 0 760 620" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0 128h124l42 42h90M760 96H626l-54 54h-78M0 476h146l54-54h56m504 90H626l-56-56h-72M105 0v92m528-92v88M245 620v-84m302 84v-78"/>
+            <circle cx="124" cy="128" r="3"/><circle cx="626" cy="96" r="3"/><circle cx="200" cy="422" r="3"/><circle cx="570" cy="512" r="3"/>
+          </svg>
+          <div class="visual-topline"><span><i></i> SOURCE FRAME / PART EXTRACTION</span><b>MOVE TO ROTATE · CLICK A LAYER TO PIN</b></div>
+          <div class="visual-stage source-stage">
+            <canvas id="physicalAssemblyCanvas" class="physical-assembly-canvas" aria-hidden="true"></canvas>
+            <div class="source-fallback" id="physicalSourceFallback" aria-hidden="true">
+              <img id="physicalSourceImage" alt="" />
+              <div class="source-boxes" id="physicalSourceBoxes"></div>
+            </div>
+            <div class="source-overlay" aria-hidden="true"><span class="source-chip"><i></i><b id="physicalPreviewName">REFERENCE IMAGE</b></span><span class="source-chip source-chip-right"><b id="physicalPreviewParts">PART MAP / LOADING</b></span></div>
+            <div class="source-corner corner-tl"></div><div class="source-corner corner-tr"></div><div class="source-corner corner-bl"></div><div class="source-corner corner-br"></div>
+          </div>
+          <div class="physical-drop-rail">
+            <div class="drop-rail-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14"/></svg></div>
+            <div class="drop-rail-copy"><b>Start from your own evidence</b><span>Drop 1–4 object photos here, or paste from your clipboard.</span></div>
+            <label class="drop-rail-button" for="file">Browse photos <span>↗</span></label>
+          </div>
+          <div class="visual-readout"><span><i></i> SOURCE → SEGMENTS → DEPTH</span><span id="physicalStageLabel">01 / SOURCE PHOTO</span><b id="physicalInteractionStatus" aria-live="polite">HOVER A PART · CLICK TO PIN</b></div>
+        </aside>
+        
+
+        <section class="physical-scroll-story" id="physicalScrollStory" aria-labelledby="physicalStoryTitle">
+          <header class="story-heading">
+            <p class="physical-kicker"><i></i> IMAGE → COMPONENT MAP <b>SCROLL THE ANALYSIS</b></p>
+            <h2 id="physicalStoryTitle">See the image become a map.<br/><span>Evidence stays in view.</span></h2>
+            <p>Watch the actual photo masks separate as the analysis moves from image evidence to estimated depth. Each step mirrors a tool in the Physical viewer.</p>
+            <div class="story-progress" aria-label="Feature walkthrough progress"><i id="physicalStoryProgress"></i></div>
+          </header>
+          <div class="physical-story-steps">
+            <article class="physical-chapter is-active" data-stage="0" aria-current="step">
+              <span class="chapter-number">01</span>
+              <div class="chapter-content">
+                <p class="chapter-kind">01 / SOURCE PHOTO</p><h3>Start with the object in frame.</h3>
+                <p>Upload one to four JPEG, PNG, or WebP photos of the same object. Keep it centered in soft light; add a side, underside, or opened view when the first photo cannot show enough evidence.</p>
+                <div class="chapter-tags"><span>PHOTO INPUT</span><span>1–4 VIEWS</span><span>ADD AN ANGLE</span></div>
+              </div>
+              <div class="chapter-demo demo-capture" aria-hidden="true">
+                <div class="demo-topline"><span>INPUT / OBJECT VIEWS</span><b>01—04</b></div>
+                <div class="capture-frames"><span class="capture-frame frame-front"><i></i><b>FRONT</b></span><span class="capture-frame frame-side"><i></i><b>SIDE</b></span><span class="capture-frame frame-rear"><i></i><b>REAR</b></span></div>
+                <div class="capture-drop"><i>+</i><span>DROP NEXT VIEW</span><b>01 SLOT</b></div>
+                <div class="demo-footline"><span>JPEG / PNG / WEBP</span><span>ONE OBJECT</span></div>
+              </div>
+              <span class="chapter-state">SOURCE</span>
+            </article>
+            <article class="physical-chapter" data-stage="1">
+              <span class="chapter-number">02</span>
+              <div class="chapter-content">
+                <p class="chapter-kind">02 / COMPONENT SEGMENTATION</p><h3>Separate what is seen from what is inferred.</h3>
+                <p>The analysis identifies the object and extracts visible component cutouts from the photo. Its parts list marks those observations separately from components inferred to be inside.</p>
+                <div class="chapter-tags"><span>IMAGE CUTOUTS</span><span>SEEN IN PHOTO</span><span>INFERRED INSIDE</span></div>
+              </div>
+              <div class="chapter-demo demo-pipeline" aria-hidden="true">
+                <div class="demo-topline"><span>PIXELS → PART MASKS</span><b>02 / 04</b></div>
+                <div class="pipeline-steps"><span><i>01</i> IDENTIFY</span><b></b><span><i>02</i> CUT PARTS</span><b></b><span><i>03</i> ESTIMATE DEPTH</span></div>
+                <div class="depth-stack"><i class="depth-plate plate-back"><b>BACKGROUND PLATE</b></i><i class="depth-plate plate-part"><b>COMPONENT MASK</b></i><i class="depth-plate plate-front"><b>DEPTH RELIEF</b></i><span class="depth-axis">Z / PARALLAX</span></div>
+                <div class="demo-footline"><span>SEGMENTATION</span><span>IN-BROWSER MODEL</span></div>
+              </div>
+              <span class="chapter-state">SEGMENT</span>
+            </article>
+            <article class="physical-chapter" data-stage="2">
+              <span class="chapter-number">03</span>
+              <div class="chapter-content">
+                <p class="chapter-kind">03 / DEPTH + ASSEMBLY</p><h3>Give each cutout a place in space.</h3>
+                <p>If an analysis includes an assembly, its approximate model shapes are shown in 3D. For photo-only studies, the viewer builds relief from the image cutouts and estimates depth in the browser with Depth Anything V2; a silhouette dome is the fallback.</p>
+                <div class="chapter-tags"><span>PART SEARCH</span><span>SEEN / INSIDE</span><span>3D: ISOLATE / X-RAY</span><span>SPIN / FOCUS</span></div>
+              </div>
+              <div class="chapter-demo demo-inspector" aria-hidden="true">
+                <div class="demo-topline"><span>PHOTO DEPTH / RELIEF BUILD</span><b>DEPTH MAP</b></div>
+                <div class="depth-inspection"><div class="depth-photo"><i></i><b>RGB PHOTO</b></div><span class="depth-transfer"></span><div class="depth-map"><i></i><b>DEPTH FIELD</b></div></div>
+                <div class="depth-evidence"><span><i></i>OBSERVED CUTOUTS</span><span><i></i>ESTIMATED RELIEF</span><span><i></i>INFERRED PARTS</span></div>
+                <div class="demo-footline"><span>IN-BROWSER DEPTH MODEL</span><span>FALLS BACK TO SILHOUETTE</span></div>
+              </div>
+              <span class="chapter-state">DEPTH</span>
+            </article>
+            <article class="physical-chapter" data-stage="3">
+              <span class="chapter-number">04</span>
+              <div class="chapter-content">
+                <p class="chapter-kind">04 / INSPECT + TRACE</p><h3>Move from a detected part to its role.</h3>
+                <p>Search or filter the part list, then select a component to read its role, source evidence, linked parts, and alternatives. Open Connections to trace relationships; use What if or Ask to explore an explanation grounded in this analysis. The 3D controls can isolate, rotate, X-ray, and move model parts.</p>
+                <div class="chapter-tags"><span>PART DETAILS</span><span>CONNECTIONS</span><span>WHAT-IF / ASK</span></div>
+              </div>
+              <div class="chapter-demo demo-impact" aria-hidden="true">
+                <div class="demo-topline"><span>OBJECT MAP / DEPENDENCIES</span><b>RELATIONSHIPS</b></div>
+                <div class="impact-map" id="physicalRelationshipMap" aria-label="Relationships from the saved sample analysis"><svg viewBox="0 0 240 112" preserveAspectRatio="none"><path d="M24 56h68m0 0 64-29m-64 29 64 29"/></svg><i class="impact-node node-source">PART</i><i class="impact-node node-mid">LINK</i><i class="impact-node node-screen">PART</i><i class="impact-node node-sensor">PART</i></div>
+                <div class="impact-query"><span>WHAT IF?</span><b id="physicalWhatIfDemo">Remove selected part</b><i>SIMULATE <em>↗</em></i></div>
+                <div class="impact-answer"><i></i><span><b id="physicalRelationshipSummary">Trace connected components</b><small id="physicalRelationshipDetail">Relationships from this saved analysis</small></span><b class="answer-check">MAP</b></div>
+                <div class="demo-footline"><span>SAVED ANALYSIS DATA</span><span>RELATIONSHIP GRAPH</span></div>
+              </div>
+              <span class="chapter-state">EXPLAIN</span>
+            </article>
+          </div>
+          <footer class="story-footnote"><i></i> The scroll scene is reconstructed from a saved analysis: its photo plate and real component cutouts start aligned, then pull apart. Upload your own object to inspect your image evidence.</footer>
+        </section>
+        <section class="physical-sample-shelf" id="physicalSamples" aria-labelledby="physicalSamplesTitle" hidden>
+          <header class="sample-shelf-heading">
+            <div>
+              <p class="physical-kicker"><i></i> RECENT STUDIES <b id="physicalSampleCount">0 STUDIES</b></p>
+              <h2 id="physicalSamplesTitle">Return to a <span>recent study.</span></h2>
+              <p>Pick up where an earlier photo analysis left off. Reopen its source image, visible and inferred parts, evidence, relationships, and available object view.</p>
+            </div>
+            <span class="sample-shelf-index" aria-hidden="true">FIELD NOTES / 001—003</span>
+          </header>
+          <div class="physical-sample-grid" id="physicalSampleGrid" aria-label="Available object studies"></div>
+          <p class="sample-shelf-footnote"><i></i> Scroll sideways to browse, then select a study to open its teardown.</p>
+        </section>
+
+        <section class="physical-about" id="physicalAbout" aria-labelledby="physicalAboutTitle">
+          <div class="physical-about-heading">
+            <p class="physical-kicker"><i></i> ABOUT THE PHYSICAL LAB <b>PHOTO-LED REVERSE ENGINEERING</b></p>
+            <h2 id="physicalAboutTitle">A closer read of<br/><span>the object in front of you.</span></h2>
+          </div>
+          <p class="physical-about-intro">Turn object photos into an explorable study. Follow each part back to its visible evidence, see which details are inferred, and inspect how the pieces relate.</p>
+          <div class="physical-about-details">
+            <article><span>01 / EVIDENCE</span><h3>Start with the photograph.</h3><p>Use up to four views of one object. Parts identified in the image stay distinct from components inferred beyond the visible surface.</p></article>
+            <article><span>02 / DEPTH</span><h3>Give the image layers.</h3><p>Photo cutouts can be arranged into a depth view in the browser, so you can rotate, isolate, and inspect the object's visible structure.</p></article>
+            <article><span>03 / CONNECTIONS</span><h3>Trace how parts relate.</h3><p>Explore part details, linked components, and analysis grounded in the selected study. Treat estimated depth and inferred internals as interpretation.</p></article>
+          </div>
+          <div class="physical-about-footer"><span>FORM / FRAME</span><span>FROM SOURCE PHOTO TO PART MAP</span></div>
+        </section>
+
+      </section>
     </div>
     <div id="loading" class="loading" hidden>
       <div class="scan">
@@ -69,20 +209,6 @@
         </div>
       </div>
     </div>
-    <div id="focusChip" class="focus-chip" hidden><span>Focused on <b id="focusName"></b></span><button type="button" id="focusExit">Show all <kbd>Esc</kbd></button></div>
-    <aside id="xrayHelp" class="xhelp" hidden aria-label="How to move around the 3D model">
-      <b id="xhTitle">3D controls</b>
-      <dl>
-        <dt><i class="mk l"></i>Left-drag</dt><dd>Rotate</dd>
-        <dt><i class="mk r"></i>Right-drag</dt><dd>Move view</dd>
-        <dt><i class="mk w"></i>Scroll</dt><dd>Zoom</dd>
-        <dt><svg class="ic" viewBox="0 0 16 16"><path d="M4 2l8.5 6.2-3.9.7 2.2 4.4-1.6.8-2.2-4.4L4 12.3z"/></svg>Click a part</dt><dd id="xhClick">Its details</dd>
-        <dt><svg class="ic" viewBox="0 0 16 16"><rect x="1.5" y="6.5" width="7" height="7" rx="1.5" class="o"/><path d="M8 8l6-6M9.5 2H14v4.5" class="o"/></svg>Drag a part</dt><dd>Pull it out</dd>
-        <dt><svg class="ic" viewBox="0 0 16 16"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M12 1.5v3h-3" class="o"/></svg>Shift + drag</dt><dd>Turn it</dd>
-        <dt><svg class="ic" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.4"/><circle cx="8" cy="8" r="5.5" class="o"/><path d="M8 .8v2M8 13.2v2M.8 8h2M13.2 8h2" class="o"/></svg>Double-click</dt><dd>Focus on it</dd>
-      </dl>
-      <div class="xh-legend" id="xhLegend" hidden><span><i style="--c:#ffb020"></i>Power</span><span><i style="--c:#36d6ff"></i>Signal</span><span><i style="--c:#9b8cff"></i>Depends on</span><span><i style="--c:#ff5fd2"></i>Motion</span><span><i style="--c:#8fa3bf"></i>Holds</span></div>
-    </aside>
     <div id="reveal" class="reveal" hidden></div>
     <div id="impact" class="impact" hidden></div>
     <div id="flash" class="flash"></div>
@@ -168,7 +294,8 @@
   </aside>
 </main>
 <script type="module" src="/viewer/viewer.js"></script>
+<script src="/viewer/physical-ui.js?v=20261011-photo-volume-2" defer></script>
+<script type="module" src="/viewer/physical-assembly.js?v=20261012-interactive-floor"></script>
 <script src="/viewer/tour.js" defer></script>
-<script src="/viewer/motion.js" defer></script>
 </body>
 </html>

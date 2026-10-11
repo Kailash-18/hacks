@@ -554,29 +554,105 @@ export class AssemblyView {
     const per = {}; for (const d of details) per[d.parentId] = (per[d.parentId] || 0) + 1;
     const metal = new THREE.MeshPhysicalMaterial({ color: 0xc9ccd2, metalness: 0.9, roughness: 0.25 });
     for (const p of this.parts) {
-      if (p.conformed || (per[p.id] || 0) >= 4) continue;
-      const [x, y, z] = p.size, r = (() => { let h = hashStr(p.id); return () => ((h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0) / 4294967296); })();
+      const [x, y, z] = p.size;
+      const board = p.isBoard && y < 0.4 * Math.min(x, z);
+      if (p.conformed || ((per[p.id] || 0) >= 4 && !board)) continue;
+      const r = (() => { let h = hashStr(p.id); return () => ((h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0) / 4294967296); })();
       const add = (geom, mat, px, py, pz, ry = 0) => {
         const m = new THREE.Mesh(geom, mat); m.position.set(px, py, pz); m.rotation.y = ry; m.castShadow = true;
         m.userData.partId = p.id; p.group.add(m); p.pickables.push(m); if (!p.extras.includes(mat)) p.extras.push(mat);
       };
-      const board = p.isBoard && y < 0.4 * Math.min(x, z);
       if (board) {
-        const top = y / 2, chip = new THREE.MeshPhysicalMaterial({ color: 0x16181c, roughness: 0.45, clearcoat: 0.3 });
-        const cw = Math.min(x, z) * 0.3, ch = Math.max(0.03, Math.min(cw * 0.18, 0.12));
-        add(new RoundedBoxGeometry(cw, ch, cw, 2, ch * 0.3), chip, x * 0.12, top + ch / 2, -z * 0.08);
-        for (let i = 0; i < 8; i++) { // gull-wing pins
-          const off = -cw / 2 + cw * (i + 0.5) / 8;
-          add(new THREE.BoxGeometry(cw * 0.04, ch * 0.3, cw * 0.18), metal, x * 0.12 + off, top + ch * 0.15, -z * 0.08 + cw / 2 + cw * 0.06);
-          add(new THREE.BoxGeometry(cw * 0.04, ch * 0.3, cw * 0.18), metal, x * 0.12 + off, top + ch * 0.15, -z * 0.08 - cw / 2 - cw * 0.06);
+        // A controller/logic board should read as a precision electronic assembly, not a smooth toy block.
+        // Keep this detail entirely on the front-end geometry; the analyzed component dimensions remain untouched.
+        const top = y / 2, span = Math.min(x, z);
+        const ch = Math.max(0.018, Math.min(0.065, span * 0.022));
+        const darkPackage = new THREE.MeshPhysicalMaterial({ color: 0x111820, roughness: 0.42, metalness: 0.12, clearcoat: 0.28, clearcoatRoughness: 0.28 });
+        const shieldMaterial = new THREE.MeshPhysicalMaterial({ color: 0x87939b, roughness: 0.3, metalness: 0.82, clearcoat: 0.35 });
+        const solder = new THREE.MeshPhysicalMaterial({ color: 0xaab6bd, roughness: 0.24, metalness: 0.88 });
+        const ceramic = [
+          new THREE.MeshPhysicalMaterial({ color: 0x272b2c, roughness: 0.48, metalness: 0.12 }),
+          new THREE.MeshPhysicalMaterial({ color: 0xb8a47c, roughness: 0.4, metalness: 0.12 }),
+          new THREE.MeshPhysicalMaterial({ color: 0x594b3c, roughness: 0.43, metalness: 0.16 })
+        ];
+        const boardTop = top + 0.004;
+        const chip = (cx, cz, w, d, pinCount = 7) => {
+          const h = Math.max(0.018, Math.min(ch, span * 0.034));
+          const leadW = Math.max(0.012, span * 0.012), leadD = Math.max(0.018, span * 0.025);
+          add(new RoundedBoxGeometry(w, h, d, 3, Math.min(h * 0.28, w * 0.08, d * 0.08)), darkPackage, cx, boardTop + h / 2, cz);
+          for (const side of [-1, 1]) for (let i = 0; i < pinCount; i++) {
+            const along = -d * 0.39 + d * 0.78 * (i + 0.5) / pinCount;
+            add(new THREE.BoxGeometry(leadD, h * 0.22, leadW), solder, cx + side * (w / 2 + leadD * 0.34), boardTop + h * 0.28, cz + along);
+          }
+          for (const side of [-1, 1]) for (let i = 0; i < pinCount; i++) {
+            const along = -w * 0.39 + w * 0.78 * (i + 0.5) / pinCount;
+            add(new THREE.BoxGeometry(leadW, h * 0.22, leadD), solder, cx + along, boardTop + h * 0.28, cz + side * (d / 2 + leadD * 0.34));
+          }
+        };
+
+        const core = { x: x * 0.11, z: z * 0.06, w: Math.min(x * 0.22, span * 0.36), d: Math.min(z * 0.24, span * 0.34) };
+        const memory = { x: -x * 0.27, z: z * 0.16, w: Math.min(x * 0.13, span * 0.2), d: Math.min(z * 0.16, span * 0.22) };
+        const power = { x: x * 0.31, z: -z * 0.22, w: Math.min(x * 0.12, span * 0.19), d: Math.min(z * 0.17, span * 0.22) };
+        chip(core.x, core.z, core.w, core.d, 8);
+        chip(memory.x, memory.z, memory.w, memory.d, 5);
+        chip(power.x, power.z, power.w, power.d, 5);
+
+        // RF shield can, aligned to the board surface with a fine raised lid seam.
+        const shield = { x: -x * 0.27, z: -z * 0.23, w: Math.min(x * 0.22, span * 0.33), d: Math.min(z * 0.19, span * 0.3) };
+        const shieldH = Math.max(0.02, ch * 0.8);
+        add(new RoundedBoxGeometry(shield.w, shieldH, shield.d, 3, Math.min(shieldH * 0.28, span * 0.025)), shieldMaterial, shield.x, boardTop + shieldH / 2, shield.z);
+        add(new THREE.BoxGeometry(shield.w * 0.68, 0.006, Math.max(0.008, span * 0.006)), solder, shield.x, boardTop + shieldH + 0.003, shield.z);
+
+        // Edge connector and plated contacts.
+        const connectorW = Math.min(x * 0.27, span * 0.4), connectorD = Math.max(0.045, span * 0.09), connectorH = Math.max(0.025, ch * 0.72);
+        const connectorX = x * 0.31, connectorZ = z * 0.37;
+        add(new RoundedBoxGeometry(connectorW, connectorH, connectorD, 3, connectorH * 0.24), darkPackage, connectorX, boardTop + connectorH / 2, connectorZ);
+        const contacts = 9, contactW = connectorW * 0.045;
+        for (let i = 0; i < contacts; i++) {
+          const px = connectorX - connectorW * 0.4 + connectorW * 0.8 * (i + 0.5) / contacts;
+          add(new THREE.BoxGeometry(contactW, 0.008, connectorD * 0.46), solder, px, boardTop + connectorH + 0.004, connectorZ);
         }
-        const smd = [new THREE.MeshPhysicalMaterial({ color: 0x2a2a2a, roughness: 0.5 }), new THREE.MeshPhysicalMaterial({ color: 0xb48a52, roughness: 0.4 })];
-        for (let i = 0; i < 9; i++) {
-          const w = Math.min(x, z) * (0.04 + r() * 0.05);
-          add(new RoundedBoxGeometry(w, ch * 0.5, w * 0.55, 1, w * 0.1), smd[i % 2], (r() - 0.5) * x * 0.8, top + ch * 0.25, (r() - 0.5) * z * 0.8, r() * Math.PI);
+
+        // Fine copper routes fan between the SoC, power stage, memory and edge connector.
+        const traceMaterial = new THREE.MeshPhysicalMaterial({ color: 0x9a7046, roughness: 0.3, metalness: 0.72, clearcoat: 0.22 });
+        const traceH = Math.max(0.006, span * 0.003), traceW = Math.max(0.008, span * 0.004);
+        const trace = (x1, z1, x2, z2) => {
+          const dx = x2 - x1, dz = z2 - z1, length = Math.hypot(dx, dz);
+          const route = new THREE.Mesh(new THREE.BoxGeometry(length, traceH, traceW), traceMaterial);
+          route.position.set((x1 + x2) / 2, boardTop + traceH / 2, (z1 + z2) / 2);
+          route.rotation.y = Math.atan2(-dz, dx);
+          route.userData.partId = p.id; p.group.add(route);
+        };
+        const routeL = (fromX, fromZ, bendX, toX, toZ) => { trace(fromX, fromZ, bendX, fromZ); trace(bendX, fromZ, bendX, toZ); trace(bendX, toZ, toX, toZ); };
+        routeL(core.x - core.w * 0.3, core.z - core.d / 2, -x * 0.02, memory.x + memory.w / 2, memory.z);
+        routeL(core.x + core.w * 0.42, core.z + core.d / 2, x * 0.36, power.x, power.z + power.d / 2);
+        routeL(power.x + power.w / 2, power.z, x * 0.43, connectorX, connectorZ - connectorD / 2);
+
+        // Passives with deterministic placement so the board stays visually stable between renders.
+        const passive = ceramic;
+        let placed = 0;
+        for (let attempt = 0; attempt < 42 && placed < 16; attempt++) {
+          const px = (r() - 0.5) * x * 0.72, pz = (r() - 0.5) * z * 0.72;
+          const near = (part) => Math.abs(px - part.x) < part.w * 0.7 && Math.abs(pz - part.z) < part.d * 0.72;
+          if (near(core) || near(memory) || near(power) || near(shield) || (Math.abs(px - connectorX) < connectorW * 0.62 && Math.abs(pz - connectorZ) < connectorD)) continue;
+          const w = Math.max(0.025, span * (0.026 + r() * 0.026)), d = Math.max(0.018, span * (0.018 + r() * 0.018)), h = Math.max(0.012, ch * 0.42);
+          add(new RoundedBoxGeometry(w, h, d, 2, Math.min(h * 0.3, w * 0.15, d * 0.15)), passive[placed % passive.length], px, boardTop + h / 2, pz, r() * Math.PI);
+          placed++;
         }
-        const cr = Math.min(x, z) * 0.05; // crystal / electrolytic cap
-        add(new THREE.CylinderGeometry(cr, cr, cr * 2.2, 24), metal, -x * 0.28, top + cr * 1.1, z * 0.22);
+
+        // Three small aluminum electrolytic capacitors and four restrained mounting eyelets.
+        const capRadius = Math.max(0.025, span * 0.028), capHeight = Math.max(0.055, span * 0.055);
+        for (const [px, pz] of [[-x * 0.12, -z * 0.31], [x * 0.17, -z * 0.32], [x * 0.38, z * 0.04]]) {
+          add(new THREE.CylinderGeometry(capRadius * 0.72, capRadius, capHeight, 32), shieldMaterial, px, boardTop + capHeight / 2, pz);
+          add(new THREE.CylinderGeometry(capRadius * 0.71, capRadius * 0.71, Math.max(0.006, capHeight * 0.05), 32), solder, px, boardTop + capHeight + 0.003, pz);
+        }
+        const eyelet = new THREE.MeshPhysicalMaterial({ color: 0x75838d, roughness: 0.26, metalness: 0.86 });
+        for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+          const px = sx * x * 0.43, pz = sz * z * 0.43, radius = Math.max(0.024, span * 0.027);
+          const ring = new THREE.TorusGeometry(radius, Math.max(0.006, span * 0.006), 8, 24); ring.rotateX(Math.PI / 2);
+          add(ring, eyelet, px, boardTop + 0.006, pz);
+          add(new THREE.CylinderGeometry(radius * 0.45, radius * 0.45, 0.008, 20), darkPackage, px, boardTop + 0.003, pz);
+        }
       }
       if (p.mat.iridescence > 0 && ["disc", "cylinder"].includes(p.shape)) { // camera lens: inner element and its ring
         const R = Math.min(x, z) / 2, h = Math.max(0.004, y * 0.08);
