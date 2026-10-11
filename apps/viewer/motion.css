@@ -108,3 +108,25 @@
 /* cards in the guide and panel lift a little under the pointer */
 .g-step, .g-card, .g-eps li, .g-table { transition: border-color .2s, transform .2s, box-shadow .2s; }
 .g-card:hover, .g-eps li:hover, .g-table:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -14px rgba(0,0,0,.8); border-color: #3a4558; }
+
+/* ---------- X-ray: how to move around, and what the wire colours mean ---------- */
+.xhelp { position: absolute; top: 14px; left: 14px; z-index: 4; width: 214px; padding: 12px 14px 12px; border-radius: 12px;
+  background: rgba(12,16,24,.72); border: 1px solid rgba(94,242,255,.22); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  color: #cfd8e3; font-size: 12px; pointer-events: none; box-shadow: 0 10px 30px -12px rgba(0,0,0,.6);
+  animation: xh-in .5s cubic-bezier(.2,.8,.2,1) .35s backwards; }
+@keyframes xh-in { from { opacity: 0; transform: translateY(-6px); } }
+.xhelp > b { display: block; font-size: 12.5px; color: #e8f6ff; margin-bottom: 8px; letter-spacing: .01em; }
+.xhelp dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; margin: 0; }
+.xhelp dt { display: flex; align-items: center; gap: 7px; color: #9fb0c4; white-space: nowrap; }
+.xhelp dd { margin: 0; color: #e8eef5; text-align: right; }
+.xhelp .mk { position: relative; width: 11px; height: 15px; border: 1.4px solid #7fdcff; border-radius: 6px; flex: none; }
+.xhelp .mk::before { content: ""; position: absolute; left: 50%; top: 0; width: 1.4px; height: 6px; background: #7fdcff; transform: translateX(-50%); }
+.xhelp .mk.l::after, .xhelp .mk.r::after { content: ""; position: absolute; top: 0; width: 50%; height: 6px; background: rgba(94,242,255,.65); border-radius: 5px 0 0 0; }
+.xhelp .mk.l::after { left: 0; } .xhelp .mk.r::after { right: 0; border-radius: 0 5px 0 0; }
+.xhelp .mk.w::after { content: ""; position: absolute; left: 50%; top: 2px; width: 3px; height: 4px; margin-left: -1.5px; border-radius: 2px; background: #5ef2ff; }
+.xhelp .mk.c { width: 11px; height: 11px; border-radius: 50%; border-color: #5ef2ff; box-shadow: 0 0 8px rgba(94,242,255,.6); }
+.xhelp .mk.c::before { display: none; }
+.xh-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 10px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,.08); }
+.xh-legend span { display: inline-flex; align-items: center; gap: 5px; color: #b8c4d2; font-size: 11.5px; }
+.xh-legend i { width: 14px; height: 3px; border-radius: 2px; background: var(--c); box-shadow: 0 0 6px var(--c); }
+@media (max-width: 700px) { .xhelp { display: none; } }

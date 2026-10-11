@@ -168,7 +168,7 @@ async function build(analysis, { sample = false } = {}) {
   renderPanel();
   $("explode").value = 0;
   restoreWhatIf(true);
-  $("xray").checked = false; asm.setXray(false);
+  $("xray").checked = false; asm.setXray(false); $("xrayHelp").hidden = true;
   const has3D = A.scene.assembly && A.scene.assembly.parts.length;
   if (has3D) asm.build(A.scene.assembly, A.components, viewsOf(A), A.relationships);
   $("empty").hidden = true; $("controls").hidden = false; $("panel").hidden = false; steps(STEP_NAMES.length);
@@ -483,6 +483,7 @@ $("xray").addEventListener("change", (e) => {
   if (mode !== "3d") { e.target.checked = false; return; }
   if (e.target.checked) { controls.autoRotate = false; $("spin").checked = false; }  // hold still for the scan
   asm.setXray(e.target.checked);
+  $("xrayHelp").hidden = !e.target.checked;
 });
 $("resetView").addEventListener("click", () => { if (mode === "3d" && $("isolate").checked) { $("isolate").checked = false; paint(); } frame(); });
 
