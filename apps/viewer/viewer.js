@@ -171,7 +171,11 @@ async function build(analysis, { sample = false } = {}) {
   $("xray").checked = false; asm.setXray(false); syncHelp(); asm.setFocus?.(null); $("focusChip") && ($("focusChip").hidden = true);
   const has3D = A.scene.assembly && A.scene.assembly.parts.length;
   asm.curated = A.provider?.name === "curated";
-  if (has3D) asm.build(A.scene.assembly, A.components, viewsOf(A), A.relationships);
+  if (has3D) {
+    asm.build(A.scene.assembly, A.components, viewsOf(A), A.relationships);
+    const forA = A; // 3D pictures for every part without a photo cut-out, rendered once the model has its materials
+    asm.makeThumbs(A.components.filter((c) => !cutoutOf(c.id)).map((c) => c.id), () => { if (A === forA) { renderParts(); renderGraph(); renderDetail(); } });
+  }
   $("empty").hidden = true; $("controls").hidden = false; $("panel").hidden = false; steps(STEP_NAMES.length);
   setPanelTab(panelTab); requestAnimationFrame(moveInk);
   if (has3D) show3D({ intro: true });
@@ -579,6 +583,7 @@ function renderPanel() {
     pe.hidden = false;
   } else pe.hidden = true;
   partsQuery = ""; $("partsSearch").value = "";
+  document.querySelector('#partsFilter [data-f="observed"]').textContent = A.provider?.name === "curated" ? "Outside" : "Seen";
   $("parts").classList.add("intro"); clearTimeout(renderPanel.t); renderPanel.t = setTimeout(() => $("parts").classList.remove("intro"), 900);
   renderStats(); renderParts(); renderGraph(); renderDetail(); resetChat();
   const panel = $("panel"); panel.classList.remove("boot"); void panel.offsetWidth; panel.classList.add("boot"); // boot-up sequence once per result
@@ -612,9 +617,7 @@ function renderParts() {
       li.dataset.id = c.id; li.tabIndex = 0;
       const fam = FAMILY[c.type] || "other";
       li.classList.add(fam); li.style.animationDelay = Math.min(shown, 12) * 25 + "ms";
-      const th = el("span", "thumb" + (c.status === "observed" ? "" : " ghost"));
-      const src = cutoutOf(c.id);
-      if (src) { const im = el("img"); im.src = src; im.alt = ""; im.loading = "lazy"; th.append(im); }
+      const th = thumbOf(c);
       const txt = el("span", "pname"); txt.append(el("b", "", c.label), el("small", "", c.type.replace(/_/g, " ")));
       li.append(th, txt);
       if (c.id === removed) li.append(el("span", "tag gone", "removed"));
@@ -851,8 +854,9 @@ function degrees() { const d = {}; for (const r of A.relationships) { d[r.from] 
 function hubId() { // the most connected part is the natural place to start
   const deg = degrees(); return [...A.components].sort((a, b) => (deg[b.id] || 0) - (deg[a.id] || 0))[0]?.id;
 }
-function thumbOf(c, cls = "thumb") { // photo cut-out when the part was seen, a soft family-coloured ghost when inferred
-  const th = el("span", cls + (c.status === "observed" ? "" : " ghost")), src = cutoutOf(c.id);
+function thumbOf(c, cls = "thumb") { // the part's photo cut-out when it was seen, otherwise a small 3D picture of the part itself
+  const src = cutoutOf(c.id) || asm._thumbs?.get(c.id) || null;
+  const th = el("span", cls + (src ? (cutoutOf(c.id) ? "" : " model") : c.status === "observed" ? "" : " ghost"));
   if (src) { const im = el("img"); im.src = src; im.alt = ""; im.loading = "lazy"; th.append(im); }
   return th;
 }

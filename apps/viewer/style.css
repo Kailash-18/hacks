@@ -720,3 +720,7 @@ button.alt { appearance: none; width: 100%; text-align: left; font: inherit; col
 @media (max-width: 1100px) {
   .gizmo { top: 14px; bottom: auto; left: 14px; scale: .8; transform-origin: top left; }
 }
+
+/* 3D pictures of parts that have no photo */
+.thumb.model { background: radial-gradient(circle at 50% 40%, rgba(120, 170, 255, .14), rgba(255, 255, 255, .02)); }
+.thumb.model img { padding: 2px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .5)); }
