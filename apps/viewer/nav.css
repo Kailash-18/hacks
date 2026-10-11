@@ -37,9 +37,11 @@ header.vre-nav :focus-visible { outline: 2px solid #5ee6ff; outline-offset: 2px;
 @media (max-width: 420px) { .lab-switch a svg { display: none; } }
 
 /* ---- lab switch transition: slabs close over the page, the destination lab's name lands, the slabs fly apart */
-html.lab-arriving::after { content: ""; position: fixed; inset: 0; z-index: 10000; background: #081022; }
+/* the navbar stays on top through the whole switch (its thumb slides), the page below it is covered */
+header.vre-nav { z-index: 10002; }
+html.lab-arriving::after { content: ""; position: fixed; inset: 56px 0 0; z-index: 10000; background: #081022; }
 html.lab-arriving.lt-digital::after { background: #0d0b24; }
-.lab-transit { position: fixed; inset: 0; z-index: 10001; pointer-events: all; perspective: 1300px; overflow: hidden; }
+.lab-transit { position: fixed; inset: 56px 0 0; z-index: 10001; pointer-events: all; perspective: 1300px; overflow: hidden; }
 .lab-transit i { position: absolute; top: 0; bottom: 0; left: calc(var(--i) * 100% / 7); width: calc(100% / 7 + 1px);
   background: var(--slab); background-size: 100vw 100vh; background-position: calc(var(--i) * -100vw / 7) 0;
   box-shadow: inset -1px 0 0 var(--edge); transform: translateY(var(--y0)) rotateX(var(--rx0)); will-change: transform; }

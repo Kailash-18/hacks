@@ -1,4 +1,4 @@
-# Visual Reverse Engineering — Devpost write-up
+# Teardown AI — Devpost write-up
 
 <!-- Paste everything between the START/END markers into Devpost. Limit 500 words; 492 words on 12 Oct. Recount after any edit. -->
 <!-- START -->

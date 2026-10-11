@@ -1,7 +1,7 @@
 # Render Blueprint: New > Blueprint > pick this repo. See docs/DEPLOY.md.
 services:
   - type: web
-    name: visual-reverse-engineering
+    name: teardown-ai
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .

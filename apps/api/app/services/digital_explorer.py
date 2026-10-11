@@ -1079,7 +1079,7 @@ ul.vre-list, ul.vre-menu { list-style: none; margin: 0; padding: 0; }
         "<!doctype html>", '<html lang="en">', "<head>", '<meta charset="utf-8" />',
         '<meta name="viewport" content="width=device-width, initial-scale=1" />', f"<title>{title} (draft)</title>",
         "<style>", css, "</style>", "</head>", "<body>",
-        f"  <!-- DRAFT reconstructed from a screenshot by Visual Reverse Engineering. Layout and styles are estimates. -->",
+        f"  <!-- DRAFT reconstructed from a screenshot by Teardown AI. Layout and styles are estimates. -->",
         '  <main class="vre-page">', *body, "  </main>", "</body>", "</html>"])
     name = _pascal(analysis.title) or "Screen"
     react = "\n".join([

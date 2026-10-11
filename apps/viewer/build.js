@@ -459,7 +459,7 @@ $("#stackblitz").onclick = () => {
   f.method = "POST"; f.action = `https://stackblitz.com/run?file=${encodeURIComponent(S.target === "html" ? "index.html" : "src/App.jsx")}`; f.target = "_blank";
   const add = (k, val) => { const i = document.createElement("input"); i.type = "hidden"; i.name = k; i.value = val; f.append(i); };
   add("project[title]", `${S.analysis?.title || "Rebuilt screen"} (rebuilt from a screenshot)`);
-  add("project[description]", "Rebuilt from a screenshot by Visual Reverse Engineering");
+  add("project[description]", "Rebuilt from a screenshot by Teardown AI");
   add("project[template]", template);
   for (const [k, val] of Object.entries(files)) add(`project[files][${k}]`, val);
   document.body.append(f); f.submit(); f.remove();
@@ -1146,7 +1146,7 @@ function toSql(b) {
     for (const p of fk[e.name] || []) { const pe = b.entities.find((x) => x.name === p); if (pe) visit(pe, path); }
     seen.add(e.name); order.push(e); };
   b.entities.forEach((e) => visit(e));
-  return `-- Inferred from a screenshot by Visual Reverse Engineering (a starting point, not the real schema)\n\n` + order.map((e) => {
+  return `-- Inferred from a screenshot by Teardown AI (a starting point, not the real schema)\n\n` + order.map((e) => {
     const cols = e.fields.map((f) => `  ${snake(f.name)} ${f.name.toLowerCase() === "id" ? SQL_T.id : SQL_T[f.type] || "TEXT"}`);
     for (const p of fk[e.name] || []) if (!e.fields.some((f) => snake(f.name) === snake(p) + "_id")) cols.push(`  ${snake(p)}_id TEXT REFERENCES ${snake(p)}s(id)`);
     return `CREATE TABLE ${snake(e.name)}s (\n${cols.join(",\n")}\n);`;
@@ -1166,7 +1166,7 @@ function toOpenApi(b) {
   const schemas = Object.fromEntries(b.entities.map((e) => [e.name, { type: "object", description: e.description,
     properties: Object.fromEntries(e.fields.map((f) => { const [type, format] = OA_T[f.type] || ["string"]; return [f.name, { type, ...(format ? { format } : {}), ...(f.example ? { example: f.example } : {}) }]; })) }]));
   return JSON.stringify({ openapi: "3.0.3", info: { title: `${S.analysis?.title || "Screen"} API (inferred)`, version: "0.1.0",
-    description: "Inferred from a screenshot by Visual Reverse Engineering. A starting point, not the real API." }, paths, components: { schemas } }, null, 2);
+    description: "Inferred from a screenshot by Teardown AI. A starting point, not the real API." }, paths, components: { schemas } }, null, 2);
 }
 function save(text, name, type) {
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click();

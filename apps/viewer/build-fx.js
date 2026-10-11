@@ -418,7 +418,7 @@ document.documentElement.addEventListener("mouseleave",()=>{if(on){mark(null);pa
     for (let y = scrollY; y < end2; y += 5) { scrollTo(0, y); await sleep(16); }
     await sleep(1600);
     if (window.tour) { await sleep(800); await window.tour.outro(); }
-    else cap(0, 0, "Visual Reverse Engineering · screenshot in, working system out");
+    else cap(0, 0, "Teardown AI · screenshot in, working system out");
   }
   if (/[?&](demo|tour)\b/.test(location.search)) setTimeout(() => demo().catch((e) => cap(0, 0, `Demo stopped: ${e.message}`)), 400);
 

@@ -1,4 +1,4 @@
-# API Contract — Visual Reverse Engineering
+# API Contract — Teardown AI
 
 Owner: Krishna. Canonical implementation: `apps/api/app/contract.py` (Pydantic).
 Machine-readable: `contracts/system-analysis.schema.json` (regenerate with `cd apps/api && python scripts/export_schema.py`).

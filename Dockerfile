@@ -1,4 +1,4 @@
-# Visual Reverse Engineering API + Physical Lab viewer, one container.
+# Teardown AI API + Physical Lab viewer, one container.
 # Build from the repo root:  docker build -t vre .
 # Run:                       docker run -p 7860:7860 -e GEMINI_API_KEY=... vre   ->  http://localhost:7860
 # Secrets come from the host's environment/secret store; no .env file is copied into the image.

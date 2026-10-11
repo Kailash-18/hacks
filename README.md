@@ -1,4 +1,4 @@
-# Visual Reverse Engineering
+# Teardown AI
 
 **From visual evidence to explorable systems.** Banana Hacks 2026 (Image AI) project.
 

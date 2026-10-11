@@ -1,4 +1,4 @@
-"""Visual Reverse Engineering API: Physical Lab (Samvit) + Digital Lab and chat (Krishna).
+"""Teardown AI API: Physical Lab (Samvit) + Digital Lab and chat (Krishna).
 
 Run from apps/api:  uvicorn app.main:app --reload --port 8000
 Contract and endpoints: docs/API_CONTRACT.md. All errors: {"error": {"code", "message"}}.
@@ -55,7 +55,7 @@ CACHE_DIR = API_DIR / ".cache"
 SAMPLES_DIR = API_DIR / "samples"
 VIEWER_DIR = API_DIR.parent / "viewer"
 
-app = FastAPI(title="Visual Reverse Engineering API", version="0.2.0")
+app = FastAPI(title="Teardown AI API", version="0.2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",")],

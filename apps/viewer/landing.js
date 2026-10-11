@@ -54,8 +54,8 @@ async function hero(samples) {
   const k = 3.2 / Math.max(...A.overallSize);          // the phone is 3.2 units tall
   const pivot = new THREE.Group(), model = new THREE.Group();
   pivot.add(model); scene.add(pivot);
-  model.rotation.set(-0.22, 2.32, 0.16);                // three-quarter view of the back: the layers fan out sideways
-  const G = 0.5;                                        // gap between layers when pulled apart
+  model.rotation.set(-0.16, -0.78, -0.06);              // three-quarter front view: the lit screen faces you, the layers fan out behind it
+  const G = 0.66;                                       // gap between layers when pulled apart
   const parts = [];
   for (const p of A.parts) {
     const c = comp[p.componentId]; if (!c) continue;
@@ -65,7 +65,7 @@ async function hero(samples) {
     decorate(mesh, p, k, c);
     model.add(mesh);
     const layer = LAYERS[p.componentId] ?? Math.sign(p.position[2]) * 1.5;
-    const lateral = new THREE.Vector3(p.explodeDir[0], p.explodeDir[1], 0).multiplyScalar(0.28 * (p.explodeDist || 1));
+    const lateral = new THREE.Vector3(p.explodeDir[0], p.explodeDir[1], 0).multiplyScalar(0.34 * (p.explodeDist || 1));
     parts.push({ p, c, mesh, base: mesh.position.clone(), off: new THREE.Vector3(0, 0, layer * G).add(lateral), layer,
       show: SHOW.includes(p.componentId) });
   }
@@ -108,8 +108,8 @@ async function hero(samples) {
     for (const it of parts) it.mesh.position.copy(it.base);
     const sphere = box.getBoundingSphere(new THREE.Sphere());
     const fit = Math.max(sphere.radius / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)),
-      sphere.radius / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect * 0.62));
-    camera.position.set(0, 0.25, fit * 1.02); camera.lookAt(0, -0.05, 0); camera.updateProjectionMatrix();
+      sphere.radius / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect * 0.7));
+    camera.position.set(0, 0.3, fit * 0.78); camera.lookAt(0, -0.18, 0); camera.updateProjectionMatrix();
     pivot.position.copy(sphere.center).multiplyScalar(-1);
   }
 

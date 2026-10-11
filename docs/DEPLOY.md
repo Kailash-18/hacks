@@ -25,7 +25,7 @@ Free web services on Render go to sleep when idle, and the first request after t
 2. Push this repo's contents to the Space's git remote. The Space's `README.md` must start with this header (add it only in the Space copy, not on GitHub):
    ```
    ---
-   title: Visual Reverse Engineering
+   title: Teardown AI
    sdk: docker
    app_port: 7860
    ---

@@ -34,7 +34,7 @@
     el.remove();
   }
   const INTRO = `<div class="tour-kicker">Banana Hacks 2026 · Image AI</div>
-    <h1 class="tour-title">${words("Visual Reverse Engineering")}</h1>
+    <h1 class="tour-title">${words("Teardown AI")}</h1>
     <p class="tour-sub">From visual evidence to explorable systems.</p>
     <div class="tour-pair">
       <div class="tour-lab"><b>PHYSICAL LAB</b><h3>Photo of an object</h3><p>Every part found, a 3D model you can pull apart, and what fails if a part breaks.</p></div>
@@ -51,7 +51,7 @@
       <div class="tour-mid"><span>SystemAnalysis</span></div>
       <div class="tour-lab"><b>DIGITAL LAB</b><h3>Code, X-ray, plan</h3><p>HTML, React, React Native, Flutter; build plan, backend, accessibility audit.</p></div>
     </div>
-    <div class="tour-team">Visual Reverse Engineering · built during Banana Hacks 2026</div>`;
+    <div class="tour-team">Teardown AI · built during Banana Hacks 2026</div>`;
 
   // smooth slider motion that the viewer sees as real input
   function slide(input, from, to, ms) {

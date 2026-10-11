@@ -54,7 +54,7 @@ def download_github_zip(url: str) -> tuple[bytes, str]:
     refs = [f"refs/heads/{ref}"] if ref else ["refs/heads/main", "refs/heads/master"]
     for r in refs:
         req = urllib.request.Request(f"https://codeload.github.com/{owner}/{repo}/zip/{r}",
-                                     headers={"User-Agent": "visual-reverse-engineering"})
+                                     headers={"User-Agent": "teardown-ai"})
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = resp.read(MAX_ZIP_BYTES + 1)
