@@ -395,13 +395,12 @@ export class AssemblyView {
     const guides = new THREE.LineSegments(gg, new THREE.LineDashedMaterial({ color: 0x59d8ff, dashSize: 0.1, gapSize: 0.08, transparent: true, opacity: 0,
       depthWrite: false, toneMapped: false }));
     this.root.add(guides);
-    // target lock: two broken rings that face the camera and spin around the selected part
-    const arc = (r, a0, a1) => { const pts = []; for (let i = 0; i <= 40; i++) { const a = a0 + (a1 - a0) * (i / 40); pts.push(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0)); } return pts; };
-    const lockMat = new THREE.LineBasicMaterial({ color: 0x7fd0ff, transparent: true, opacity: 0.95, depthTest: false, toneMapped: false });
+    // selection frame: four thin corner brackets that close in on the selected part and then hold still
+    const lockMat = new THREE.LineBasicMaterial({ color: 0x8fd0ff, transparent: true, opacity: 0.9, depthTest: false, toneMapped: false });
     const lock = new THREE.Group(); lock.renderOrder = 20; lock.visible = false;
-    const outer = new THREE.Group(), inner = new THREE.Group();
-    for (let k = 0; k < 3; k++) outer.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arc(1, k * 2.094, k * 2.094 + 1.5)), lockMat));
-    for (let k = 0; k < 4; k++) inner.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arc(0.82, k * 1.571 + 0.3, k * 1.571 + 1.1)), lockMat));
+    const outer = new THREE.Group(), inner = new THREE.Group(), L = 0.28;
+    for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]])
+      outer.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(sx, sy * (1 - L), 0), new THREE.Vector3(sx, sy, 0), new THREE.Vector3(sx * (1 - L), sy, 0)]), lockMat));
     lock.add(outer, inner); this.root.add(lock);
     g.position.y = this.floor.position.y + 0.01;
     this.root.add(g);
@@ -424,12 +423,12 @@ export class AssemblyView {
   }
 
   updateEffects(now, dt) {
+    const lockMatOf = (F) => F.outer.children[0].material;
     const F = this.fx; if (!F) return;
     // the plinth follows the lowest point of the model (it drops as the parts spread out)
     const want = this.floor.position.y + 0.01;
     F.group.position.y += (want - F.group.position.y) * Math.min(1, dt * 8 || 1);
     this.grid.position.y = F.group.position.y - F.H * 1.3 - 0.02;
-    F.ring1.rotation.y += dt * 0.06; // the engraved ring turns slowly, like a turntable index
     F.tick.material.color.setRGB(0.35, 0.85, 1).multiplyScalar(1.9 + 0.35 * Math.sin(now / 1100)); // the lit edge breathes gently
     // target lock follows the selected part and faces the camera
     const sel = this.parts.find((p) => p.id === this.lastPaint?.selected && p.group.visible);
@@ -439,8 +438,7 @@ export class AssemblyView {
       const box = new THREE.Box3().setFromObject(sel.mesh), r = Math.max(0.35, box.getSize(new THREE.Vector3()).length() * 0.6);
       const k = easeOut(clamp01((now - F.lockT) / 450)); // snaps in from wide to tight
       F.lock.position.copy(box.getCenter(new THREE.Vector3())); F.lock.quaternion.copy(this.camera.quaternion);
-      F.lock.scale.setScalar(r * (1.8 - 0.8 * k)); F.lock.children[0].children.forEach((l) => (l.material.opacity = k));
-      F.outer.rotation.z += dt * 0.9; F.inner.rotation.z -= dt * 1.4;
+      F.lock.scale.setScalar(r * (1.5 - 0.5 * k)); lockMatOf(F).opacity = 0.9 * k;
     } else F.lockId = null;
     // hover lift: the part under the pointer rises a little toward you
     if (this._liftAnim) {

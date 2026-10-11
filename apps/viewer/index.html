@@ -91,18 +91,18 @@
     <div class="pviews">
       <section class="pview" data-view="overview" hidden>
         <p id="summary" class="summary"></p>
+        <div id="flow" class="flow"></div>
         <div id="product" class="product" hidden></div>
       </section>
 
       <section class="pview on" data-view="parts">
         <div id="detail" class="detail" hidden>
-          <div class="d-top"><h3 id="dLabel"></h3><span id="dStatus" class="chip"></span></div>
-          <div class="kv"><span>Type</span><b id="dType"></b></div>
+          <div class="d-top"><span id="dThumb" class="d-thumb"></span><div class="d-name"><span id="dType" class="d-type"></span><h3 id="dLabel"></h3></div><span id="dStatus" class="chip"></span></div>
           <p id="dFunction" class="dfun" hidden></p>
           <p id="dIfRemoved" class="dif" hidden></p>
           <ul id="dEvidence" class="evidence"></ul>
           <ul id="dRels" class="rels" hidden></ul>
-          <div class="row">
+          <div class="row d-acts">
             <button id="whatif" class="btn small danger">What if I remove it?</button>
             <button id="forward" class="btn small ghost" title="Move towards you">Bring forward</button>
             <button id="backward" class="btn small ghost" title="Move away from you">Send back</button>
@@ -120,7 +120,6 @@
 
       <section class="pview" data-view="links" hidden>
         <div id="links" class="links"></div>
-        <p class="tiny muted links-note">Dashed = inferred, not seen in the photo. Click any part to follow its connections.</p>
       </section>
 
       <section class="pview chat" data-view="ask" hidden id="chatBlock">
@@ -129,7 +128,7 @@
         <div id="chatChips" class="chat-chips"></div>
         <form id="chatForm" class="chat-form">
           <input id="chatInput" autocomplete="off" maxlength="500" placeholder="Ask about any part…" />
-          <button class="btn small primary" id="chatSend">Ask</button>
+          <button class="btn small primary" id="chatSend" aria-label="Send">Ask <span aria-hidden="true">→</span></button>
         </form>
       </section>
     </div>

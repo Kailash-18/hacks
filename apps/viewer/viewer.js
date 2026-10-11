@@ -614,7 +614,7 @@ function renderDetail() {
   const c = compById(selected); d.hidden = false;
   $("dLabel").textContent = c.label;
   const st = $("dStatus"); st.className = `chip ${c.status}`; st.textContent = c.status === "observed" ? "seen in photo" : c.status;
-  $("dType").textContent = c.type;
+  $("dType").textContent = c.type.replace(/_/g, " "); $("dThumb").replaceChildren(thumbOf(c, "thumb lg")); d.className = "detail " + (FAMILY[c.type] || "other");
   $("dFunction").hidden = !c.function; $("dFunction").textContent = c.function ? "Does: " + c.function : "";
   $("dIfRemoved").hidden = !c.ifRemoved; $("dIfRemoved").textContent = c.ifRemoved ? "Without it: " + c.ifRemoved : "";
   $("dEvidence").innerHTML = ""; c.evidence.forEach((e) => $("dEvidence").append(el("li", "", e)));
@@ -750,84 +750,167 @@ function showReveal() {
 }
 $("reveal").addEventListener("click", () => { $("reveal").classList.add("out"); setTimeout(() => ($("reveal").hidden = true), 700); });
 
-const EDGE_COL = { powers: "#ffb020", feeds: "#ffb020", controls: "#36d6ff", connected_to: "#36d6ff", depends_on: "#9b8cff", drives: "#ff5fd2",
-  transmits: "#ff5fd2", supports: "#8fa3bf", mounts: "#8fa3bf", contains: "#8fa3bf", attached_to: "#8fa3bf", covers: "#8fa3bf", adjacent_to: "#8fa3bf" };
-// where each kind of part sits around the hub (degrees, 0 = right): power above, outputs right, inputs left, structure below
 // ---------------------------------------------------------------- connections (focus view)
-// One part at a time: what it needs above, the part in the middle, what depends on it below, and what holds it.
+// One part at a time, in plain words: where its power and orders come from, what it runs, and what holds it.
 // Clicking any neighbour moves the focus there, so you walk the system instead of reading a hairball.
-const FLOW = { powers: ["powers", "power"], feeds: ["feeds", "power"], controls: ["controls", "control"], connected_to: ["signals", "control"],
-  depends_on: ["needs", "control"], drives: ["drives", "motion"], transmits: ["moves", "motion"] };
+const REL_IN = { powers: "Gets power from", feeds: "Gets power from", controls: "Controlled by", connected_to: "Gets signals from",
+  depends_on: "Needed by", drives: "Driven by", transmits: "Driven by" };
+const REL_OUT = { powers: "Powers", feeds: "Powers", controls: "Controls", connected_to: "Sends signals to",
+  depends_on: "Needs", drives: "Drives", transmits: "Drives" };
+const REL_ORDER = ["Gets power from", "Controlled by", "Gets signals from", "Needs", "Driven by", "Powers", "Controls", "Sends signals to", "Drives", "Needed by"];
+const REL_KIND = { "Gets power from": "power", Powers: "power", "Driven by": "motion", Drives: "motion" }; // the rest carry signals
+const UPSTREAM = new Set(["Gets power from", "Controlled by", "Gets signals from", "Needs", "Driven by"]);
 const HOLD = new Set(["supports", "mounts", "contains", "attached_to", "covers", "adjacent_to"]);
+function degrees() { const d = {}; for (const r of A.relationships) { d[r.from] = (d[r.from] || 0) + 1; d[r.to] = (d[r.to] || 0) + 1; } return d; }
 function hubId() { // the most connected part is the natural place to start
-  const deg = {}; for (const r of A.relationships) { deg[r.from] = (deg[r.from] || 0) + 1; deg[r.to] = (deg[r.to] || 0) + 1; }
-  return [...A.components].sort((a, b) => (deg[b.id] || 0) - (deg[a.id] || 0))[0]?.id;
+  const deg = degrees(); return [...A.components].sort((a, b) => (deg[b.id] || 0) - (deg[a.id] || 0))[0]?.id;
 }
-function renderGraph() { renderLinks(); }
+function thumbOf(c, cls = "thumb") { // photo cut-out when the part was seen, a soft family-coloured ghost when inferred
+  const th = el("span", cls + (c.status === "observed" ? "" : " ghost")), src = cutoutOf(c.id);
+  if (src) { const im = el("img"); im.src = src; im.alt = ""; im.loading = "lazy"; th.append(im); }
+  return th;
+}
+const nameList = (ids) => { const n = ids.map((id) => compById(id).label); return n.length <= 2 ? n.join(" and ") : `${n.slice(0, 2).join(", ")} and ${n.length - 2} more`; };
+function relGroups(fid) {
+  const groups = new Map(), holds = [];
+  for (const r of A.relationships) {
+    let label = null, other = null;
+    if (r.to === fid && REL_IN[r.type]) [label, other] = [REL_IN[r.type], r.from];
+    else if (r.from === fid && REL_OUT[r.type]) [label, other] = [REL_OUT[r.type], r.to];
+    else if ((r.from === fid || r.to === fid) && HOLD.has(r.type)) { const o = r.from === fid ? r.to : r.from; if (compById(o) && !holds.some(([, x]) => x === o)) holds.push([r, o]); continue; }
+    if (!label || !compById(other) || other === fid) continue;
+    if (!groups.has(label)) groups.set(label, []);
+    const g = groups.get(label); if (!g.some(([, x]) => x === other)) g.push([r, other]);
+  }
+  const wired = new Set([...groups.values()].flat().map(([, id]) => id));
+  return { holds: holds.filter(([, id]) => !wired.has(id)), groups: REL_ORDER.filter((l) => groups.has(l)).map((l) => [l, groups.get(l)]) };
+}
+function renderGraph() { renderLinks(); renderOverview(); }
+let linkTrail = [];
 function renderLinks() {
   const box = $("links"); if (!box || !A) return;
   const fid = selected && compById(selected) ? selected : hubId(); const f = compById(fid);
   box.innerHTML = ""; if (!f) return;
-  const ups = [], downs = [], holds = [];
-  for (const r of A.relationships) {
-    if (r.to === fid && FLOW[r.type]) ups.push([r, r.from]);
-    else if (r.from === fid && FLOW[r.type]) downs.push([r, r.to]);
-    else if ((r.from === fid || r.to === fid) && HOLD.has(r.type)) holds.push([r, r.from === fid ? r.to : r.from]);
+  if (linkTrail[linkTrail.length - 1] !== fid) { linkTrail = linkTrail.filter((id) => id !== fid && compById(id)); linkTrail.push(fid); linkTrail = linkTrail.slice(-5); }
+  const { groups, holds } = relGroups(fid);
+  const nIn = groups.filter(([l]) => UPSTREAM.has(l)).reduce((s, [, g]) => s + g.length, 0), nOut = groups.reduce((s, [, g]) => s + g.length, 0) - nIn;
+
+  // where you have been: a short trail to step back along
+  if (linkTrail.length > 1) {
+    const tr = el("div", "lk-trail");
+    linkTrail.forEach((id, i) => {
+      if (i) tr.append(el("span", "lk-sep", "›"));
+      const b = el("button", "lk-crumb" + (id === fid ? " on" : ""), compById(id).label); b.type = "button";
+      if (id !== fid) b.onclick = () => select(id);
+      tr.append(b);
+    });
+    box.append(tr);
   }
-  const node = (id, r, dir, i) => {
-    const c = compById(id), fam = FAMILY[c.type] || "other";
-    const b = el("button", ["lk-node", fam, r.status !== "observed" && "inf", affected.has(id) && "hit", id === removed && "gone"].filter(Boolean).join(" "));
-    b.type = "button"; b.dataset.id = id; b.dataset.dir = dir; b.dataset.rel = FLOW[r.type]?.[1] || "control";
-    b.style.animationDelay = 60 + i * 45 + "ms";
-    const verb = FLOW[r.type]?.[0] || r.type.replace(/_/g, " ");
-    const phrase = r.type === "depends_on" ? (dir === "up" ? "it needs this" : "needs it") : dir === "up" ? verb + " it" : "it " + verb;
-    b.append(el("span", "lk-dot"), el("span", "lk-name", c.label), el("span", "lk-verb", phrase));
-    b.title = r.evidence?.[0] || "";
-    b.onclick = () => select(id);
-    b.onmouseenter = () => { box.classList.add("hovering"); b.classList.add("on"); box.querySelector(`path[data-id="${CSS.escape(id)}"]`)?.classList.add("on"); if (mode === "3d") asm.setHover(id, "links"); };
-    b.onmouseleave = () => { box.classList.remove("hovering"); b.classList.remove("on"); box.querySelectorAll("path.on").forEach((p) => p.classList.remove("on")); if (mode === "3d") asm.setHover(null, "links"); };
-    return b;
-  };
-  const col = (title, items, dir, empty) => {
-    const g = el("div", "lk-group " + dir); g.append(el("div", "lk-cap", title));
-    if (!items.length) g.append(el("div", "lk-empty", empty));
-    items.forEach(([r, id], i) => g.append(node(id, r, dir, i)));
-    return g;
-  };
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("class", "lk-wires");
-  box.append(svg, col("Needs", ups, "up", "Nothing upstream: it works without any other part."));
-  const fc = el("div", "lk-focus " + (FAMILY[f.type] || "other"));
-  fc.append(el("span", "lk-ftype", f.type.replace(/_/g, " ")), el("strong", "", f.label),
-    el("span", "lk-fsub", `${ups.length} in · ${downs.length} out${f.status !== "observed" ? " · inferred" : ""}`));
-  if (!selected) fc.append(el("em", "lk-hint", "Most connected part. Pick any part to focus on it."));
-  box.append(fc, col("Depends on it", downs, "down", "Nothing depends on it."));
+
+  // the focused part, with one sentence that says what it is plugged into
+  const fam = FAMILY[f.type] || "other";
+  const fc = el("div", "lk-focus " + fam);
+  const ft = el("div", "lk-ftop"); ft.append(thumbOf(f, "thumb lg"));
+  const fn = el("div", "lk-fname"); fn.append(el("span", "lk-ftype", f.type.replace(/_/g, " ") + (f.status !== "observed" ? " · inferred" : "")), el("strong", "", f.label));
+  ft.append(fn); fc.append(ft);
+  const sentence = groups.slice(0, 2).map(([l, g]) => `${l} ${nameList(g.map(([, id]) => id))}`).join(". ");
+  fc.append(el("p", "lk-say", sentence ? sentence + "." : holds.length ? `A structural part, held with ${nameList(holds.map(([, id]) => id))}.` : "Nothing is wired to it directly."));
+  const meta = el("div", "lk-meta");
+  meta.append(el("span", "m-in", `${nIn} in`), el("span", "m-out", `${nOut} out`), el("span", "", `${holds.length} held`));
+  fc.append(meta);
+  const acts = el("div", "lk-acts");
+  const go = (tab) => async () => { if (selected !== fid) await select(fid); setPanelTab(tab); };
+  const b1 = el("button", "btn small ghost", "Part details"); b1.type = "button"; b1.onclick = go("parts");
+  const b2 = el("button", "btn small ghost", "Ask about it"); b2.type = "button"; b2.onclick = go("ask");
+  acts.append(b1, b2); fc.append(acts);
+  if (!selected) fc.append(el("div", "lk-hint", "Showing the most connected part. Pick any part to follow its connections."));
+  fc.onmouseenter = () => { if (mode === "3d") asm.setHover(fid, "links"); };
+  fc.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "links"); };
+  box.append(fc);
+
+  // one tidy section per kind of link
+  let k = 0;
+  for (const [label, items] of groups) {
+    const sec = el("section", `lk-sec ${REL_KIND[label] || "control"} ${UPSTREAM.has(label) ? "in" : "out"}`);
+    const cap = el("div", "lk-cap"); cap.append(el("i", "lk-glyph"), el("span", "", label), el("span", "lk-n", String(items.length)));
+    sec.append(cap);
+    for (const [r, id] of items) {
+      const c = compById(id), row = el("button", ["lk-row", FAMILY[c.type] || "other", r.status !== "observed" && "inf", affected.has(id) && "hit", id === removed && "gone"].filter(Boolean).join(" "));
+      row.type = "button"; row.style.animationDelay = Math.min(k++, 14) * 30 + "ms";
+      const nm = el("span", "pname"); nm.append(el("b", "", c.label), el("small", "", c.type.replace(/_/g, " ")));
+      row.append(thumbOf(c), nm, r.status !== "observed" ? el("span", "lk-tag", "inferred") : el("span", "chev", "›"));
+      row.title = (r.evidence || []).join(" · ");
+      row.onclick = () => select(id);
+      row.onmouseenter = () => { if (mode === "3d") asm.setHover(id, "links"); };
+      row.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "links"); };
+      sec.append(row);
+    }
+    box.append(sec);
+  }
+  if (!groups.length && !holds.length) box.append(el("div", "lk-empty", "No links were found for this part."));
   if (holds.length) {
-    const hg = el("div", "lk-holds"); hg.append(el("div", "lk-cap", "Held together with"));
+    const hg = el("section", "lk-sec hold"); const cap = el("div", "lk-cap"); cap.append(el("i", "lk-glyph"), el("span", "", "Held with"), el("span", "lk-n", String(holds.length)));
     const row = el("div", "lk-chips");
-    for (const [r, id] of holds) { const b = el("button", "lk-chip" + (r.status !== "observed" ? " inf" : ""), compById(id).label); b.type = "button"; b.onclick = () => select(id); row.append(b); }
-    hg.append(row); box.append(hg);
+    for (const [r, id] of holds) {
+      const c = compById(id), b = el("button", "lk-chip" + (r.status !== "observed" ? " inf" : "")); b.type = "button";
+      b.append(thumbOf(c, "thumb xs"), el("span", "", c.label)); b.onclick = () => select(id);
+      b.onmouseenter = () => { if (mode === "3d") asm.setHover(id, "links"); }; b.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "links"); };
+      row.append(b);
+    }
+    hg.append(cap, row); box.append(hg);
   }
-  requestAnimationFrame(() => drawWires(box, svg, fc));
 }
-// a trunk line in the left gutter joins every neighbour to the focused part; each branch is its own path, so it can light
-// up on hover, and its dashes flow the way power and signals travel (from what it needs, out to what depends on it)
-function drawWires(box, svg, fc) {
-  if (!box.isConnected || !box.offsetWidth) return;
-  const NS = "http://www.w3.org/2000/svg", B = box.getBoundingClientRect(), F = fc.getBoundingClientRect();
-  svg.setAttribute("width", B.width); svg.setAttribute("height", box.scrollHeight); svg.innerHTML = "";
-  const X = 12, fy = F.top - B.top + F.height / 2, r = 8;
-  const add = (d, cls, id) => { const p = document.createElementNS(NS, "path"); p.setAttribute("d", d); p.setAttribute("class", cls); if (id) p.dataset.id = id; svg.append(p); return p; };
-  for (const n of box.querySelectorAll(".lk-node")) {
-    const R = n.getBoundingClientRect(), y = R.top - B.top + R.height / 2, nx = R.left - B.left - 2, up = n.dataset.dir === "up";
-    const cls = "wire " + n.dataset.rel + (n.classList.contains("inf") ? " inf" : "") + (n.classList.contains("hit") ? " hit" : "");
-    const d = up ? `M${nx},${y} H${X + r} Q${X},${y} ${X},${y + r} V${fy}` : `M${X},${fy} V${y - r} Q${X},${y} ${X + r},${y} H${nx}`;
-    add(d, cls, n.dataset.id);
+
+// ---------------------------------------------------------------- overview: how it works, at a glance
+function powerPath() { // power source -> the part it feeds (usually the board) -> what that part runs
+  const outs = (id, types) => A.relationships.filter((r) => r.from === id && types.includes(r.type)).map((r) => r.to).filter((x) => compById(x));
+  const srcs = A.components.filter((c) => c.type === "power_source" && outs(c.id, ["powers", "feeds"]).length);
+  const src = srcs[0] || A.components.find((c) => outs(c.id, ["powers", "feeds"]).length); if (!src) return null;
+  const fed = outs(src.id, ["powers", "feeds"]);
+  const brain = fed.map(compById).find((c) => c.type === "controller") || compById(fed[0]);
+  const work = [...new Set(outs(brain.id, ["controls", "drives", "powers", "feeds", "connected_to", "transmits"]))].filter((x) => x !== src.id && x !== brain.id);
+  return { src, brain, work };
+}
+function renderOverview() {
+  const box = $("flow"); if (!box || !A) return; box.innerHTML = "";
+  const p = powerPath();
+  if (p) {
+    const sec = el("section", "ov-sec"); sec.append(el("div", "ov-cap", "How it works"));
+    const chain = el("div", "ov-chain");
+    const step = (kind, title, c, extra) => {
+      const s = el("button", "ov-step " + kind); s.type = "button";
+      const t = el("span", "pname"); t.append(el("small", "", title), el("b", "", c.label)); s.append(thumbOf(c), t);
+      if (extra) s.append(el("span", "ov-more", extra));
+      s.onclick = () => select(c.id);
+      s.onmouseenter = () => { if (mode === "3d") asm.setHover(c.id, "links"); }; s.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "links"); };
+      return s;
+    };
+    chain.append(step("power", "Power comes from", p.src));
+    if (p.brain.id !== p.src.id) chain.append(el("span", "ov-link power"), step("control", "It feeds", p.brain));
+    if (p.work.length) {
+      chain.append(el("span", "ov-link control"));
+      const w = el("div", "ov-work"); w.append(el("small", "", "Which runs"));
+      const row = el("div", "lk-chips");
+      p.work.slice(0, 6).forEach((id) => { const c = compById(id), b = el("button", "lk-chip"); b.type = "button"; b.append(thumbOf(c, "thumb xs"), el("span", "", c.label)); b.onclick = () => select(id); row.append(b); });
+      if (p.work.length > 6) row.append(el("span", "ov-more", `+${p.work.length - 6}`));
+      w.append(row); chain.append(w);
+    }
+    sec.append(chain); box.append(sec);
   }
-  // the socket where the trunk meets the focused part
-  add(`M${X},${fy} H${F.left - B.left - 2}`, "wire stub");
-  const dot = document.createElementNS(NS, "circle"); dot.setAttribute("cx", X); dot.setAttribute("cy", fy); dot.setAttribute("r", 4); dot.setAttribute("class", "hub"); svg.append(dot);
+  const deg = degrees(), key = [...A.components].filter((c) => deg[c.id]).sort((a, b) => (deg[b.id] || 0) - (deg[a.id] || 0)).slice(0, 4);
+  if (key.length) {
+    const sec = el("section", "ov-sec"); sec.append(el("div", "ov-cap", "Key parts"));
+    const grid = el("div", "ov-grid");
+    key.forEach((c, i) => {
+      const t = el("button", "ov-tile " + (FAMILY[c.type] || "other")); t.type = "button"; t.style.animationDelay = i * 60 + "ms";
+      const nm = el("span", "pname"); nm.append(el("b", "", c.label), el("small", "", `${deg[c.id]} links · ${c.status === "observed" ? "seen" : "inside"}`));
+      t.append(thumbOf(c), nm); t.onclick = () => select(c.id);
+      t.onmouseenter = () => { if (mode === "3d") asm.setHover(c.id, "links"); }; t.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "links"); };
+      grid.append(t);
+    });
+    sec.append(grid); box.append(sec);
+  }
 }
-addEventListener("resize", () => { if (panelTab === "links") renderLinks(); });
 
 // ---------------------------------------------------------------- panel tabs
 let panelTab = "parts";
@@ -850,33 +933,50 @@ addEventListener("resize", moveInk);
 let chatBusy = false;
 function resetChat() {
   $("chatLog").innerHTML = "";
-  chatMsg("bot", `Ask me anything about this ${A.title || "object"}: what a part does, how it is powered, or what breaks without it.`);
+  const hi = el("div", "chat-hello");
+  hi.append(el("div", "ch-mark"), el("b", "", `Ask about this ${A.title || "object"}`),
+    el("span", "", "What a part does, how it is powered, or what breaks without it. Answers come only from this analysis."));
+  $("chatLog").append(hi);
   renderChips();
 }
 function chatMsg(who, text, refs = []) {
+  $("chatLog").querySelector(".chat-hello")?.classList.add("gone");
   const m = el("div", "msg " + who);
-  m.append(el("div", "bubble", text));
+  const bub = el("div", "bubble");
+  if (who.includes("pending")) { bub.append(el("i"), el("i"), el("i")); bub.setAttribute("aria-label", "Thinking"); }
+  else bub.textContent = text;
+  m.append(bub);
   if (refs.length) {
     const row = el("div", "refs");
-    for (const id of refs) { const c = compById(id); if (!c) continue; const b = el("button", "ref", c.label); b.type = "button"; b.onclick = () => select(id); row.append(b); }
+    for (const id of refs) {
+      const c = compById(id); if (!c) continue;
+      const b = el("button", "ref"); b.type = "button"; b.append(thumbOf(c, "thumb xs"), el("span", "", c.label)); b.onclick = () => select(id);
+      b.onmouseenter = () => { if (mode === "3d") asm.setHover(id, "links"); }; b.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "links"); };
+      row.append(b);
+    }
     m.append(row);
   }
-  $("chatLog").append(m); $("chatLog").scrollTop = $("chatLog").scrollHeight;
+  $("chatLog").append(m); $("chatLog").scrollTo({ top: $("chatLog").scrollHeight, behavior: "smooth" });
   return m;
 }
 function renderChips() {
   if (!A) return;
-  const c = selected && compById(selected), box = $("chatChips"); box.innerHTML = "";
-  $("chatCtx").textContent = c ? `about: ${c.label}` : "";
+  const c = selected && compById(selected), box = $("chatChips"), ctx = $("chatCtx"); box.innerHTML = ""; ctx.innerHTML = "";
+  if (c) {
+    const pill = el("div", "ctx-pill " + (FAMILY[c.type] || "other"));
+    const x = el("button", "ctx-x", "×"); x.type = "button"; x.title = "Ask about the whole object"; x.onclick = () => select(null);
+    pill.append(thumbOf(c, "thumb xs"), el("span", "", "Asking about "), el("b", "", c.label), x);
+    ctx.append(pill);
+  }
   const qs = c ? [`What does the ${c.label} do?`, `What stops working without the ${c.label}?`, `What is the ${c.label} connected to?`]
     : ["How does it work?", "What powers it?", "Which part is the most important?"];
-  for (const q of qs) { const b = el("button", "chip-q", q); b.type = "button"; b.onclick = () => ask(q); box.append(b); }
+  for (const q of qs) { const b = el("button", "chip-q"); b.type = "button"; b.append(el("span", "", q), el("i", "", "↗")); b.onclick = () => ask(q); box.append(b); }
 }
 async function ask(q) {
   if (!A || chatBusy || !q.trim()) return;
-  chatBusy = true; $("chatSend").disabled = true;
+  chatBusy = true; $("chatSend").disabled = true; $("chatBlock").classList.add("busy");
   chatMsg("me", q);
-  const wait = chatMsg("bot pending", "Thinking…");
+  const wait = chatMsg("bot pending", "");
   try {
     const r = await fetch(API + `/api/analysis/${encodeURIComponent(A.analysisId)}/chat`, { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question: q.slice(0, 1000), selectedComponentIds: selected ? [selected] : [] }) });
@@ -885,7 +985,7 @@ async function ask(q) {
     if (!r.ok) throw new Error(errText(d, r.status));
     wait.remove(); chatMsg("bot", d.answer, (d.referencedComponentIds || []).filter((id) => id !== selected).slice(0, 6));
   } catch (e) { wait.remove(); chatMsg("bot err", e.message || "Could not get an answer."); }
-  finally { chatBusy = false; $("chatSend").disabled = false; }
+  finally { chatBusy = false; $("chatSend").disabled = false; $("chatBlock").classList.remove("busy"); }
 }
 $("chatForm").addEventListener("submit", (e) => { e.preventDefault(); const q = $("chatInput").value.trim(); if (q) { $("chatInput").value = ""; ask(q); } });
 
