@@ -130,3 +130,11 @@
 .xh-legend span { display: inline-flex; align-items: center; gap: 5px; color: #b8c4d2; font-size: 11.5px; }
 .xh-legend i { width: 14px; height: 3px; border-radius: 2px; background: var(--c); box-shadow: 0 0 6px var(--c); }
 @media (max-width: 700px) { .xhelp { display: none; } }
+.xhelp { width: 226px; }
+.xhelp.xr { border-color: rgba(94,242,255,.4); }
+.xhelp .mk.g { width: 11px; height: 11px; border-radius: 3px; background: rgba(94,242,255,.25); }
+.xhelp .mk.g::before { display: none; }
+.xhelp .mk.d { width: 11px; height: 11px; border-radius: 50%; border-style: double; border-width: 3px; }
+.xhelp .mk.d::before { display: none; }
+.xhelp .mk.k { width: auto; height: auto; border: 0; font-style: normal; color: #7fdcff; font-size: 12px; line-height: 1; padding: 0 1px; }
+.xhelp .mk.k::before, .xhelp .mk.k::after { display: none; }

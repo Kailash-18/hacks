@@ -168,13 +168,23 @@ async function build(analysis, { sample = false } = {}) {
   renderPanel();
   $("explode").value = 0;
   restoreWhatIf(true);
-  $("xray").checked = false; asm.setXray(false); $("xrayHelp").hidden = true;
+  $("xray").checked = false; asm.setXray(false); syncHelp();
   const has3D = A.scene.assembly && A.scene.assembly.parts.length;
   if (has3D) asm.build(A.scene.assembly, A.components, viewsOf(A), A.relationships);
   $("empty").hidden = true; $("controls").hidden = false; $("panel").hidden = false; steps(STEP_NAMES.length);
   setPanelTab(panelTab); requestAnimationFrame(moveInk);
   if (has3D) show3D({ intro: true });
   else { await showView(0); introExplode(); }
+}
+
+// the controls card: always there in the 3D view; in X-ray it also explains the wire colours
+function syncHelp() {
+  const xr = $("xray").checked, show = mode === "3d" && $("empty").hidden && !!A;
+  $("xrayHelp").hidden = !show;
+  $("xhTitle").textContent = xr ? "X-ray view" : "3D controls";
+  $("xhClick").textContent = xr ? "Its wires only" : "Its details";
+  $("xhLegend").hidden = !xr;
+  $("xrayHelp").classList.toggle("xr", xr);
 }
 
 function show3D({ intro = false } = {}) {
@@ -191,7 +201,7 @@ function show3D({ intro = false } = {}) {
     });
   }
   $("depthBadge").textContent = "3D model: AI-estimated shapes (approximate)";
-  $("handsHint").hidden = false; $("resetParts").hidden = !asm.anyMoved();
+  $("handsHint").hidden = false; $("resetParts").hidden = !asm.anyMoved(); syncHelp();
   $("loading").hidden = true;
 }
 
@@ -213,7 +223,7 @@ function renderTabs() {
 
 async function showView(vi, { fromTab = false } = {}) {
   currentView = vi;
-  mode = "layers"; asm.setActive(false); root.visible = true; controls.autoRotate = false; $("spin").checked = false;
+  mode = "layers"; asm.setActive(false); $("xrayHelp").hidden = true; root.visible = true; controls.autoRotate = false; $("spin").checked = false;
   $("handsHint").hidden = true; $("resetParts").hidden = true;
   controls.minAzimuthAngle = -0.75; controls.maxAzimuthAngle = 0.75;          // 2.5D layers only look right from the front
   controls.minPolarAngle = Math.PI / 2 - 0.6; controls.maxPolarAngle = Math.PI / 2 + 0.6; controls.minDistance = 4; controls.maxDistance = 40;
@@ -483,7 +493,7 @@ $("xray").addEventListener("change", (e) => {
   if (mode !== "3d") { e.target.checked = false; return; }
   if (e.target.checked) { controls.autoRotate = false; $("spin").checked = false; }  // hold still for the scan
   asm.setXray(e.target.checked);
-  $("xrayHelp").hidden = !e.target.checked;
+  syncHelp();
 });
 $("resetView").addEventListener("click", () => { if (mode === "3d" && $("isolate").checked) { $("isolate").checked = false; paint(); } frame(); });
 

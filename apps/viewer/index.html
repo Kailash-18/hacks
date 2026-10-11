@@ -69,15 +69,18 @@
         </div>
       </div>
     </div>
-    <aside id="xrayHelp" class="xhelp" hidden aria-label="How to use the X-ray view">
-      <b>X-ray view</b>
+    <aside id="xrayHelp" class="xhelp" hidden aria-label="How to move around the 3D model">
+      <b id="xhTitle">3D controls</b>
       <dl>
         <dt><i class="mk l"></i>Left-drag</dt><dd>Rotate</dd>
-        <dt><i class="mk r"></i>Right-drag</dt><dd>Move</dd>
+        <dt><i class="mk r"></i>Right-drag</dt><dd>Move view</dd>
         <dt><i class="mk w"></i>Scroll</dt><dd>Zoom</dd>
-        <dt><i class="mk c"></i>Click a part</dt><dd>Its wires only</dd>
+        <dt><i class="mk c"></i>Click a part</dt><dd id="xhClick">Its details</dd>
+        <dt><i class="mk g"></i>Drag a part</dt><dd>Pull it out</dd>
+        <dt><i class="mk k">⇧</i>Shift + drag</dt><dd>Turn it</dd>
+        <dt><i class="mk d"></i>Double-click</dt><dd>Focus on it</dd>
       </dl>
-      <div class="xh-legend"><span><i style="--c:#ffb020"></i>Power</span><span><i style="--c:#36d6ff"></i>Signal</span><span><i style="--c:#9b8cff"></i>Depends on</span><span><i style="--c:#ff5fd2"></i>Motion</span><span><i style="--c:#8fa3bf"></i>Holds</span></div>
+      <div class="xh-legend" id="xhLegend" hidden><span><i style="--c:#ffb020"></i>Power</span><span><i style="--c:#36d6ff"></i>Signal</span><span><i style="--c:#9b8cff"></i>Depends on</span><span><i style="--c:#ff5fd2"></i>Motion</span><span><i style="--c:#8fa3bf"></i>Holds</span></div>
     </aside>
     <div id="reveal" class="reveal" hidden></div>
     <div id="impact" class="impact" hidden></div>
