@@ -140,15 +140,16 @@ async function makeCode(params, label, run = S.run) {
   try {
     const out = await api("/api/digital/code", { method: "POST", body: form(params) });
     if (run !== S.run) return;
-    if (out.source !== "ai" && params.baseCode && out.code === params.baseCode) { status(out.notes?.[0] || "The change could not be applied.", true); return; }
+    if (out.source !== "ai" && params.baseCode && out.code === params.baseCode) { const m = out.notes?.[0] || "The change could not be applied."; status(m, true); toast(m); return; }
     S.versions[t].push({ code: out.code, notes: out.notes || [], source: out.source, change: out.change, label,
       model: out.provider?.model, cached: out.cached });
     S.cur[t] = S.versions[t].length - 1;
     if (out.source !== "ai") status(out.notes?.[0] || "Showing the layout-only draft.", true);
     else status("");
     S.target = t; renderTarget(); renderVersions(); renderNotes(); renderCode();
+    if (params.baseCode && params.change && out.source === "ai" && !Object.values(CONVERT).includes(params.change)) toast(`Applied: v${S.versions[t].length} is ready`);
   } catch (e) {
-    if (run === S.run) status(`Could not write the code: ${e.message}`, true);
+    if (run === S.run) { status(`Could not write the code: ${e.message}`, true); toast(`Could not write the code: ${e.message}`); }
   } finally {
     if (run === S.run) { wait(null); busy(false); }
   }
@@ -359,12 +360,15 @@ $("#changeForm").onsubmit = (e) => {
 function renderScreens() {
   const all = [{ url: S.shot?.url, title: "This screen" }, ...(S.extra || [])];
   $("#screens").innerHTML = all.map((x, i) => `<figure class="scr"><img src="${esc(x.url || "")}" alt="" /><figcaption>${i + 1}. ${esc(x.title || "Screen")}</figcaption>
-    ${i ? `<button type="button" class="scr-x" data-i="${i - 1}" aria-label="Remove screen ${i + 1}">×</button>` : ""}</figure>`).join("");
+    ${i ? `<button type="button" class="scr-x" data-i="${i - 1}" aria-label="Remove screen ${i + 1}">×</button>` : ""}</figure>`).join("")
+    + (all.length < 6 ? `<button type="button" class="scr-add" id="scrAdd" title="Add a screenshot of another page"><span>+</span>Add screen</button>` : "");
+  $("#scrAdd")?.addEventListener("click", () => $("#addFile").click());
   $$("#screens .scr-x").forEach((b) => (b.onclick = () => { const [r] = S.extra.splice(+b.dataset.i, 1); if (r?.own) URL.revokeObjectURL(r.url); renderScreens(); }));
   const n = all.length;
   $("#wholeBtn").disabled = n < 2;
   $("#wholeBtn").innerHTML = n < 2 ? "Build the whole app" : `Build the whole app <small>${n} screens</small>`;
-  $("#addScreen").hidden = n >= 6;
+  $("#wholeBtn").title = n < 2 ? "Add at least one more screen first" : "";
+  $("#screenCount").textContent = `${n} / 6`;
 }
 function addScreens(files) {
   for (const f of [...files].filter((f) => f.type.startsWith("image/")).slice(0, 6 - 1 - S.extra.length))
@@ -372,6 +376,7 @@ function addScreens(files) {
   renderScreens();
 }
 $("#addScreen").onclick = () => $("#addFile").click();
+$("#toPrompt").onclick = () => setTab("prompt");
 $("#addFile").addEventListener("change", (e) => { addScreens(e.target.files); e.target.value = ""; });
 $("#screens").addEventListener("dragover", (e) => { e.preventDefault(); e.stopPropagation(); $("#screens").classList.add("over"); });
 $("#screens").addEventListener("dragleave", () => $("#screens").classList.remove("over"));
@@ -456,11 +461,12 @@ $("#openTab").onclick = async () => {
 function setTab(t) {
   S.tab = t;
   $$(".tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === t));
-  for (const x of ["code", "guide", "structure", "backend", "a11y"]) $(`#tab-${x}`).hidden = x !== t;
+  for (const x of ["code", "guide", "prompt", "structure", "backend", "a11y"]) $(`#tab-${x}`).hidden = x !== t;
   if (t === "code") requestAnimationFrame(fit);
   if (t === "structure") requestAnimationFrame(placeBoxes);
   if (t === "guide" && S.guide) replayGuide();
   if (t === "backend") loadBackend();
+  if (t === "prompt") loadPrompt();
   if (t === "a11y") loadA11y();
 }
 $$(".tabs button").forEach((b) => (b.onclick = () => setTab(b.dataset.tab)));
@@ -468,7 +474,7 @@ $$(".tabs button").forEach((b) => (b.onclick = () => setTab(b.dataset.tab)));
 // ---------- guide ----------
 function renderGuide() {
   const g = S.guide; if (!g) return;
-  const c = g.tokens?.colors || {}, ts = g.tokens?.typeScale || {};
+  const c = g.tokens?.colors || {}, ts = g.tokens?.typeScale || {}, be = g.backend || {};
   const lvl = { easy: 1, medium: 2, hard: 3 }[g.effort?.level] || 2;
   const mono = (n) => (String(n).match(/[A-Za-z0-9]+/g) || ["?"]).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
   const icon = { lock: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
@@ -488,12 +494,27 @@ function renderGuide() {
       </div>
     </header>
     ${g.stack?.length ? `<section class="g-sec"><h3>Recommended stack</h3><div class="g-stack">${g.stack.map((s, i) => `<div class="g-card" style="--i:${i}"><span class="g-mono">${esc(mono(s.name))}</span><div><b>${esc(s.name)}</b><p>${esc(s.why)}</p></div></div>`).join("")}</div></section>` : ""}
-    ${g.steps?.length ? `<section class="g-sec"><h3>Build plan</h3><ol class="g-steps">${g.steps.map((s, i) => `<li style="--i:${i}"><span class="g-num">${i + 1}</span><div class="g-step"><b>${esc(s.title)}</b><p>${esc(s.detail)}</p></div></li>`).join("")}</ol></section>` : ""}
-    ${g.components?.length ? `<section class="g-sec"><h3>Components to build <small>hover one to find it on the screen</small></h3><div class="g-comp-wrap"><div class="g-mini"><img src="${esc(S.shot?.url || "")}" alt="" /></div><div class="g-comps">${g.components.map((x, i) => `<div class="g-card g-comp" style="--i:${i}" data-name="${esc(x.name)}"><code class="g-tag">&lt;${esc(x.name)} /&gt;</code><p>${esc(x.purpose)}</p>${x.props?.length ? `<div class="g-props">${x.props.map((p) => `<span>${esc(p)}</span>`).join("")}</div>` : ""}</div>`).join("")}</div></div></section>` : ""}
+    ${g.steps?.length ? `<section class="g-sec"><h3>Build plan</h3><ol class="g-steps">${g.steps.map((s, i) => `<li style="--i:${i}"><span class="g-num">${i + 1}</span><div class="g-step"><b>${esc(s.title)}</b><p>${esc(s.detail)}</p>${s.code ? `<pre class="g-code"><span>${esc(s.lang || "code")}</span><code>${esc(s.code)}</code></pre>` : ""}${s.check ? `<p class="g-check"><i>✓</i>${esc(s.check)}</p>` : ""}</div></li>`).join("")}</ol></section>` : ""}
+    ${g.fileTree ? `<section class="g-sec"><h3>Project structure</h3><pre class="g-tree">${esc(g.fileTree)}</pre></section>` : ""}
+    ${g.components?.length ? `<section class="g-sec"><h3>Components to build <small>hover one to find it on the screen</small></h3><div class="g-comp-wrap"><div class="g-mini"><img src="${esc(S.shot?.url || "")}" alt="" /></div><div class="g-comps">${g.components.map((x, i) => `<div class="g-card g-comp" style="--i:${i}" data-name="${esc(x.name)}"><code class="g-tag">&lt;${esc(x.name)} /&gt;</code><p>${esc(x.purpose)}</p>${x.props?.length ? `<div class="g-props">${x.props.map((p) => `<span>${esc(p)}</span>`).join("")}</div>` : ""}${x.state?.length ? `<div class="g-props g-state">${x.state.map((p) => `<span>${esc(p)}</span>`).join("")}</div>` : ""}</div>`).join("")}</div></div></section>` : ""}
     ${g.behaviour?.length || g.data?.length ? `<section class="g-sec g-two">
       ${g.behaviour?.length ? `<div><h3>What the screenshot can't show</h3><p class="muted g-note">You still need to build these. They are informed guesses from what is visible.</p><ul class="g-list">${g.behaviour.map((b) => `<li><i>${icon.lock}</i>${esc(b)}</li>`).join("")}</ul></div>` : ""}
       ${g.data?.length ? `<div><h3>Data it needs</h3><p class="muted g-note">What the back end has to provide.</p><ul class="g-list">${g.data.map((b) => `<li><i>${icon.db}</i>${esc(b)}</li>`).join("")}</ul></div>` : ""}
     </section>` : ""}
+    ${be.endpoints?.length || be.tables?.length ? `<section class="g-sec"><h3>Back end <small>${esc(be.summary || "what the server has to do")}</small></h3>
+      <div class="g-be">
+        <div>${be.database ? `<p class="g-kv"><b>Database</b>${esc(be.database)}</p>` : ""}${be.auth ? `<p class="g-kv"><b>Auth</b>${esc(be.auth)}</p>` : ""}
+          ${be.tables?.length ? `<div class="g-tables">${be.tables.map((t) => `<div class="g-table"><code>${esc(t.name)}</code><ul>${t.columns.split(/,\s*/).map((col) => `<li>${esc(col)}</li>`).join("")}</ul></div>`).join("")}</div>` : ""}</div>
+        <div>${be.endpoints?.length ? `<ul class="g-eps">${be.endpoints.map((e) => `<li><span class="g-m g-${esc(e.method.toLowerCase())}">${esc(e.method)}</span><code>${esc(e.path)}</code><p>${esc(e.purpose)}${e.usedBy ? ` <small>· ${esc(e.usedBy)}</small>` : ""}</p></li>`).join("")}</ul>` : ""}
+          ${be.rules?.length ? `<h4>Rules to enforce</h4><ul class="g-list">${be.rules.map((r) => `<li><i>${icon.lock}</i>${esc(r)}</li>`).join("")}</ul>` : ""}</div>
+      </div>
+      <p class="muted g-note">Open the Backend tab for the full data model, SQL and OpenAPI file.</p></section>` : ""}
+    ${g.pitfalls?.length || g.testing?.length || g.deploy?.length ? `<section class="g-sec g-three">
+      ${g.pitfalls?.length ? `<div><h3>Watch out for</h3><ul class="g-bul warn">${g.pitfalls.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+      ${g.testing?.length ? `<div><h3>Tests to write</h3><ul class="g-bul test">${g.testing.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+      ${g.deploy?.length ? `<div><h3>Put it online (free)</h3><ul class="g-bul ship">${g.deploy.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+    </section>` : ""}
+    <section class="g-sec g-cta"><div><b>Rather let your own AI agent build it?</b><p>Get a complete prompt with all of this for Claude Code, Cursor, Copilot or Lovable.</p></div><button class="btn primary" type="button" id="gToPrompt">Prompt for your agent</button></section>
     ${Object.keys(c).length ? `<section class="g-sec"><h3>Design tokens <small>measured from the screenshot's pixels</small></h3>
       <div class="g-swatches">${Object.entries(c).map(([k, v]) => `<div class="g-sw"><i style="background:${esc(v)}"></i><b>${esc(k)}</b><code>${esc(v)}</code></div>`).join("")}</div>
       ${Object.keys(ts).length ? `<div class="g-type">${Object.entries(ts).map(([k, v]) => `<div><span style="font-size:${Math.min(56, +v || 14)}px">Aa</span><b>${esc(k)}</b><code>${esc(v)}px</code></div>`).join("")}</div>` : ""}
@@ -530,10 +551,43 @@ function renderGuide() {
     };
     card.onmouseleave = () => $$("#guide .g-mini .g-hl").forEach((e) => e.classList.remove("on"));
   });
+  $("#gToPrompt").onclick = () => setTab("prompt");
   replayGuide();
 }
 // one orchestrated entrance each time the plan is shown
 function replayGuide() { const el = $("#guide"); el.classList.remove("reveal"); void el.offsetWidth; el.classList.add("reveal"); }
+
+// ---------- prompt for the developer's own coding agent (no model call: built from what was measured) ----------
+const AP = { agent: "claude-code", stack: "react" };
+try { Object.assign(AP, JSON.parse(localStorage.getItem("ap-opts") || "{}")); } catch {}
+async function loadPrompt() {
+  if (!S.analysis) return;
+  const run = S.run, extras = $("#apScreens").checked ? (S.extra || []).map((x) => x.title || "Screen").join("\n") : "";
+  $("#apMeta").textContent = "Writing…";
+  try {
+    const p = await api("/api/digital/prompt", { method: "POST", body: form({ agent: AP.agent, stack: AP.stack,
+      backend: $("#apBackend").checked ? "1" : "0", extra: $("#apExtra").value, screens: extras }) });
+    if (run !== S.run) return;
+    S.prompt = p;
+    const chips = (el, list, key) => {
+      el.innerHTML = list.map((x) => `<button type="button" data-id="${esc(x.id)}" class="${x.id === AP[key] ? "on" : ""}">${esc(x.name)}</button>`).join("");
+      el.querySelectorAll("button").forEach((b) => (b.onclick = () => { AP[key] = b.dataset.id; try { localStorage.setItem("ap-opts", JSON.stringify(AP)); } catch {} loadPrompt(); }));
+    };
+    chips($("#apAgent"), p.agents, "agent");
+    chips($("#apStack"), p.stacks.map((x) => ({ ...x, name: x.name.split(/ \+ |,| with /)[0].replace(/ \(.*/, "") })), "stack");
+    $("#apText").value = p.prompt;
+    $("#apHow").textContent = p.agent.how;
+    const words = p.prompt.split(/\s+/).length;
+    $("#apMeta").textContent = `${words.toLocaleString()} words · ${p.agent.name} · ${p.stack.name}` + (p.usesGuide ? " · uses the build plan" : "") + (p.usesBackend ? " · uses the back end" : "");
+  } catch (e) { if (run === S.run) $("#apMeta").textContent = `Could not write the prompt: ${e.message}`; }
+}
+for (const id of ["#apBackend", "#apScreens"]) $(id).onchange = loadPrompt;
+$("#apExtra").onchange = loadPrompt;
+$("#apCopy").onclick = async () => { try { await navigator.clipboard.writeText($("#apText").value); toast("Prompt copied: paste it into your agent with the screenshot"); } catch { $("#apText").select(); toast("Press Ctrl+C to copy"); } };
+const saveAs = (blob, name) => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
+const slug = () => (S.analysis?.title || "screen").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "screen";
+$("#apMd").onclick = () => saveAs(new Blob([$("#apText").value], { type: "text/markdown" }), `${slug()}-prompt.md`);
+$("#apShot").onclick = async () => { if (!S.shot?.url) return; const b = await (await fetch(S.shot.url)).blob(); saveAs(b, `${slug()}.${(b.type.split("/")[1] || "png").replace("jpeg", "jpg")}`); };
 
 // ---------- structure ----------
 async function renderStructure() {
@@ -671,7 +725,8 @@ function setRing(p) {
   bar.style.stroke = p >= 85 ? "var(--ok)" : p >= 70 ? "var(--amber)" : "#c2410c";
 }
 function showAccuracy(r) {
-  $("#acc").hidden = false; $("#accLbl").textContent = "visual match";
+  const v = current(), changed = v?.change && !Object.values(CONVERT).includes(v.change);
+  $("#acc").hidden = false; $("#accLbl").textContent = changed ? "match · lower is expected after your change" : "visual match";
   const t0 = performance.now(), tick = () => { const k = Math.min(1, (performance.now() - t0) / 700), p = Math.round(r.score * (1 - Math.pow(1 - k, 3)));
     $("#accPct").textContent = p + "%"; setRing(p); if (k < 1) requestAnimationFrame(tick); };
   tick();

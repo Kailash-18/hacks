@@ -294,3 +294,57 @@ def test_code_retries_when_the_model_refuses_to_copy_long_text():
     fake = Refuses()
     out = codegen.generate_code(a, img, "image/png", fake)
     assert out["source"] == "ai" and len(fake.prompts) == 2 and "first sentence" in fake.prompts[1]
+
+
+def test_agent_prompt_route_is_instant_and_complete():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    c = TestClient(app)
+    import json as _j
+    from pathlib import Path
+    real = Path(__file__).resolve().parents[1] / "samples" / "digital" / "nimbus-dashboard"
+    aid = _j.loads((real / "analysis.json").read_text(encoding="utf-8"))["analysisId"]
+    r = c.post("/api/digital/prompt", data={"analysisId": aid, "agent": "cursor", "stack": "next", "extra": "use Supabase",
+                                            "screens": "Settings\nLog in"})
+    assert r.status_code == 200, r.text
+    out = r.json()
+    p = out["prompt"]
+    assert out["agent"]["name"] == "Cursor" and "Next.js" in out["stack"]["name"]
+    for part in ("## Design tokens", "## Layout", "## Work plan", "## Definition of done", "use Supabase", "Settings"):
+        assert part in p
+    assert " px)" in p  # measured boxes
+    r2 = c.post("/api/digital/prompt", data={"analysisId": aid, "backend": "0", "agent": "nope", "stack": "nope"})
+    assert r2.status_code == 200 and "## Back end" not in r2.json()["prompt"] and r2.json()["agent"]["id"] == "claude-code"
+
+
+def test_guide_v2_keeps_backend_code_and_lists():
+    raw = {"summary": "s", "stack": [{"name": "React", "why": "w", "role": "frontend"}], "fileTree": "app/\n  src/\n",
+           "components": [{"name": "Card", "purpose": "p", "props": ["a"], "state": ["open: bool"]}],
+           "steps": [{"title": "Set up", "detail": "d", "code": "npm i\n" * 30, "lang": "bash", "check": "runs"}],
+           "backend": {"database": "Postgres", "tables": [{"name": "projects", "columns": "id uuid"}],
+                       "endpoints": [{"method": "get", "path": "/api/p", "purpose": "x"}, {"method": "BAD", "path": "/x"}],
+                       "rules": ["r"]},
+           "pitfalls": ["p1"], "testing": ["t1"], "deploy": ["d1"], "effort": {"level": "easy"}}
+    g = codegen._clean_guide(raw)
+    assert g["steps"][0]["code"].count("\n") <= 15 and g["steps"][0]["check"] == "runs"
+    assert g["backend"]["endpoints"] == [{"method": "GET", "path": "/api/p", "purpose": "x", "usedBy": ""}]
+    assert g["components"][0]["state"] == ["open: bool"] and g["pitfalls"] == ["p1"] and g["fileTree"].startswith("app/")
+
+
+def test_change_request_prompt_says_the_change_wins():
+    seen = {}
+
+    class C:
+        name, model = "fake", "m"
+
+        def generate_code_text(self, image, mime, prompt):
+            seen["p"] = prompt
+            return "```html\n<!doctype html><html><body class='bg-slate-950'>" + "x" * 200 + "</body></html>\n```\nNOTES:\n- dark"
+    from app.contract import SystemAnalysis
+    import json as _j
+    from pathlib import Path
+    sid = Path(__file__).resolve().parents[1] / "samples" / "digital" / "nimbus-dashboard"
+    a = SystemAnalysis.model_validate(_j.loads((sid / "analysis.json").read_text(encoding="utf-8")))
+    img = (sid / "image.png").read_bytes()
+    out = codegen.generate_code(a, img, "image/png", C(), "html", "convert it into dark mode", "<html><body>old</body></html>" + " " * 200, force=True)
+    assert out["source"] == "ai" and "WINS" in seen["p"] and "dark mode" in seen["p"]

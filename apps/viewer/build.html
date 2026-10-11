@@ -50,6 +50,7 @@
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="code" aria-selected="true">Rebuilt code</button>
     <button role="tab" data-tab="guide">How to build it</button>
+    <button role="tab" data-tab="prompt">Prompt for your agent</button>
     <button role="tab" data-tab="structure">Inspect</button>
     <button role="tab" data-tab="backend">Backend</button>
     <button role="tab" data-tab="a11y">Accessibility</button>
@@ -98,18 +99,17 @@
         <div class="actions">
           <button class="btn primary" id="copy">Copy code</button>
           <button class="btn" id="download">Download</button>
-          <button class="btn" id="openTab" title="Open the rebuilt page in a new tab">Open</button>
-          <button class="btn sb-btn" id="stackblitz" title="Open it as a real, editable project in StackBlitz (free, runs in the browser)">Open in StackBlitz</button>
+          <button class="btn" id="openTab" title="Open the rebuilt page in a new tab">Open in a tab</button>
+          <button class="btn sb-btn" id="stackblitz" title="Open it as a real, editable project in StackBlitz (free, runs in the browser)">StackBlitz</button>
+          <button class="btn ap-btn" id="toPrompt" type="button" title="A ready-to-paste prompt for Claude Code, Cursor, Copilot or Lovable">Prompt for your own AI agent</button>
         </div>
         <div class="whole" id="whole">
-          <h3>Whole app</h3>
+          <h3>Whole app <small id="screenCount"></small></h3>
           <div class="screens" id="screens" title="Drop screenshots of the app's other pages here"></div>
-          <div class="whole-row">
-            <button class="btn" id="addScreen" type="button">Add a screen</button>
-            <button class="btn whole-btn" id="wholeBtn" type="button" disabled>Build the whole app</button>
-          </div>
+          <button class="btn" id="addScreen" type="button" hidden>Add a screen</button>
+          <button class="btn whole-btn" id="wholeBtn" type="button" disabled>Build the whole app</button>
           <input type="file" id="addFile" accept="image/png,image/jpeg,image/webp" multiple hidden />
-          <p>Add screenshots of the app's other pages (up to 6). The build is one working page whose menus and buttons open them.</p>
+          <p>Add the app's other pages (up to 6). You get one working page whose menus and buttons open them.</p>
         </div>
         <form id="changeForm" class="change">
           <label for="change">Change it</label>
@@ -130,6 +130,31 @@
   <!-- guide -->
   <section id="tab-guide" class="tab" hidden>
     <article id="guide" class="guide"></article>
+  </section>
+
+  <!-- prompt for the developer's own coding agent -->
+  <section id="tab-prompt" class="tab" hidden>
+    <div class="ap">
+      <div class="ap-opts">
+        <h2>Build it with your own AI agent</h2>
+        <p class="muted">A complete, ready-to-paste prompt made from everything measured on this screen: layout with pixel boxes, colours, type scale, components, behaviour, back end and a work plan. Paste it into your agent together with the screenshot.</p>
+        <div class="ap-field"><span>Agent</span><div class="ap-chips" id="apAgent"></div></div>
+        <div class="ap-field"><span>Stack</span><div class="ap-chips" id="apStack"></div></div>
+        <label class="ap-check"><input type="checkbox" id="apBackend" checked /> Include the back end (data model, endpoints, auth)</label>
+        <label class="ap-check"><input type="checkbox" id="apScreens" checked /> Include the other screens added under Whole app</label>
+        <div class="ap-field"><label for="apExtra">Anything else</label><textarea id="apExtra" rows="3" placeholder="e.g. use Supabase for auth, add a dark mode toggle, TypeScript strict"></textarea></div>
+        <div class="ap-actions">
+          <button class="btn primary" id="apCopy" type="button">Copy prompt</button>
+          <button class="btn" id="apMd" type="button">Download .md</button>
+          <button class="btn" id="apShot" type="button">Download screenshot</button>
+        </div>
+        <p class="ap-how" id="apHow"></p>
+      </div>
+      <div class="ap-out">
+        <div class="ap-bar"><b>Prompt</b><small id="apMeta"></small></div>
+        <textarea id="apText" spellcheck="false" aria-label="Prompt for your agent (you can edit it)"></textarea>
+      </div>
+    </div>
   </section>
 
   <!-- inspect: dev-mode for a screenshot -->

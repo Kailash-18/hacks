@@ -125,3 +125,17 @@ Code: `apps/api/app/services/digital_explorer.py`, `apps/api/app/routes_explorer
 - **Devices**: the rebuild at phone (390), tablet (820) and laptop (1440) widths side by side.
 - **Open in StackBlitz**: the HTML as a project, or the React version as a Vite + React app that installs and runs in
   the browser (free, no account).
+
+
+## Prompt for your own agent
+
+The **Prompt for your agent** tab (also the dashed button in the right panel) writes a complete, ready-to-paste prompt for
+Claude Code, Cursor, GitHub Copilot, Lovable / Bolt / v0 or any chat AI. It is built from what was measured (layout tree
+with pixel boxes, colours, type scale, components, behaviour, back end, the build plan and a definition of done), so it is
+instant and needs no model call. Pick the agent and the stack (React, Next.js, HTML, Vue, React Native, Flutter), add extra
+requirements, then copy it or download it as `.md` together with the screenshot. `POST /api/digital/prompt`.
+
+## How to build it (v2)
+
+The build plan now has a starter code snippet and a "done when" check per step, the project's file tree, components with
+their state, a back end section (database, tables, endpoints, auth, rules), pitfalls, tests to write and free deployment.

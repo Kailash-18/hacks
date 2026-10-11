@@ -116,6 +116,20 @@ async def backend(request: Request) -> dict:
     return {"analysisId": analysis.analysisId, **out}
 
 
+@router.post("/prompt")
+async def agent_prompt(request: Request) -> dict:
+    """multipart: image | analysisId; agent; stack; backend (1/0); extra; screens (titles of other screens, one per line).
+    A ready-to-paste prompt for the developer's own coding agent. No model call: instant and free."""
+    from fastapi.concurrency import run_in_threadpool
+    from .services import agent_prompt as ap
+    form = await request.form()
+    analysis, img = await _resolve(form, "image", "analysisId")
+    screens = [s.strip()[:80] for s in str(form.get("screens") or "").split("\n") if s.strip()][:5]
+    out = await run_in_threadpool(ap.build_prompt, analysis, img[0] if img else None, str(form.get("agent") or "claude-code"),
+                                  str(form.get("stack") or "react"), _flag(form, "backend", True), str(form.get("extra") or ""), screens)
+    return {"analysisId": analysis.analysisId, **out}
+
+
 @router.post("/a11y")
 async def a11y(request: Request) -> dict:
     """multipart: image | analysisId. Accessibility audit measured from pixels + boxes (no model call)."""
