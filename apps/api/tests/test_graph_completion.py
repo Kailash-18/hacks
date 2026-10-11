@@ -41,3 +41,13 @@ def test_no_board_means_no_invented_power_links():
     comps = [Component(id="a", label="Lid", type="cover"), Component(id="b", label="Battery", type="power_source")]
     out = complete_relationships(comps, [])
     assert [(r.from_, r.to, r.type) for r in out] == [("a", "b", "contains")]
+
+
+def test_removing_the_board_or_battery_kills_an_electronic_device():
+    comps, rels = _load("lenovo-mouse.json")
+    rels = complete_relationships(comps, rels)
+    board = what_if(comps, rels, "pcb")
+    assert board["verdict"] == "dead" and board["health"] <= 10
+    assert {"left_button", "right_button", "scroll_wheel", "optical_sensor"} <= {a["componentId"] for a in board["affected"]}
+    assert what_if(comps, rels, "battery_compartment")["verdict"] == "dead"
+    assert what_if(comps, rels, "logo_badge")["verdict"] == "works"  # a logo is decoration
