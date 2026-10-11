@@ -131,6 +131,7 @@ export class AssemblyView {
       h: a.size[1] * k, baseY: a.position[1] * k - (a.size[1] * k) / 2 }));
     const domeTop = (d, x, z) => { const q = 1 - ((x - d.cx) / d.ax) ** 2 - ((z - d.cz) / d.az) ** 2; return q > 0 ? d.baseY + d.h * Math.sqrt(q) : null; };
     const main = [...domes].sort((a, b) => b.ax * b.az - a.ax * a.az)[0];
+    this.mainDome = main ? { ...main } : null; // used after centring to keep every part inside the shell's outline
     // 1) Housing parts (side shell, lower shell, chassis) with the dome's footprint become curved bands that
     //    follow the dome, and the dome is trimmed to sit on them: one seamless body, no box corners sticking out.
     const bands = {};
@@ -248,6 +249,7 @@ export class AssemblyView {
     for (const p of this.parts) { p.group.position.copy(p.base); p.group.updateMatrixWorld(true); box.expandByObject(p.mesh); }
     const ctr = box.getCenter(new THREE.Vector3());
     for (const p of this.parts) p.base.sub(ctr);
+    this._ctr = ctr;
     this.size = box.getSize(new THREE.Vector3());
     this.containInternals();
     this.orderExplode();
@@ -272,19 +274,40 @@ export class AssemblyView {
     const env = new THREE.Box3(); for (const p of this.housing) env.union(boxes.get(p));
     const inset = env.getSize(new THREE.Vector3()).multiplyScalar(0.03); env.min.add(inset); env.max.sub(inset);
     const E = env.getSize(new THREE.Vector3());
-    const outside = new Set(["actuator", "display", "wheel"]); // buttons, screens and wheels may stick out on purpose
+    // buttons, screens and wheels may sit proud of the surface a little; nothing may hang outside the body
+    const outside = new Set(["actuator", "display", "wheel", "interface"]);
+    const loose = env.clone().expandByVector(env.getSize(new THREE.Vector3()).multiplyScalar(0.06));
     for (const p of this.parts) {
-      if (this.housing.has(p) || p.sheet || (!p.inferred && (outside.has(p.type) || p.type === "interface"))) continue;
+      if (this.housing.has(p) || p.sheet) continue;
+      const box = outside.has(p.type) && !p.inferred ? loose : env, E2 = box.getSize(new THREE.Vector3());
       const b = boxes.get(p), z = b.getSize(new THREE.Vector3());
-      if (env.containsBox(b)) continue;
-      const k = Math.min(1, 0.96 * E.x / Math.max(1e-6, z.x), 0.96 * E.y / Math.max(1e-6, z.y), 0.96 * E.z / Math.max(1e-6, z.z));
+      if (box.containsBox(b)) continue;
+      const k = Math.min(1, 0.96 * E2.x / Math.max(1e-6, z.x), 0.96 * E2.y / Math.max(1e-6, z.y), 0.96 * E2.z / Math.max(1e-6, z.z));
       p.fit = k;
       const c = b.getCenter(new THREE.Vector3()), h = z.multiplyScalar(k / 2), want = c.clone();
-      for (const ax of ["x", "y", "z"]) want[ax] = Math.min(env.max[ax] - h[ax], Math.max(env.min[ax] + h[ax], c[ax]));
+      for (const ax of ["x", "y", "z"]) want[ax] = Math.min(box.max[ax] - h[ax], Math.max(box.min[ax] + h[ax], c[ax]));
       // scaling happens around the group's pivot, which is not always the box centre
       const off = c.clone().sub(p.base).multiplyScalar(k);
       p.base.copy(want).sub(off);
     }
+    // a rounded shell (mouse, helmet, bottle cap) has an oval outline: box corners can still poke out of it
+    const d = this.mainDome;
+    if (!d) return;
+    const ctr = this._ctr || new THREE.Vector3(), cx = d.cx - ctr.x, cz = d.cz - ctr.z;
+    for (const p of this.parts) {
+      if (this.housing.has(p) || p.sheet || p.conformed) continue;
+      for (let it = 0; it < 16; it++) {
+        p.group.position.copy(p.base); p.group.quaternion.copy(p.baseQuat); p.group.scale.setScalar(p.fit || 1); p.group.updateMatrixWorld(true);
+        const b = new THREE.Box3().setFromObject(p.mesh);
+        const lim = outside.has(p.type) && !p.inferred ? 1.06 : 0.97;
+        const worst = Math.max(...[[b.min.x, b.min.z], [b.max.x, b.min.z], [b.min.x, b.max.z], [b.max.x, b.max.z]]
+          .map(([x, z]) => Math.hypot((x - cx) / d.ax, (z - cz) / d.az)));
+        if (worst <= lim) break;
+        p.fit = (p.fit || 1) * 0.93;
+        p.base.x += (cx - p.base.x) * 0.12; p.base.z += (cz - p.base.z) * 0.12;
+      }
+    }
+    for (const p of this.parts) { p.group.scale.setScalar(1); }
   }
 
   // Parts must leave the assembly in the order they are stacked: the screen in front of the housing it sits
