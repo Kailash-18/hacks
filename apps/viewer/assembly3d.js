@@ -260,6 +260,7 @@ export class AssemblyView {
     this.addAutoDetails(assembly.details || []);
     this.addDecals(views);
     this.buildWires(relationships);
+    this.buildEffects();
     this.setExplode(this.explode);
   }
 
@@ -352,6 +353,105 @@ export class AssemblyView {
       }
       const top = Math.max(0, ...members.map((m) => m.p.dist * m.along));
       if (top > 2.2) for (const m of members) m.p.dist *= 2.2 / top; // keep the whole diagram on screen
+    }
+  }
+
+  // ---------------------------------------------------------------- effects
+  // Hologram projector under the model, drifting light motes, exploded-view guide lines from each part back to
+  // where it sits, a target-lock reticle around the selected part, and a small lift toward you on hover.
+  buildEffects() {
+    if (this.fx) { this.root.remove(this.fx.group); this.fx.group.traverse((o) => { o.geometry?.dispose(); o.material?.dispose?.(); }); }
+    const g = new THREE.Group(), R = Math.max(this.size.x, this.size.z) * 0.9 + 1;
+    const add = (o) => { g.add(o); return o; };
+    // projector pad: soft glow disc + two dashed rings turning in opposite directions
+    const c = document.createElement("canvas"); c.width = c.height = 256; const x = c.getContext("2d");
+    const grd = x.createRadialGradient(128, 128, 0, 128, 128, 128);
+    grd.addColorStop(0, "rgba(90,200,255,.55)"); grd.addColorStop(.35, "rgba(60,150,255,.18)"); grd.addColorStop(1, "rgba(40,100,255,0)");
+    x.fillStyle = grd; x.fillRect(0, 0, 256, 256);
+    const padTex = new THREE.CanvasTexture(c);
+    const pad = add(new THREE.Mesh(new THREE.CircleGeometry(R, 64), new THREE.MeshBasicMaterial({ map: padTex, transparent: true, depthWrite: false,
+      blending: THREE.AdditiveBlending, toneMapped: false })));
+    pad.rotation.x = -Math.PI / 2;
+    const ringMat = (col, op) => new THREE.LineDashedMaterial({ color: col, dashSize: 0.18, gapSize: 0.12, transparent: true, opacity: op, toneMapped: false });
+    const ringGeo = (r) => { const pts = []; for (let i = 0; i <= 128; i++) { const a = (i / 128) * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r)); } return new THREE.BufferGeometry().setFromPoints(pts); };
+    const ring1 = add(new THREE.Line(ringGeo(R * 0.92), ringMat(0x59d8ff, 0.7))); ring1.computeLineDistances();
+    const ring2 = add(new THREE.Line(ringGeo(R * 0.7), ringMat(0x9b8cff, 0.55))); ring2.computeLineDistances();
+    const tick = add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([...Array(48)].flatMap((_, i) => {
+      const a = (i / 48) * Math.PI * 2, r0 = R * (i % 4 ? 0.98 : 0.95);
+      return [new THREE.Vector3(Math.cos(a) * r0, 0, Math.sin(a) * r0), new THREE.Vector3(Math.cos(a) * R, 0, Math.sin(a) * R)]; })),
+      new THREE.LineBasicMaterial({ color: 0x59d8ff, transparent: true, opacity: 0.5, toneMapped: false })));
+    // light motes drifting up through the scene
+    const N = 340, pos = new Float32Array(N * 3), seed = [];
+    for (let i = 0; i < N; i++) { const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * R * 1.3;
+      pos.set([Math.cos(a) * r, Math.random() * this.size.y * 2.2, Math.sin(a) * r], i * 3); seed.push(0.15 + Math.random() * 0.35); }
+    const pg = new THREE.BufferGeometry(); pg.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    const particles = add(new THREE.Points(pg, new THREE.PointsMaterial({ map: glowSprite(), size: 0.13, color: 0x8fdcff, transparent: true, opacity: 0.8,
+      depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })));
+    // exploded-view guide lines: one dashed line per part from where it sits to where it is now
+    const gpos = new Float32Array(this.parts.length * 6);
+    const gg = new THREE.BufferGeometry(); gg.setAttribute("position", new THREE.BufferAttribute(gpos, 3));
+    const guides = new THREE.LineSegments(gg, new THREE.LineDashedMaterial({ color: 0x59d8ff, dashSize: 0.1, gapSize: 0.08, transparent: true, opacity: 0,
+      depthWrite: false, toneMapped: false }));
+    this.root.add(guides);
+    // target lock: two broken rings that face the camera and spin around the selected part
+    const arc = (r, a0, a1) => { const pts = []; for (let i = 0; i <= 40; i++) { const a = a0 + (a1 - a0) * (i / 40); pts.push(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0)); } return pts; };
+    const lockMat = new THREE.LineBasicMaterial({ color: 0x7fd0ff, transparent: true, opacity: 0.95, depthTest: false, toneMapped: false });
+    const lock = new THREE.Group(); lock.renderOrder = 20; lock.visible = false;
+    const outer = new THREE.Group(), inner = new THREE.Group();
+    for (let k = 0; k < 3; k++) outer.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arc(1, k * 2.094, k * 2.094 + 1.5)), lockMat));
+    for (let k = 0; k < 4; k++) inner.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arc(0.82, k * 1.571 + 0.3, k * 1.571 + 1.1)), lockMat));
+    lock.add(outer, inner); this.root.add(lock);
+    g.position.y = this.floor.position.y + 0.02;
+    this.root.add(g);
+    this.fx = { group: g, pad, ring1, ring2, tick, particles, seed, R, guides, lock, outer, inner, lockT: 0 };
+    this.fxOn = true;
+    this.updateGuides();
+  }
+
+  updateGuides() {
+    const F = this.fx; if (!F) return;
+    const P = F.guides.geometry.attributes.position, t = this.explode, v = new THREE.Vector3();
+    this.parts.forEach((p, i) => {
+      const home = p.base.clone().add(p.localCenter.clone().applyQuaternion(p.group.quaternion).multiplyScalar(p.fit || 1));
+      p.group.updateMatrixWorld(true); v.copy(this.centerOf(p));
+      P.setXYZ(i * 2, home.x, home.y, home.z); P.setXYZ(i * 2 + 1, v.x, v.y, v.z);
+    });
+    P.needsUpdate = true; F.guides.geometry.computeBoundingSphere(); F.guides.computeLineDistances();
+    F.guides.material.opacity = Math.min(0.55, Math.max(0, (t - 0.08) * 1.2));
+  }
+
+  updateEffects(now, dt) {
+    const F = this.fx; if (!F) return;
+    F.group.position.y = this.floor.position.y + 0.02;
+    F.ring1.rotation.y += dt * 0.25; F.ring2.rotation.y -= dt * 0.4; F.tick.rotation.y += dt * 0.08;
+    F.pad.material.opacity = 0.75 + 0.25 * Math.sin(now / 900);
+    if (F.particles.visible) {
+      const P = F.particles.geometry.attributes.position, top = this.size.y * 2.2;
+      for (let i = 0; i < P.count; i++) { let y = P.getY(i) + dt * F.seed[i]; if (y > top) y = 0; P.setY(i, y); }
+      P.needsUpdate = true; F.particles.rotation.y += dt * 0.02;
+    }
+    // target lock follows the selected part and faces the camera
+    const sel = this.parts.find((p) => p.id === this.lastPaint?.selected && p.group.visible);
+    F.lock.visible = !!sel;
+    if (sel) {
+      if (F.lockId !== sel.id) { F.lockId = sel.id; F.lockT = now; }
+      const box = new THREE.Box3().setFromObject(sel.mesh), r = Math.max(0.35, box.getSize(new THREE.Vector3()).length() * 0.6);
+      const k = easeOut(clamp01((now - F.lockT) / 450)); // snaps in from wide to tight
+      F.lock.position.copy(box.getCenter(new THREE.Vector3())); F.lock.quaternion.copy(this.camera.quaternion);
+      F.lock.scale.setScalar(r * (1.8 - 0.8 * k)); F.lock.children[0].children.forEach((l) => (l.material.opacity = k));
+      F.outer.rotation.z += dt * 0.9; F.inner.rotation.z -= dt * 1.4;
+    } else F.lockId = null;
+    // hover lift: the part under the pointer rises a little toward you
+    if (this._liftAnim) {
+      const k = clamp01((now - this._liftAnim) / 220); let moving = false;
+      for (const p of this.parts) {
+        const want = p.id === this.hoverId && p.id !== this.lastPaint?.selected
+          ? this.camera.position.clone().sub(this.centerOf(p)).normalize().multiplyScalar(TARGET_SIZE * 0.035) : new THREE.Vector3();
+        p.lift = p.lift || new THREE.Vector3(); p.lift.lerp(want, 0.25 + 0.75 * k);
+        if (p.lift.distanceToSquared(want) > 1e-6) moving = true;
+      }
+      this.applyPose();
+      if (!moving && k >= 1) this._liftAnim = 0;
     }
   }
 
@@ -632,10 +732,12 @@ export class AssemblyView {
       if (p.moved && p.dragT < 0.02 && t > p.dragT) p.dragT = t; // moved while assembled: tie it to this explode
       const s = this.pullScale(p);
       p.group.position.copy(p.base).addScaledVector(p.dir, t * p.dist * reach).addScaledVector(p.offset, s).add(p.fx.offset);
+      if (p.lift) p.group.position.add(p.lift);
       p.group.quaternion.copy(p.fx.quat).multiply(I.clone().slerp(p.userQuat, s)).multiply(p.baseQuat);
       p.group.scale.setScalar(p.fx.scale * (p.fit || 1));
     }
     this.poseVersion = (this.poseVersion || 0) + 1;
+    this.updateGuides?.();
   }
 
   setExplode(t) {
@@ -707,6 +809,7 @@ export class AssemblyView {
   setHover(id, source = "") {
     if (this.hoverId === id) return;
     this.hoverId = id;
+    this._liftAnim = performance.now();
     this._leaders?.classList.toggle("focus", !!id);
     if (this.lastPaint) this.paint(this.lastPaint); else this.poke();
     this.onHover?.(id, source);
@@ -807,7 +910,8 @@ export class AssemblyView {
   poke() { this._active = performance.now(); }
   busy(now = performance.now()) {
     return !!(this.intro || this.whatif || this.sweep || this.ringT0 || this.xray || this.sparks?.length
-      || (this.bloomT0 && now - this.bloomT0 < 1500) || now - (this._active || 0) < 700);
+      || (this.bloomT0 && now - this.bloomT0 < 1500) || now - (this._active || 0) < 700
+      || (this.fxOn && !this.lowQuality) || !!this._liftAnim);
   }
 
   // Slow computer (integrated graphics): drop the glow pass, soft shadows and extra pixels so the page stays responsive.
@@ -823,6 +927,7 @@ export class AssemblyView {
     this.renderer.setPixelRatio(1);
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     const keyL = this.lights.children[0]; if (keyL.shadow) { keyL.shadow.mapSize.set(1024, 1024); keyL.shadow.map?.dispose(); keyL.shadow.map = null; }
+    if (this.fx) { this.fx.particles.visible = false; }
     console.info("3D view: lighter rendering for this computer");
   }
 
@@ -1137,6 +1242,7 @@ export class AssemblyView {
   update(now) {
     const dt = Math.min(0.05, (now - (this._last || now)) / 1000); this._last = now;
     this.updateSweep(now); this.updateIntro(now); this.updateWhatIf(now); this.updateSparks(now, dt); this.updateWires(now);
+    this.updateEffects(now, dt);
     if (this.ringT0) { // shockwave ring when the object locks together
       const k = clamp01((now - this.ringT0) / 1100);
       this.ring.scale.setScalar(0.5 + easeOut(k) * Math.max(this.size.x, this.size.z) * 2.2); this.ring.material.opacity = 1 - k;

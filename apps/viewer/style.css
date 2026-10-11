@@ -430,3 +430,35 @@ details summary { cursor: pointer; font-weight: 600; color: var(--muted); }
 .parts li.part.removed { opacity: .5; } .parts li.part.removed .pname b { text-decoration: line-through; }
 /* the old dot + legend are replaced by the grouped list */
 .parts li .st { display: none; }
+
+/* ---------------------------------------------------------------- system map */
+.map-head { display: inline-flex; gap: 8px; align-items: center; }
+#graph, #graphBig { width: 100%; height: auto; display: block; background: none; border: 0; }
+#graph { margin-top: 4px; }
+.band { fill: rgba(255, 255, 255, .025); stroke: rgba(255, 255, 255, .05); }
+.band.b0 { fill: rgba(255, 176, 32, .05); } .band.b1 { fill: rgba(54, 214, 255, .05); }
+.bandcap { font: 600 9.5px Inter, sans-serif; letter-spacing: .08em; text-transform: uppercase; fill: var(--muted); }
+#graphBig .bandcap { font-size: 11px; }
+.pill { cursor: pointer; outline: none; transition: opacity .2s; }
+.pill .pbg { fill: #161b23; stroke: color-mix(in srgb, var(--fam) 55%, transparent); stroke-width: 1.2; transition: fill .15s, stroke .15s, stroke-width .15s; }
+.pill.inf .pbg { stroke-dasharray: 4 3; }
+.pill .pdot { fill: var(--fam); }
+.pill .ptext { font-family: Inter, sans-serif; font-weight: 500; fill: var(--text); pointer-events: none; }
+.pill:hover .pbg, .pill.hov .pbg, .pill:focus-visible .pbg { fill: color-mix(in srgb, var(--fam) 18%, #161b23); stroke: var(--fam); stroke-width: 2; }
+.pill.sel .pbg { fill: color-mix(in srgb, var(--accent) 25%, #161b23); stroke: var(--accent); stroke-width: 2.2; }
+.pill.hit .pbg { fill: rgba(255, 74, 58, .2); stroke: #ff4a3a; stroke-width: 2; }
+.pill.gone { opacity: .45; } .pill.gone .ptext { text-decoration: line-through; }
+.pill.dim { opacity: .35; }
+.gedge { transition: opacity .2s, stroke-width .15s; }
+svg.hovering .pill:not(.hov) { opacity: .4; }
+svg.hovering .gedge { opacity: .08 !important; }
+svg.hovering .gedge.on { opacity: 1 !important; stroke-width: 2.2; }
+.gedge.hot { animation: flow 1s linear infinite; stroke-dasharray: 6 4; }
+@keyframes flow { to { stroke-dashoffset: -20; } }
+
+.map-modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px;
+  background: rgba(5, 8, 14, .82); animation: blockIn .25s var(--ease) both; }
+.map-card { width: min(1040px, 100%); max-height: calc(100vh - 48px); overflow: auto; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 14px; padding: 16px 20px 20px; box-shadow: 0 30px 80px rgba(0, 0, 0, .6); }
+.map-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+@media (prefers-reduced-motion: reduce) { .gedge.hot { animation: none; } }

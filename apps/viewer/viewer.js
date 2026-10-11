@@ -748,122 +748,120 @@ $("reveal").addEventListener("click", () => { $("reveal").classList.add("out"); 
 const EDGE_COL = { powers: "#ffb020", feeds: "#ffb020", controls: "#36d6ff", connected_to: "#36d6ff", depends_on: "#9b8cff", drives: "#ff5fd2",
   transmits: "#ff5fd2", supports: "#8fa3bf", mounts: "#8fa3bf", contains: "#8fa3bf", attached_to: "#8fa3bf", covers: "#8fa3bf", adjacent_to: "#8fa3bf" };
 // where each kind of part sits around the hub (degrees, 0 = right): power above, outputs right, inputs left, structure below
-const ROLE_ANGLE = { power_source: -90, controller: -50, display: -15, interface: 15, mechanism: 35, actuator: 200, sensor: 160, wheel: 180,
-  connector: -130, cable: -140, structure: 90, cover: 110, fastener: 70 };
-const GW = 340; let GH = 300;
-let graphLayout = { id: null, pos: {} };
-const hashTxt = (t) => { let h = 7; for (const ch of t) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
-function layoutGraph() { // small deterministic force layout: linked parts cluster, everything stays readable
-  const cs = A.components, n = cs.length, pos = {};
-  GH = Math.round(290 + Math.max(0, n - 6) * 22); // taller canvas for bigger systems
-  $("graph").setAttribute("viewBox", `0 0 ${GW} ${GH}`);
-  // seed: the most connected part (usually the main board) in the middle, its neighbours on a ring grouped by role
-  const deg = {}; for (const r of A.relationships) { deg[r.from] = (deg[r.from] || 0) + 1; deg[r.to] = (deg[r.to] || 0) + 1; }
-  const hub = [...cs].sort((a, b) => (deg[b.id] || 0) - (deg[a.id] || 0) || (b.type === "controller") - (a.type === "controller"))[0];
-  const nb = new Set(A.relationships.flatMap((r) => (r.from === hub.id ? [r.to] : r.to === hub.id ? [r.from] : [])));
-  const ring = (list, R) => {
-    const ang = (c) => (ROLE_ANGLE[c.type] ?? 45 + (hashTxt(c.id) % 90)) * Math.PI / 180;
-    const sorted = [...list].sort((a, b) => ang(a) - ang(b));
-    sorted.forEach((c, i) => { // keep the role direction but spread evenly so nodes never start on top of each other
-      const a = 0.5 * ang(c) + 0.5 * (-Math.PI / 2 + (i / Math.max(1, sorted.length)) * Math.PI * 2);
-      pos[c.id] = { x: GW / 2 + R * 1.15 * Math.cos(a), y: GH / 2 + R * Math.sin(a) };
-    });
-  };
-  pos[hub.id] = { x: GW / 2, y: GH / 2 };
-  ring(cs.filter((c) => nb.has(c.id)), Math.min(GW, GH) * 0.3);
-  ring(cs.filter((c) => c.id !== hub.id && !nb.has(c.id)), Math.min(GW, GH) * 0.44);
-  const edges = A.relationships.filter((r) => pos[r.from] && pos[r.to]);
-  const k = Math.sqrt((GW * GH) / Math.max(1, n)) * 0.95;
-  for (let it = 0; it < 260; it++) {
-    const temp = 7 * (1 - it / 260) + 0.4, disp = {};
-    for (const c of cs) disp[c.id] = { x: 0, y: 0 };
-    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
-      const a = pos[cs[i].id], b = pos[cs[j].id]; let dx = a.x - b.x, dy = a.y - b.y; const d = Math.max(1, Math.hypot(dx, dy));
-      const f = (k * k) / d * (1 + 0.08 * Math.min(deg[cs[i].id] || 0, deg[cs[j].id] || 0)); dx /= d; dy /= d; // hubs push each other apart
-      disp[cs[i].id].x += dx * f; disp[cs[i].id].y += dy * f; disp[cs[j].id].x -= dx * f; disp[cs[j].id].y -= dy * f;
-    }
-    for (const e of edges) {
-      const a = pos[e.from], b = pos[e.to]; let dx = a.x - b.x, dy = a.y - b.y; const d = Math.max(1, Math.hypot(dx, dy));
-      const f = (d * d) / k; dx /= d; dy /= d;
-      disp[e.from].x -= dx * f; disp[e.from].y -= dy * f; disp[e.to].x += dx * f; disp[e.to].y += dy * f;
-    }
-    for (const c of cs) {
-      const p = pos[c.id], d = disp[c.id]; d.x += (GW / 2 - p.x) * 0.9; d.y += (GH / 2 - p.y) * 0.9;
-      const m = Math.max(1, Math.hypot(d.x, d.y));
-      p.x = Math.min(GW - 34, Math.max(34, p.x + (d.x / m) * Math.min(m, temp)));
-      p.y = Math.min(GH - 22, Math.max(18, p.y + (d.y / m) * Math.min(m, temp)));
-    }
-  }
-  // labels: try below / above / right / left of each node, skip ones that would overlap (hover shows them)
-  const boxes = cs.map((c) => { const p = pos[c.id], r = 5 + (c.importance ?? 0.45) * 7; return { x0: p.x - r, y0: p.y - r, x1: p.x + r, y1: p.y + r }; });
-  const hit = (b) => boxes.some((o) => b.x0 < o.x1 && b.x1 > o.x0 && b.y0 < o.y1 && b.y1 > o.y0);
-  const labels = {};
-  const order = [...cs].sort((a, b) => (b.importance ?? 0.45) - (a.importance ?? 0.45));
-  for (const c of order) {
-    const p = pos[c.id], r = 5 + (c.importance ?? 0.45) * 7, text = c.label.length > 16 ? c.label.slice(0, 15) + "…" : c.label;
-    const w = text.length * 4.6 + 4, h = 10;
-    const tries = [[p.x, p.y + r + 10, "middle"], [p.x, p.y - r - 4, "middle"], [p.x + r + 3, p.y + 3, "start"], [p.x - r - 3, p.y + 3, "end"]];
-    for (const [x, y, anchor] of tries) {
-      const x0 = anchor === "middle" ? x - w / 2 : anchor === "start" ? x : x - w;
-      const b = { x0, y0: y - h + 2, x1: x0 + w, y1: y + 2 };
-      if (b.x0 < 0 || b.x1 > GW || b.y0 < 0 || b.y1 > GH || hit(b)) continue;
-      boxes.push(b); labels[c.id] = { x, y, anchor, text }; break;
-    }
-  }
-  graphLayout = { id: A.analysisId + ":" + n + ":" + edges.length, pos, labels };
+// ---------------------------------------------------------------- system map (layered, readable)
+// Parts sit in four bands, top to bottom, the way energy and signals flow through a device:
+// power -> brain -> inputs and outputs -> body. Every name is written out in a pill, links are curves between bands.
+const TIERS = [["power", "Power"], ["brain", "Brain"], ["io", "Inputs and outputs"], ["body", "Body and structure"]];
+const IO_TYPES = new Set(["sensor", "actuator", "wheel", "display", "interface", "mechanism", "connector", "cable", "light", "speaker"]);
+function tierOf(c) {
+  if (c.type === "power_source" || (c.type === "connector" && /batter|power|charg|cell/i.test(c.label))) return 0;
+  if (c.type === "controller") return 1;
+  if (IO_TYPES.has(c.type)) return 2;
+  return 3;
 }
-
-function renderGraph() {
-  const svg = $("graph"); svg.innerHTML = "";
-  const NS = "http://www.w3.org/2000/svg", cs = A.components;
-  if (graphLayout.id !== A.analysisId + ":" + cs.length + ":" + A.relationships.length) layoutGraph();
-  const pos = graphLayout.pos;
-  $("graphStats").textContent = `${cs.length} parts · ${A.relationships.length} links`;
+const FAM_COL = { power: "#ffb020", control: "#36d6ff", motion: "#ff5fd2", structure: "#8fa3bf", other: "#8b93a1" };
+function drawSystemMap(svg, W) {
+  const NS = "http://www.w3.org/2000/svg", cs = A.components, big = W > 500;
+  svg.innerHTML = "";
   const mk = (tag, attrs, parent = svg) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); parent.append(e); return e; };
   const defs = mk("defs", {});
-  const colors = new Set([...Object.values(EDGE_COL), "#5b6472", "#ff4a3a"]);
-  for (const c of colors) {
-    const m = mk("marker", { id: "arr" + c.slice(1), viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 5, markerHeight: 5, orient: "auto-start-reverse" }, defs);
-    mk("path", { d: "M0,0L10,5L0,10z", fill: c }, m);
+  for (const c of new Set([...Object.values(EDGE_COL), "#5b6472", "#ff4a3a"])) {
+    const m = mk("marker", { id: "arr" + c.slice(1) + W, viewBox: "0 0 10 10", refX: 8, refY: 5, markerWidth: 6, markerHeight: 6, orient: "auto-start-reverse" }, defs);
+    mk("path", { d: "M0,1L9,5L0,9z", fill: c }, m);
   }
-  const rad = (c) => 5 + (c.importance ?? 0.45) * 7;
+  const glow = mk("filter", { id: "pglow" + W, x: "-30%", y: "-60%", width: "160%", height: "220%" }, defs);
+  mk("feGaussianBlur", { stdDeviation: 3, result: "b" }, glow);
+  const fm = mk("feMerge", {}, glow); mk("feMergeNode", { in: "b" }, fm); mk("feMergeNode", { in: "SourceGraphic" }, fm);
+
+  // measure text once with an offscreen canvas so pills fit their names
+  const ctx = (drawSystemMap.ctx ||= document.createElement("canvas").getContext("2d"));
+  const FS = big ? 13 : 11.5; ctx.font = `500 ${FS}px Inter, sans-serif`;
+  const PH = big ? 30 : 26, GAPX = 8, GAPY = 10, PAD = 10, maxW = W - PAD * 2;
+  const pos = {}; let y = 6;
+  const bands = TIERS.map(() => []); for (const c of cs) bands[tierOf(c)].push(c);
+  const bandRects = [];
+  bands.forEach((list, t) => {
+    if (!list.length) return;
+    const top = y; y += big ? 26 : 18; // band caption
+    let row = [], rowW = 0; const rows = [];
+    for (const c of list) {
+      let text = c.label; let w = ctx.measureText(text).width + 30;
+      while (w > maxW && text.length > 4) { text = text.slice(0, -2); w = ctx.measureText(text + "…").width + 30; }
+      if (text !== c.label) text += "…";
+      if (row.length && rowW + GAPX + w > maxW) { rows.push([row, rowW]); row = []; rowW = 0; }
+      row.push({ c, w, text }); rowW += (row.length > 1 ? GAPX : 0) + w;
+    }
+    if (row.length) rows.push([row, rowW]);
+    for (const [items, rw] of rows) {
+      let x = (W - rw) / 2;
+      for (const it of items) { pos[it.c.id] = { x, y, w: it.w, h: PH, cx: x + it.w / 2, cy: y + PH / 2, text: it.text, tier: t }; x += it.w + GAPX; }
+      y += PH + GAPY;
+    }
+    bandRects.push({ t, top, bottom: y - GAPY + 8 });
+    y += big ? 16 : 12;
+  });
+  const H = Math.max(120, y);
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.style.aspectRatio = `${W} / ${H}`;
+
+  // band backgrounds and captions
+  for (const b of bandRects) {
+    mk("rect", { x: 2, y: b.top, width: W - 4, height: b.bottom - b.top, rx: 10, class: "band b" + b.t });
+    mk("text", { x: PAD + 2, y: b.top + (big ? 14 : 12), class: "bandcap" }).textContent = TIERS[b.t][1];
+  }
   const hot = (r) => affected.has(r.to) && (r.from === removed || affected.has(r.from));
   const touch = (r) => selected && (r.from === selected || r.to === selected);
   const eg = mk("g", {});
   for (const r of A.relationships) {
     const a = pos[r.from], b = pos[r.to]; if (!a || !b) continue;
-    const ca = compById(r.from), cb = compById(r.to);
-    const dx = b.x - a.x, dy = b.y - a.y, d = Math.max(1, Math.hypot(dx, dy));
-    const ra = rad(ca) + 2, rb = rad(cb) + 4;
-    const x1 = a.x + (dx / d) * ra, y1 = a.y + (dy / d) * ra, x2 = b.x - (dx / d) * rb, y2 = b.y - (dy / d) * rb;
-    const mx = (x1 + x2) / 2 - (dy / d) * d * 0.12, my = (y1 + y2) / 2 + (dx / d) * d * 0.12; // gentle curve
+    let d;
+    if (a.tier === b.tier && Math.abs(a.cy - b.cy) < 2) { // same row: arch over the top
+      const lift = Math.min(28, 10 + Math.abs(a.cx - b.cx) * 0.15);
+      d = `M${a.cx},${a.y} C${a.cx},${a.y - lift} ${b.cx},${b.y - lift} ${b.cx},${b.y - 2}`;
+    } else {
+      const down = b.cy > a.cy, y1 = down ? a.y + a.h : a.y, y2 = down ? b.y - 2 : b.y + b.h + 2, k = Math.max(18, Math.abs(y2 - y1) * 0.5);
+      d = `M${a.cx},${y1} C${a.cx},${y1 + (down ? k : -k)} ${b.cx},${y2 - (down ? k : -k)} ${b.cx},${y2}`;
+    }
     const col = hot(r) ? "#ff4a3a" : EDGE_COL[r.type] || "#5b6472";
     const dim = selected && !touch(r) && !hot(r);
-    const path = mk("path", { d: `M${x1},${y1} Q${mx},${my} ${x2},${y2}`, fill: "none", stroke: col, "stroke-width": hot(r) ? 2.2 : touch(r) ? 1.9 : 1.3,
-      opacity: dim ? 0.18 : 0.9, "marker-end": `url(#arr${col.slice(1)})`, class: "gedge" + (hot(r) ? " hot" : "") }, eg);
-    if (r.status !== "observed" && !hot(r)) path.setAttribute("stroke-dasharray", "4 3");
-    mk("title", {}, path).textContent = `${ca.label} ${r.type.replace(/_/g, " ")} ${cb.label}${r.evidence[0] ? " — " + r.evidence[0] : ""}`;
+    const path = mk("path", { d, fill: "none", stroke: col, "stroke-width": hot(r) ? 2.4 : touch(r) ? 2 : 1.3, opacity: dim ? 0.12 : touch(r) || hot(r) ? 1 : 0.6,
+      "marker-end": `url(#arr${col.slice(1)}${W})`, class: "gedge" + (hot(r) ? " hot" : ""), "data-a": r.from, "data-b": r.to }, eg);
+    if (r.status !== "observed" && !hot(r)) path.setAttribute("stroke-dasharray", "5 4");
+    mk("title", {}, path).textContent = `${compById(r.from).label} ${r.type.replace(/_/g, " ")} ${compById(r.to).label}${r.evidence[0] ? " — " + r.evidence[0] : ""}`;
   }
-  const colorsN = { observed: "#3ccf8e", inferred: "#9b8cff", estimated: "#4f8cff", unknown: "#8b93a1" };
   for (const c of cs) {
     const p = pos[c.id]; if (!p) continue;
-    const g = mk("g", { class: "node" + (affected.has(c.id) ? " hit" : "") + (c.id === removed ? " gone" : "") });
+    const fam = FAMILY[c.type] || "other", col = FAM_COL[fam];
+    const linked = selected && A.relationships.some((r) => (r.from === selected && r.to === c.id) || (r.to === selected && r.from === c.id));
+    const cls = ["pill", c.status !== "observed" && "inf", c.id === selected && "sel", affected.has(c.id) && "hit", c.id === removed && "gone",
+      selected && c.id !== selected && !linked && "dim"].filter(Boolean).join(" ");
+    const g = mk("g", { class: cls, tabindex: 0, role: "button", "aria-label": c.label, "data-id": c.id });
+    g.style.setProperty("--fam", col);
     g.onclick = () => select(c.id);
-    const dim = selected && c.id !== selected && !A.relationships.some((r) => (r.from === selected && r.to === c.id) || (r.to === selected && r.from === c.id));
-    g.setAttribute("opacity", dim ? 0.35 : 1);
-    if (c.id === selected) mk("circle", { cx: p.x, cy: p.y, r: rad(c) + 5, fill: "none", stroke: "#4f8cff", "stroke-width": 2, class: "gsel" }, g);
-    mk("circle", { cx: p.x, cy: p.y, r: rad(c), fill: c.id === removed ? "#2a2d33" : affected.has(c.id) ? "#ff4a3a" : colorsN[c.status],
-      stroke: c.id === removed ? "#ff4a3a" : "rgba(0,0,0,.35)", "stroke-width": c.id === removed ? 2 : 1 }, g);
-    if (c.id === removed) mk("path", { d: `M${p.x - 4},${p.y - 4}L${p.x + 4},${p.y + 4}M${p.x + 4},${p.y - 4}L${p.x - 4},${p.y + 4}`, stroke: "#ff4a3a", "stroke-width": 2 }, g);
-    const L = graphLayout.labels[c.id];
-    if (L || c.id === selected) { // overlapping labels stay hidden; hover or select a node to read it
-      const l = L || { x: p.x, y: p.y + rad(c) + 10, anchor: "middle", text: c.label };
-      const t = mk("text", { x: l.x, y: l.y, "text-anchor": l.anchor, class: "glabel" + (L ? "" : " gfloat") }, g);
-      t.textContent = l.text;
-    }
-    mk("title", {}, g).textContent = `${c.label} (${c.type}, ${c.status})${c.function ? " — " + c.function : ""}`;
+    g.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(c.id); } };
+    g.onmouseenter = () => { mapHover(svg, c.id); if (mode === "3d") asm.setHover(c.id, "graph"); };
+    g.onmouseleave = () => { mapHover(svg, null); if (mode === "3d") asm.setHover(null, "graph"); };
+    mk("rect", { x: p.x, y: p.y, width: p.w, height: p.h, rx: p.h / 2, class: "pbg", filter: c.id === selected || affected.has(c.id) ? `url(#pglow${W})` : "" }, g);
+    mk("circle", { cx: p.x + 13, cy: p.cy, r: 4.5, class: "pdot" }, g);
+    mk("text", { x: p.x + 23, y: p.cy + FS * 0.36, class: "ptext", style: `font-size:${FS}px` }, g).textContent = p.text;
+    mk("title", {}, g).textContent = `${c.label} (${c.type.replace(/_/g, " ")}, ${c.status})${c.function ? " — " + c.function : ""}`;
   }
 }
+// hover only toggles classes, so the map is not rebuilt while the pointer moves
+function mapHover(svg, id) {
+  svg.classList.toggle("hovering", !!id);
+  svg.querySelectorAll(".pill").forEach((g) => g.classList.toggle("hov", g.dataset.id === id));
+  svg.querySelectorAll(".gedge").forEach((p) => p.classList.toggle("on", !!id && (p.dataset.a === id || p.dataset.b === id)));
+}
+function renderGraph() {
+  $("graphStats").textContent = `${A.components.length} parts · ${A.relationships.length} links`;
+  drawSystemMap($("graph"), 340);
+  if (!$("mapModal").hidden) drawSystemMap($("graphBig"), Math.min(980, innerWidth - 80));
+}
+function openMap() { if (!A) return; $("mapModal").hidden = false; renderGraph(); $("mapClose").focus(); }
+function closeMap() { $("mapModal").hidden = true; }
+$("mapOpen").onclick = openMap; $("mapClose").onclick = closeMap;
+$("mapModal").addEventListener("click", (e) => { if (e.target === $("mapModal")) closeMap(); });
+addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("mapModal").hidden) closeMap(); });
 
 // ---------------------------------------------------------------- chat: ask about the object and its parts
 // Answers come from the server's grounded chat over this analysis (parts, links, functions); the photo is not resent.
@@ -1047,6 +1045,8 @@ for (const ev of ["pointermove", "pointerdown", "pointerup", "wheel", "keydown",
 controls.addEventListener("change", () => asm.poke());
 renderer.setAnimationLoop(() => {
   controls.update();
+  if (!$("mapModal").hidden) return; // the 3D view is covered: no need to draw it
+  if (!$("mapModal").hidden) return; // the 3D view is covered: no need to draw it
   if (mode === "3d" && asm.root.visible && !controls.autoRotate && !drag && !asm.busy()) return;
   if (!asm.renderScene()) renderer.render(scene3, camera);
   asm.render();

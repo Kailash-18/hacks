@@ -119,16 +119,22 @@
       </form>
     </div>
     <div class="block">
-      <div class="block-head"><h3>System graph</h3><span id="graphStats" class="legend"></span></div>
-      <svg id="graph" viewBox="0 0 340 300" role="img" aria-label="Component relationship graph"></svg>
+      <div class="block-head"><h3>System map</h3><span class="map-head"><span id="graphStats" class="legend"></span><button id="mapOpen" class="btn small" type="button">Expand</button></span></div>
+      <svg id="graph" viewBox="0 0 340 300" role="img" aria-label="How the parts depend on each other"></svg>
       <div class="glegend">
         <span><i style="background:#ffb020"></i>power</span><span><i style="background:#36d6ff"></i>control / signal</span>
         <span><i style="background:#ff5fd2"></i>motion</span><span><i style="background:#8fa3bf"></i>structure</span>
       </div>
-      <p class="tiny muted">Arrow points to the part that depends on the other · dashed = inferred · bigger node = more important. Click a node to inspect it.</p>
+      <p class="tiny muted">Arrows point to the part that depends on the other. Dashed = inferred, not seen. Click a part to inspect it.</p>
     </div>
 
   </aside>
+  <div id="mapModal" class="map-modal" hidden role="dialog" aria-modal="true" aria-label="System map">
+    <div class="map-card">
+      <div class="map-top"><h3>System map</h3><button id="mapClose" class="btn small" type="button">Close</button></div>
+      <svg id="graphBig" role="img" aria-label="How the parts depend on each other, large"></svg>
+    </div>
+  </div>
 </main>
 <script type="module" src="/viewer/viewer.js"></script>
 </body>
