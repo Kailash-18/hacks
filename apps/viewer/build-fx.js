@@ -157,6 +157,7 @@
   async function finish(my, skip = false, code = "") {
     if (!ov) return;
     if (!skip) {
+      const ready = window.genesisPrep?.().catch(() => null);  // particles sampled while the code streams
       await Promise.race([exploded, sleep(8000)]);
       if (my !== run || !ov) return;
       await sleep(Math.max(0, 1200 - (Date.now() - (tExploded || Date.now()))));  // the exploded view is worth a look
@@ -168,6 +169,15 @@
       pl?.classList.remove("shift");
       caption("DONE", "Rebuilt", "here is the code next to the original");
       pl?.querySelectorAll(".fx-part.hot").forEach((e) => e.classList.remove("hot"));
+      if (window.genesis && await ready) {
+        // the scan is done: the light takes over on this exact frame, under the fading teardown
+        const played = window.genesis();
+        ov.classList.add("fast", "out");
+        await sleep(260);
+        if (my === run) clear();
+        if (await played) window.polishSweep?.([[0, 0], [1, 50]], 1300); else sweep();
+        return;
+      }
       pl?.classList.remove("iso");  // reassemble
       await sleep(1000);
       if (my !== run || !ov) return;
@@ -176,8 +186,7 @@
     await sleep(skip ? 200 : 550);
     if (my !== run) return;
     clear();
-    if (window.genesis) window.genesis().then((ok) => ok ? window.polishSweep?.([[0, 0], [1, 50]], 1300) : sweep());
-    else sweep();
+    sweep();
   }
   function done(code) { if (!reduce && ov) finish(run, false, code); }
   function abort() { run++; clear(); }

@@ -95,3 +95,4 @@
 /* genesis: the canvas that plays the arrival of the rebuilt page */
 .wipe canvas.genesis { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 8; pointer-events: none; transition: opacity .35s ease; }
 .wipe canvas.genesis.out { opacity: 0; }
+.fx.fast { transition-duration: .25s !important; }

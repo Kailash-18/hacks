@@ -7,25 +7,35 @@
   const ease = { inC: (t) => t * t * t, outC: (t) => 1 - Math.pow(1 - t, 3), inOut: (t) => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
     outBack: (t) => { const c = 1.4; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); } };
   const cl = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
-  let busy = false;
+  let busy = false, cache = null;
+
+  // sample the screenshot into particles ahead of time, so the moment can start on the exact frame it is needed
+  window.genesisPrep = async function genesisPrep() {
+    const wipe = document.getElementById("wipe");
+    if (reduce || !wipe || !S?.shot?.url) return null;
+    const W = wipe.clientWidth, H = wipe.clientHeight; if (W < 80 || H < 60) return null;
+    const key = `${S.shot.url}|${W}|${H}`;
+    if (cache?.key === key) return cache;
+    const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = S.shot.url; });
+    const src = document.createElement("canvas"); src.width = W; src.height = H;
+    const sg = src.getContext("2d", { willReadFrequently: true }); sg.drawImage(img, 0, 0, W, H);
+    const px = sg.getImageData(0, 0, W, H).data;
+    const step = Math.max(3, Math.ceil(Math.sqrt((W * H) / 12000)));
+    const P = [];
+    for (let y = 0; y < H; y += step) for (let x = 0; x < W; x += step) {
+      const i = ((Math.min(H - 1, y + (step >> 1))) * W + Math.min(W - 1, x + (step >> 1))) * 4;
+      P.push({ x, y, r: px[i], g: px[i + 1], b: px[i + 2], k: Math.random(), a: Math.random() * Math.PI * 2, o: 4 + Math.sqrt(Math.random()) * 58 });
+    }
+    return (cache = { key, W, H, src, P, step });
+  };
 
   window.genesis = async function genesis() {
     const wipe = document.getElementById("wipe");
     if (reduce || busy || !wipe || wipe.hidden || !S?.shot?.url || isMobile?.()) return false;
     busy = true;
     try {
-      const W = wipe.clientWidth, H = wipe.clientHeight; if (W < 80 || H < 60) return false;
-      const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = S.shot.url; });
-      // sample the screenshot into particles that tile it exactly
-      const src = document.createElement("canvas"); src.width = W; src.height = H;
-      const sg = src.getContext("2d", { willReadFrequently: true }); sg.drawImage(img, 0, 0, W, H);
-      const px = sg.getImageData(0, 0, W, H).data;
-      const step = Math.max(3, Math.ceil(Math.sqrt((W * H) / 12000)));
-      const P = [];
-      for (let y = 0; y < H; y += step) for (let x = 0; x < W; x += step) {
-        const i = ((y + (step >> 1)) * W + Math.min(W - 1, x + (step >> 1))) * 4;
-        P.push({ x, y, r: px[i], g: px[i + 1], b: px[i + 2], k: Math.random(), a: Math.random() * Math.PI * 2, o: 4 + Math.sqrt(Math.random()) * 58 });
-      }
+      const prep = await window.genesisPrep(); if (!prep) return false;
+      const { W, H, src, P, step } = prep;
       const cx = W / 2, cy = H / 2, diag = Math.hypot(W, H);
       const cv = document.createElement("canvas"); cv.className = "genesis"; cv.width = W; cv.height = H;
       wipe.append(cv);
