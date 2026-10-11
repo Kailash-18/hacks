@@ -298,7 +298,7 @@ export class AssemblyView {
       group.traverse((o) => (o.userData.partId = a.componentId));
       const div = document.createElement("div"); div.className = "lbl" + (inferred ? " inferred" : "");
       div.textContent = c.label;
-      if (inferred) { const tag = document.createElement("small"); tag.textContent = "inferred"; div.append(tag); }
+      if (inferred) { const tag = document.createElement("small"); tag.textContent = this.curated ? "inside" : "inferred"; div.append(tag); }
       geom.computeBoundingBox();
       div.addEventListener("pointerenter", () => this.setHover(a.componentId, "label"));
       div.addEventListener("pointerleave", () => this.setHover(null, "label"));

@@ -170,6 +170,7 @@ async function build(analysis, { sample = false } = {}) {
   restoreWhatIf(true);
   $("xray").checked = false; asm.setXray(false); syncHelp(); asm.setFocus?.(null); $("focusChip") && ($("focusChip").hidden = true);
   const has3D = A.scene.assembly && A.scene.assembly.parts.length;
+  asm.curated = A.provider?.name === "curated";
   if (has3D) asm.build(A.scene.assembly, A.components, viewsOf(A), A.relationships);
   $("empty").hidden = true; $("controls").hidden = false; $("panel").hidden = false; steps(STEP_NAMES.length);
   setPanelTab(panelTab); requestAnimationFrame(moveInk);
@@ -200,7 +201,7 @@ function show3D({ intro = false } = {}) {
       setTimeout(() => { if (!drag && mode === "3d" && !$("xray").checked) { controls.autoRotate = true; $("spin").checked = true; } }, 2000);
     });
   }
-  $("depthBadge").textContent = "3D model: AI-estimated shapes (approximate)";
+  $("depthBadge").textContent = A.provider?.name === "curated" ? "3D model: curated reference shapes (typical layout)" : "3D model: AI-estimated shapes (approximate)";
   $("handsHint").hidden = false; $("resetParts").hidden = !asm.anyMoved(); syncHelp();
   $("loading").hidden = true;
 }
@@ -598,7 +599,8 @@ function renderParts() {
   $("partsCount").textContent = A.components.length;
   const q = partsQuery.trim().toLowerCase();
   const match = (c) => !q || c.label.toLowerCase().includes(q) || c.type.replace(/_/g, " ").includes(q);
-  const groups = [["observed", "Seen in the photo", seen], ["inferred", "Inside, inferred", inside]]
+  const cur = A.provider?.name === "curated";
+  const groups = [["observed", cur ? "Outside" : "Seen in the photo", seen], ["inferred", cur ? "Inside" : "Inside, inferred", inside]]
     .filter(([k]) => partsFilter === "all" || partsFilter === k);
   let shown = 0;
   for (const [, title, list] of groups) {
@@ -638,7 +640,7 @@ $("partsSearch").addEventListener("input", (e) => { partsQuery = e.target.value;
 function renderStats() { // one quiet line of counts under the title; the numbers count up once
   const seen = A.components.filter((c) => c.status === "observed").length, links = A.relationships.length;
   const box = $("stats"); box.innerHTML = "";
-  for (const [n, l, cls] of [[seen, "seen", "observed"], [A.components.length - seen, "inside", "inferred"], [links, "links", "lnk"]]) {
+  for (const [n, l, cls] of [[seen, A.provider?.name === "curated" ? "outside" : "seen", "observed"], [A.components.length - seen, "inside", "inferred"], [links, "links", "lnk"]]) {
     const s = el("span", "stat " + cls), b = el("b", "", "0"); s.append(b, el("span", "", l)); box.append(s);
     const t0 = performance.now(), up = (now) => { const k = Math.min(1, (now - t0) / 700); b.textContent = Math.round(n * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(up); };
     requestAnimationFrame(up);
@@ -651,7 +653,8 @@ function renderDetail() {
   const c = compById(selected); d.hidden = false;
   $("dLabel").textContent = c.label;
   const st = $("dStatus"); st.className = `chip ${c.status}${isVerified(c) ? " verified" : ""}`;
-  st.textContent = c.status === "observed" ? "seen in photo" : isVerified(c) ? "verified inside" : c.status;
+  st.textContent = A.provider?.name === "curated" ? (c.status === "observed" ? "outside" : "inside")
+    : c.status === "observed" ? "seen in photo" : isVerified(c) ? "verified inside" : c.status;
   $("dType").textContent = c.type.replace(/_/g, " "); $("dThumb").replaceChildren(thumbOf(c, "thumb lg")); d.className = "detail " + (FAMILY[c.type] || "other");
   $("dFunction").hidden = !c.function; $("dFunction").textContent = c.function ? "Does: " + c.function : "";
   $("dIfRemoved").hidden = !c.ifRemoved; $("dIfRemoved").textContent = c.ifRemoved ? "Without it: " + c.ifRemoved : "";
