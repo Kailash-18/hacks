@@ -111,7 +111,7 @@ LIMITATIONS = [
 
 MAX_VIEWS = 4
 LAST_TIMING: dict = {}  # filled per request; exposed as a Server-Timing header for debugging
-PIPELINE_VERSION = "15"  # bump when building logic changes, so saved results are rebuilt (model answers stay cached)
+PIPELINE_VERSION = "16"  # bump when building logic changes, so saved results are rebuilt (model answers stay cached)
 
 
 class AnalysisError(Exception):

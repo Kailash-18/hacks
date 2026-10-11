@@ -131,7 +131,8 @@ def verify_parts(result, jpegs: list[bytes], vision_client, cache_dir=None) -> d
         return None
     out["sources"] = (tear_sources + list(sources or []))[:6]
     out["product"] = name
-    if cached:
+    out["web_checked"] = bool(out["sources"])
+    if cached and out["web_checked"]:
         cache_dir.mkdir(parents=True, exist_ok=True)
         cached.write_text(json.dumps(out), encoding="utf-8")
     return out
@@ -144,13 +145,18 @@ def apply_bom(result, bom: dict | None) -> dict:
         return stats
     comps = {c.id: c for c in result.components}
     src_line = lambda p: _s(p.get("source"), 90)
+    web = bool(bom.get("sources"))  # False when web search was unavailable: the answer is model memory only
+    real_source = lambda p: web and bool(src_line(p)) and not re.search(r"visual|photo|image|inspection|appearance|typical|general", src_line(p), re.I)
+    unknown_keep = []
     label_to_id = {c.label.lower(): c.id for c in result.components}
     drop = set()
     for p in bom.get("parts") or []:
         if not isinstance(p, dict):
             continue
         c = comps.get(_s(p.get("id"), 80))
-        if c is None:
+        if c is None:  # a real part the photo pass never listed (e.g. the bottom shell): add it below
+            if _s(p.get("action"), 10).lower() != "drop" and _s(p.get("label"), 70):
+                unknown_keep.append(p)
             continue
         if _s(p.get("action"), 10).lower() == "drop":
             if c.status != "observed":  # the photo is the strongest evidence: never drop what it shows
@@ -168,7 +174,7 @@ def apply_bom(result, bom: dict | None) -> dict:
         detail, conf = _s(p.get("detail"), 120), _conf(p.get("confidence"))
         if detail and detail.lower() not in c.label.lower():
             c.evidence.insert(0, f"Spec: {detail}")
-        if src_line(p) and conf is not None and conf >= 0.6:
+        if c.status != "observed" and real_source(p) and conf is not None and conf >= 0.6:
             c.evidence.insert(0, f"Confirmed for {bom.get('product', 'this product')}: {src_line(p)}")
             stats["confirmed"] += 1
         if conf is not None and c.status != "observed":
@@ -183,7 +189,7 @@ def apply_bom(result, bom: dict | None) -> dict:
     # add real inside parts that were missing
     used = {c.id for c in result.components}
     added = []
-    for p in (bom.get("add") or [])[:MAX_ADD]:
+    for p in ((bom.get("add") or []) + unknown_keep)[:MAX_ADD]:
         if not isinstance(p, dict):
             continue
         label = _s(p.get("label"), 70)
@@ -195,8 +201,8 @@ def apply_bom(result, bom: dict | None) -> dict:
         used.add(cid)
         t = _s(p.get("type"), 20)
         conf = _conf(p.get("confidence"))
-        ev = [f"Inside this product per {src_line(p) or 'product sources'} (not visible in the photo)."]
-        if src_line(p) and conf is not None and conf >= 0.6:
+        ev = [f"Inside this product per {src_line(p) if real_source(p) else 'model knowledge (not web-verified)'} (not visible in the photo)."]
+        if real_source(p) and conf is not None and conf >= 0.6:
             ev.insert(0, f"Confirmed for {bom.get('product', 'this product')}: {src_line(p)}")
             stats["confirmed"] += 1
         if _s(p.get("detail"), 120):
@@ -229,8 +235,9 @@ def apply_bom(result, bom: dict | None) -> dict:
     if result.scene is not None:
         note = _s(bom.get("note"), 200)
         srcs = ", ".join(s.get("title", "") for s in (bom.get("sources") or [])[:3] if s.get("title"))
+        how = "real sources" if web else "the model's own knowledge only (web search was unavailable, so nothing is marked verified)"
         result.scene.notes.append(
-            f"Parts checked against real sources for {bom.get('product', 'this product')}: {stats['renamed']} renamed, "
+            f"Parts checked against {how} for {bom.get('product', 'this product')}: {stats['renamed']} renamed, "
             f"{stats['dropped']} removed, {stats['added']} added, {stats['confirmed']} confirmed."
             + (f" {note}" if note else "") + (f" Sources: {srcs}." if srcs else ""))
     return stats

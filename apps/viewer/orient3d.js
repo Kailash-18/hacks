@@ -31,8 +31,12 @@ export function installAxes(View) {
   P.upSign = function (mode, lg) {
     if (lg === 1) return 1;
     const FRONT = new Set(["interface", "actuator", "display", "wheel", "light"]);
+    const DECOR = /logo|label|badge|sticker|brand|decal|print|text|screw|foot|feet/i;
+    const front = this.parts.filter((p) => FRONT.has(p.type) && !p.inferred && !DECOR.test(p.label.element.firstChild?.textContent || p.id));
+    // controls on the top side (buttons, wheel, screen) decide; switches and LEDs on the underside do not
+    const topSide = front.filter((p) => p.base.y > -this.size.y * 0.1);
     let sum = 0, n = 0;
-    for (const p of this.parts) if (FRONT.has(p.type) && !p.inferred) { sum += p.base.getComponent(lg); n++; }
+    for (const p of (topSide.length ? topSide : front)) { sum += p.base.getComponent(lg); n++; }
     const span = this.size.getComponent(lg) || 1;
     if (n && Math.abs(sum / n) > span * 0.04) return Math.sign(sum / n);
     return -1; // no clear front: the end farther from the camera rises, like tilting the object up toward you
