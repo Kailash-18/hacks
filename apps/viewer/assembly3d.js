@@ -6,6 +6,7 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 import { installAxes } from "./orient3d.js";
 import { installSwap } from "./swap3d.js";
+import { installHolo } from "./holo3d.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
@@ -442,33 +443,10 @@ export class AssemblyView {
     F.group.position.y += (want - F.group.position.y) * Math.min(1, dt * 8 || 1);
     this.grid.position.y = F.group.position.y - F.H * 1.3 - 0.02;
     F.tick.material.color.setRGB(0.35, 0.85, 1).multiplyScalar(1.9 + 0.35 * Math.sin(now / 1100)); // the lit edge breathes gently
-    // holographic scan on the selected part
+    // the selected part is shown as a hologram blueprint (holo3d.js)
     const sel = this.parts.find((p) => p.id === this.lastPaint?.selected && p.group.visible);
-    F.lock.visible = !!sel;
-    if (sel) {
-      if (F.lockId !== sel.id) { F.lockId = sel.id; F.lockT = now; this._selAnimUntil = now + 2600; }
-      const box = new THREE.Box3().setFromObject(sel.mesh), c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
-      const age = now - F.lockT, k = easeOut(clamp01(age / 500));
-      const settle = this.lowQuality && age > 2400; // slow computers: one sweep, then hold still
-      const [scan, beam, foot] = F.lock.children;
-      // laser grid: sweeps bottom to top and back, a little wider than the part
-      const ph = settle ? 0.5 : (Math.sin(age / 520 - Math.PI / 2) + 1) / 2;
-      scan.position.set(c.x, box.min.y + sz.y * ph, c.z);
-      scan.scale.set(Math.max(0.9, sz.x * 1.3) * (0.6 + 0.4 * k), 1, Math.max(0.9, sz.z * 1.3) * (0.6 + 0.4 * k));
-      scan.material.opacity = (settle ? 0.35 : 0.85) * k;
-      scan.children[0].material.opacity = (settle ? 0.5 : 1) * k;
-      // light beam from the plinth up to the part's underside
-      const base = F.group.position.y + 0.005, top = box.min.y, h = top - base, r = Math.max(0.12, Math.min(sz.x, sz.z) * 0.32);
-      beam.visible = foot.visible = h > 0.15;
-      if (beam.visible) {
-        beam.position.set(c.x, base, c.z); beam.scale.set(r, h * k, r);
-        beam.material.map.offset.y = settle ? 0 : -age / 1400; beam.material.opacity = 0.5 * k;
-        foot.position.set(c.x, base + 0.004, c.z); foot.scale.setScalar(r * 3.2 * (0.7 + 0.3 * k)); foot.material.opacity = 0.9 * k;
-      }
-      // the part's own edges glow and breathe
-      const pulse = settle ? 0.7 : 0.7 + 0.3 * Math.sin(age / 260);
-      sel.edges.material.color.setRGB(0.35, 0.9, 1).multiplyScalar(1.6 * pulse); sel.edges.material.opacity = 0.95; sel.edges.material.toneMapped = false;
-    } else F.lockId = null;
+    F.lock.visible = false;
+    this.updateHolo(now, sel);
     // hover lift: the part under the pointer rises a little toward you
     if (this._liftAnim) {
       const k = clamp01((now - this._liftAnim) / 220); let moving = false;
@@ -919,6 +897,7 @@ export class AssemblyView {
       w.mat.opacity = (w.structural ? 0.45 : 0.8) * (on ? 1 : 0.18);
       for (const sp of w.sprites) sp.material.opacity = on ? 1 : 0.15;
     }
+    this.applyHolo(selected);
     this.setExplode(this.explode);
   }
 
@@ -1308,3 +1287,4 @@ function footTexture() { // soft square glow where the beam meets the plinth
   g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
+installHolo(AssemblyView);
