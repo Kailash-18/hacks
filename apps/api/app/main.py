@@ -213,10 +213,15 @@ async def physical_identify(request: Request):
     return out
 
 
+RETIRED_SAMPLES = {"laptop", "desktop-pc"}
+
+
 @app.get("/api/physical/samples")
 def list_samples():
     items = []
     for f in sorted(SAMPLES_DIR.glob("*.json")):
+        if f.stem in RETIRED_SAMPLES:  # replaced samples that may still sit in an old checkout
+            continue
         try:
             d = json.loads(f.read_text(encoding="utf-8"))
             items.append({"id": f.stem, "title": d.get("title", f.stem)})

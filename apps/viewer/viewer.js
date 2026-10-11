@@ -170,7 +170,12 @@ async function build(analysis, { sample = false } = {}) {
   restoreWhatIf(true);
   $("xray").checked = false; asm.setXray(false); syncHelp(); asm.setFocus?.(null); $("focusChip") && ($("focusChip").hidden = true);
   const has3D = A.scene.assembly && A.scene.assembly.parts.length;
-  if (has3D) asm.build(A.scene.assembly, A.components, viewsOf(A), A.relationships);
+  asm.curated = A.provider?.name === "curated";
+  if (has3D) {
+    asm.build(A.scene.assembly, A.components, viewsOf(A), A.relationships);
+    const forA = A; // 3D pictures for every part without a photo cut-out, rendered once the model has its materials
+    asm.makeThumbs(A.components.filter((c) => !cutoutOf(c.id)).map((c) => c.id), () => { if (A === forA) { renderParts(); renderGraph(); renderDetail(); } });
+  }
   $("empty").hidden = true; $("controls").hidden = false; $("panel").hidden = false; steps(STEP_NAMES.length);
   setPanelTab(panelTab); requestAnimationFrame(moveInk);
   if (has3D) show3D({ intro: true });
@@ -200,7 +205,7 @@ function show3D({ intro = false } = {}) {
       setTimeout(() => { if (!drag && mode === "3d" && !$("xray").checked) { controls.autoRotate = true; $("spin").checked = true; } }, 2000);
     });
   }
-  $("depthBadge").textContent = "3D model: AI-estimated shapes (approximate)";
+  $("depthBadge").textContent = A.provider?.name === "curated" ? "3D model: curated reference shapes (typical layout)" : "3D model: AI-estimated shapes (approximate)";
   $("handsHint").hidden = false; $("resetParts").hidden = !asm.anyMoved(); syncHelp();
   $("loading").hidden = true;
 }
@@ -578,6 +583,7 @@ function renderPanel() {
     pe.hidden = false;
   } else pe.hidden = true;
   partsQuery = ""; $("partsSearch").value = "";
+  document.querySelector('#partsFilter [data-f="observed"]').textContent = A.provider?.name === "curated" ? "Outside" : "Seen";
   $("parts").classList.add("intro"); clearTimeout(renderPanel.t); renderPanel.t = setTimeout(() => $("parts").classList.remove("intro"), 900);
   renderStats(); renderParts(); renderGraph(); renderDetail(); resetChat();
   const panel = $("panel"); panel.classList.remove("boot"); void panel.offsetWidth; panel.classList.add("boot"); // boot-up sequence once per result
@@ -598,7 +604,8 @@ function renderParts() {
   $("partsCount").textContent = A.components.length;
   const q = partsQuery.trim().toLowerCase();
   const match = (c) => !q || c.label.toLowerCase().includes(q) || c.type.replace(/_/g, " ").includes(q);
-  const groups = [["observed", "Seen in the photo", seen], ["inferred", "Inside, inferred", inside]]
+  const cur = A.provider?.name === "curated";
+  const groups = [["observed", cur ? "Outside" : "Seen in the photo", seen], ["inferred", cur ? "Inside" : "Inside, inferred", inside]]
     .filter(([k]) => partsFilter === "all" || partsFilter === k);
   let shown = 0;
   for (const [, title, list] of groups) {
@@ -610,9 +617,7 @@ function renderParts() {
       li.dataset.id = c.id; li.tabIndex = 0;
       const fam = FAMILY[c.type] || "other";
       li.classList.add(fam); li.style.animationDelay = Math.min(shown, 12) * 25 + "ms";
-      const th = el("span", "thumb" + (c.status === "observed" ? "" : " ghost"));
-      const src = cutoutOf(c.id);
-      if (src) { const im = el("img"); im.src = src; im.alt = ""; im.loading = "lazy"; th.append(im); }
+      const th = thumbOf(c);
       const txt = el("span", "pname"); txt.append(el("b", "", c.label), el("small", "", c.type.replace(/_/g, " ")));
       li.append(th, txt);
       if (c.id === removed) li.append(el("span", "tag gone", "removed"));
@@ -638,7 +643,7 @@ $("partsSearch").addEventListener("input", (e) => { partsQuery = e.target.value;
 function renderStats() { // one quiet line of counts under the title; the numbers count up once
   const seen = A.components.filter((c) => c.status === "observed").length, links = A.relationships.length;
   const box = $("stats"); box.innerHTML = "";
-  for (const [n, l, cls] of [[seen, "seen", "observed"], [A.components.length - seen, "inside", "inferred"], [links, "links", "lnk"]]) {
+  for (const [n, l, cls] of [[seen, A.provider?.name === "curated" ? "outside" : "seen", "observed"], [A.components.length - seen, "inside", "inferred"], [links, "links", "lnk"]]) {
     const s = el("span", "stat " + cls), b = el("b", "", "0"); s.append(b, el("span", "", l)); box.append(s);
     const t0 = performance.now(), up = (now) => { const k = Math.min(1, (now - t0) / 700); b.textContent = Math.round(n * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(up); };
     requestAnimationFrame(up);
@@ -651,7 +656,8 @@ function renderDetail() {
   const c = compById(selected); d.hidden = false;
   $("dLabel").textContent = c.label;
   const st = $("dStatus"); st.className = `chip ${c.status}${isVerified(c) ? " verified" : ""}`;
-  st.textContent = c.status === "observed" ? "seen in photo" : isVerified(c) ? "verified inside" : c.status;
+  st.textContent = A.provider?.name === "curated" ? (c.status === "observed" ? "outside" : "inside")
+    : c.status === "observed" ? "seen in photo" : isVerified(c) ? "verified inside" : c.status;
   $("dType").textContent = c.type.replace(/_/g, " "); $("dThumb").replaceChildren(thumbOf(c, "thumb lg")); d.className = "detail " + (FAMILY[c.type] || "other");
   $("dFunction").hidden = !c.function; $("dFunction").textContent = c.function ? "Does: " + c.function : "";
   $("dIfRemoved").hidden = !c.ifRemoved; $("dIfRemoved").textContent = c.ifRemoved ? "Without it: " + c.ifRemoved : "";
@@ -848,8 +854,9 @@ function degrees() { const d = {}; for (const r of A.relationships) { d[r.from] 
 function hubId() { // the most connected part is the natural place to start
   const deg = degrees(); return [...A.components].sort((a, b) => (deg[b.id] || 0) - (deg[a.id] || 0))[0]?.id;
 }
-function thumbOf(c, cls = "thumb") { // photo cut-out when the part was seen, a soft family-coloured ghost when inferred
-  const th = el("span", cls + (c.status === "observed" ? "" : " ghost")), src = cutoutOf(c.id);
+function thumbOf(c, cls = "thumb") { // the part's photo cut-out when it was seen, otherwise a small 3D picture of the part itself
+  const src = cutoutOf(c.id) || asm._thumbs?.get(c.id) || null;
+  const th = el("span", cls + (src ? (cutoutOf(c.id) ? "" : " model") : c.status === "observed" ? "" : " ghost"));
   if (src) { const im = el("img"); im.src = src; im.alt = ""; im.loading = "lazy"; th.append(im); }
   return th;
 }

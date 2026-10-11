@@ -7,6 +7,7 @@ import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer
 import { installAxes } from "./orient3d.js";
 import { installSwap } from "./swap3d.js";
 import { installHolo } from "./holo3d.js";
+import { installThumbs } from "./thumbs3d.js";
 import { installXray } from "./xray3d.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
@@ -298,7 +299,7 @@ export class AssemblyView {
       group.traverse((o) => (o.userData.partId = a.componentId));
       const div = document.createElement("div"); div.className = "lbl" + (inferred ? " inferred" : "");
       div.textContent = c.label;
-      if (inferred) { const tag = document.createElement("small"); tag.textContent = "inferred"; div.append(tag); }
+      if (inferred) { const tag = document.createElement("small"); tag.textContent = this.curated ? "inside" : "inferred"; div.append(tag); }
       geom.computeBoundingBox();
       div.addEventListener("pointerenter", () => this.setHover(a.componentId, "label"));
       div.addEventListener("pointerleave", () => this.setHover(null, "label"));
@@ -1542,3 +1543,4 @@ function footTexture() { // soft square glow where the beam meets the plinth
 }
 installHolo(AssemblyView);
 installXray(AssemblyView);
+installThumbs(AssemblyView);
