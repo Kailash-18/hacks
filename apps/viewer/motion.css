@@ -1,0 +1,110 @@
+/* Shared motion + the Physical Lab hero. One rule for all of it: motion explains (a part separating, a view
+   changing, an action confirmed); nothing loops for decoration except the hero object itself. */
+
+/* page change between the labs: a soft crossfade instead of a white flash (Chrome view transitions) */
+@view-transition { navigation: auto; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .28s; }
+.topbar, .bar { view-transition-name: topbar; }
+
+/* buttons answer the press */
+.btn, .seg button, .tabs button, .chips button, .ap-chips button, #screenChips button, .labswitch a, .labs a {
+  transition: background-color .18s, border-color .18s, color .18s, transform .12s, box-shadow .18s; }
+.btn:active:not(:disabled), .seg button:active, .chips button:active, .ap-chips button:active { transform: scale(.97); }
+.btn.primary:hover:not(:disabled) { box-shadow: 0 6px 22px -8px rgba(79,140,255,.75); }
+
+/* ---------- Physical home: the object pulls itself apart ---------- */
+.empty { flex-direction: row; justify-content: center; align-items: center; gap: clamp(24px, 6vw, 90px); text-align: left; }
+.empty-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; max-width: 470px; }
+.empty h1 { font-size: clamp(30px, 4.2vw, 50px); line-height: 1.04; letter-spacing: -.035em; }
+.empty .tips { text-align: left; }
+.empty .tips li { padding: 1px 0; }
+
+.xphone { margin: 0; display: grid; justify-items: center; gap: 18px; perspective: 1400px; }
+.xp-stack { position: relative; width: 150px; height: 300px; transform-style: preserve-3d; margin: 110px 90px 20px 0;
+  transform: rotateX(56deg) rotateZ(-36deg); animation: xp-float 9s ease-in-out infinite; }
+.xp-l { position: absolute; inset: 0; border-radius: 30px; transform-style: preserve-3d;
+  transform: translateZ(calc(var(--i) * 3px)); animation: xp-explode 7s cubic-bezier(.6,0,.25,1) infinite; }
+.xp-l > span { position: absolute; left: 100%; top: 50%; margin-left: 40px; white-space: nowrap; font: 500 12px "JetBrains Mono", monospace;
+  color: #bfe9ff; transform-origin: 0 50%; transform: rotateZ(36deg) rotateX(-56deg); opacity: 0; animation: xp-label 7s ease infinite;
+  padding-left: 44px; }
+.xp-l > span::before { content: ""; position: absolute; left: 0; top: 50%; width: 38px; height: 1px; background: currentColor; opacity: .6; }
+.back { background: linear-gradient(140deg, #c9ccd6, #8e93a3); box-shadow: 0 0 0 1px rgba(255,255,255,.25) inset; }
+.back .cam { position: absolute; width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle, #1a2236 40%, #39415a 42%, #0e1220 70%);
+  left: 18px; top: 18px; box-shadow: 0 0 0 3px #a6abb8; }
+.back .cam.b { top: 50px; } .back .cam.c { left: 50px; top: 34px; width: 12px; height: 12px; background: #f6e7b5; box-shadow: none; }
+.batt { inset: 70px 22px 40px; border-radius: 10px; background: linear-gradient(160deg, #2c3446, #1b2130); box-shadow: 0 0 0 1px #4a5570 inset; }
+.batt i { position: absolute; inset: 40% 18%; border-radius: 4px; background: linear-gradient(90deg, #3ccf8e, #5ef2ff); opacity: .8; }
+.board { inset: 8px 14px 200px; border-radius: 16px 16px 6px 6px; background: #0e4a3c;
+  background-image: linear-gradient(rgba(94,242,255,.25) 1px, transparent 1px), linear-gradient(90deg, rgba(94,242,255,.25) 1px, transparent 1px);
+  background-size: 10px 10px; box-shadow: 0 0 0 1px #3ccf8e inset; }
+.board .soc { position: absolute; left: 40%; top: 28%; width: 34px; height: 34px; border-radius: 4px; background: #1d2230; box-shadow: 0 0 0 2px #8e96ab; }
+.board .chip { position: absolute; width: 16px; height: 12px; border-radius: 2px; background: #232a3a; }
+.board .chip.a { left: 12%; top: 25%; } .board .chip.b { left: 14%; top: 62%; } .board .chip.c { right: 10%; top: 60%; }
+.frame { background: none; box-shadow: 0 0 0 6px #9aa0ae inset, 0 0 0 1px rgba(255,255,255,.4) inset; }
+.oled { inset: 4px; border-radius: 26px; background: radial-gradient(120% 80% at 30% 20%, #4f8cff, #2a1f6e 45%, #07080c 80%); }
+.glass { background: linear-gradient(130deg, rgba(255,255,255,.28), rgba(255,255,255,.04) 40%, rgba(255,255,255,.12));
+  box-shadow: 0 0 0 1px rgba(255,255,255,.45) inset; }
+.glass .island { position: absolute; left: 50%; top: 12px; width: 44px; height: 13px; margin-left: -22px; border-radius: 9px; background: #05060a; }
+.xphone figcaption { font: 12px "JetBrains Mono", monospace; color: var(--muted); }
+@keyframes xp-explode {
+  0%, 14% { transform: translateZ(calc(var(--i) * 3px)); }
+  40%, 74% { transform: translateZ(calc(var(--i) * 38px)); }
+  96%, 100% { transform: translateZ(calc(var(--i) * 3px)); }
+}
+@keyframes xp-label { 0%, 34% { opacity: 0; } 44%, 70% { opacity: 1; } 80%, 100% { opacity: 0; } }
+@keyframes xp-float { 0%, 100% { transform: rotateX(56deg) rotateZ(-36deg) translateZ(0); } 50% { transform: rotateX(56deg) rotateZ(-32deg) translateZ(10px); } }
+@media (max-width: 1100px) { .xphone { display: none; } .empty { text-align: center; } .empty-copy { align-items: center; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .xp-l { transform: translateZ(calc(var(--i) * 38px)); } .xp-l > span { opacity: 1; }
+  @view-transition { navigation: none; }
+}
+/* labels sit at the phone's centre line on every layer, so the gap between layers spreads them evenly */
+.board > span { top: 154%; margin-left: 54px; }
+.batt > span { top: 42%; margin-left: 62px; }
+
+/* ---------- reactions (classes set by motion.js) ---------- */
+.m-enter { animation: m-enter .32s cubic-bezier(.2,.7,.2,1) backwards; }
+@keyframes m-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.toast.m-pop { animation: m-pop .34s cubic-bezier(.2,.9,.25,1.2) both; }
+@keyframes m-pop { from { opacity: 0; transform: translate(-50%, 14px) scale(.96); } to { opacity: 1; transform: translate(-50%, 0); } }
+.m-new { animation: m-new 1.4s ease both; }
+@keyframes m-new { 0% { box-shadow: 0 0 0 0 rgba(94,242,255,.0); background: rgba(94,242,255,.22); } 30% { box-shadow: 0 0 0 4px rgba(94,242,255,.25); } 100% { box-shadow: 0 0 0 0 rgba(94,242,255,0); } }
+.m-pulse { animation: m-pulse .7s ease; }
+@keyframes m-pulse { 40% { box-shadow: 0 0 0 6px rgba(60,207,142,.18); } }
+
+/* a result arrives in one short sequence: title, then the tabs, then the picture, then the panel */
+.m-reveal .head, .m-reveal .tabs, .m-reveal .stage-col, .m-reveal .panel { animation: m-enter .5s cubic-bezier(.2,.7,.2,1) backwards; }
+.m-reveal .tabs { animation-delay: .08s; } .m-reveal .stage-col { animation-delay: .16s; } .m-reveal .panel { animation-delay: .26s; }
+
+/* Digital tabs: one sliding underline instead of a border per tab */
+.tabs { position: relative; }
+.tabs button { border-bottom-color: transparent !important; }
+.tab-ink { position: absolute; left: 0; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: linear-gradient(90deg, #5ef2ff, #4f8cff);
+  box-shadow: 0 0 12px rgba(94,242,255,.45); transition: transform .35s cubic-bezier(.3,.8,.3,1), width .35s cubic-bezier(.3,.8,.3,1); pointer-events: none; }
+
+/* segmented controls: the selected item lifts */
+.seg button.on { box-shadow: 0 2px 10px -3px rgba(79,140,255,.7); }
+
+/* drop zone: a cyan edge runs round it while a file is dragged over */
+.drop { position: relative; }
+.drop.over { border-color: transparent; background: radial-gradient(60% 80% at 50% 50%, rgba(94,242,255,.12), rgba(79,140,255,.06)); }
+.drop.over::after { content: ""; position: absolute; inset: -2px; border-radius: 14px; padding: 2px; pointer-events: none;
+  background: conic-gradient(from var(--m-a, 0deg), transparent 0 60%, #5ef2ff 75%, #4f8cff 90%, transparent);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: m-run 1.6s linear infinite; }
+@property --m-a { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+@keyframes m-run { to { --m-a: 360deg; } }
+
+/* waiting over the stage: a scan line sweeps the screenshot while the AI works */
+.stage-wait { overflow: hidden; }
+.stage-wait::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 80px; pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(94,242,255,.16) 85%, rgba(94,242,255,.7) 99%, transparent);
+  animation: m-scan 2.2s cubic-bezier(.5,0,.5,1) infinite; }
+@keyframes m-scan { from { transform: translateY(-80px); } to { transform: translateY(calc(100vh)); } }
+.stage-wait .spinner, .stage-wait span { position: relative; z-index: 1; }
+
+/* cards in the guide and panel lift a little under the pointer */
+.g-step, .g-card, .g-eps li, .g-table { transition: border-color .2s, transform .2s, box-shadow .2s; }
+.g-card:hover, .g-eps li:hover, .g-table:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -14px rgba(0,0,0,.8); border-color: #3a4558; }

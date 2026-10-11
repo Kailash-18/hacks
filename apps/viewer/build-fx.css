@@ -141,7 +141,7 @@
 .guide .g-sec h3 small { font: 12px "IBM Plex Mono", monospace; color: var(--ink-2); font-weight: 400; }
 .g-card { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 16px; transition: border-color .2s, transform .2s, box-shadow .2s; }
 .g-card:hover { border-color: rgba(94,242,255,.5); transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,.35), 0 0 20px rgba(94,242,255,.12); }
-.g-stack { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.g-stack { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
 .g-stack .g-card { display: flex; gap: 14px; align-items: flex-start; }
 .g-mono { flex: none; width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; font: 700 15px "IBM Plex Mono", monospace; color: #04131a;
   background: linear-gradient(135deg, var(--scan), var(--blue)); box-shadow: 0 0 18px rgba(94,242,255,.35); }
