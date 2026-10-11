@@ -401,13 +401,20 @@ export class AssemblyView {
       depthWrite: false, toneMapped: false }));
     guides.visible = false; // kept off: the dashed home-to-part lines cluttered the exploded view
     this.root.add(guides);
-    // selection frame: four thin corner brackets that close in on the selected part and then hold still
-    const lockMat = new THREE.LineBasicMaterial({ color: 0x8fd0ff, transparent: true, opacity: 0.9, depthTest: false, toneMapped: false });
-    const lock = new THREE.Group(); lock.renderOrder = 20; lock.visible = false;
-    const outer = new THREE.Group(), inner = new THREE.Group(), L = 0.28;
-    for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]])
-      outer.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(sx, sy * (1 - L), 0), new THREE.Vector3(sx, sy, 0), new THREE.Vector3(sx * (1 - L), sy, 0)]), lockMat));
-    lock.add(outer, inner); this.root.add(lock);
+    // selection: a holographic scan. A laser grid sweeps through the part, a light beam rises to it from the
+    // plinth, and the part's edges glow. Rectangular and straight, so it reads as instrumentation, not a ring.
+    const lock = new THREE.Group(); lock.visible = false; lock.renderOrder = 20;
+    const addMat = (map, op) => new THREE.MeshBasicMaterial({ map, color: 0xffffff, transparent: true, opacity: op, blending: THREE.AdditiveBlending,
+      depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
+    const scan = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), addMat(scanTexture(), 0.9)); scan.renderOrder = 21;
+    const scanEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2)),
+      new THREE.LineBasicMaterial({ color: new THREE.Color(0x8fe8ff).multiplyScalar(2.2), transparent: true, opacity: 1, toneMapped: false, depthWrite: false }));
+    scan.add(scanEdge);
+    const beamTex = beamTexture(); beamTex.wrapT = THREE.RepeatWrapping;
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.3, 1, 4, 1, true).rotateY(Math.PI / 4).translate(0, 0.5, 0), addMat(beamTex, 0.55)); beam.renderOrder = 19;
+    const beamFoot = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), addMat(footTexture(), 0.9)); beamFoot.renderOrder = 19;
+    lock.add(scan, beam, beamFoot); this.root.add(lock);
+    const outer = scan, inner = beam;
     g.position.y = this.floor.position.y + 0.01;
     this.root.add(g);
     this.fx = { group: g, pad, ring1, ring2, tick, R, H, guides, lock, outer, inner, lockT: 0 };
@@ -429,22 +436,38 @@ export class AssemblyView {
   }
 
   updateEffects(now, dt) {
-    const lockMatOf = (F) => F.outer.children[0].material;
     const F = this.fx; if (!F) return;
     // the plinth follows the lowest point of the model (it drops as the parts spread out)
     const want = this.floor.position.y + 0.01;
     F.group.position.y += (want - F.group.position.y) * Math.min(1, dt * 8 || 1);
     this.grid.position.y = F.group.position.y - F.H * 1.3 - 0.02;
     F.tick.material.color.setRGB(0.35, 0.85, 1).multiplyScalar(1.9 + 0.35 * Math.sin(now / 1100)); // the lit edge breathes gently
-    // target lock follows the selected part and faces the camera
+    // holographic scan on the selected part
     const sel = this.parts.find((p) => p.id === this.lastPaint?.selected && p.group.visible);
     F.lock.visible = !!sel;
     if (sel) {
-      if (F.lockId !== sel.id) { F.lockId = sel.id; F.lockT = now; }
-      const box = new THREE.Box3().setFromObject(sel.mesh), r = Math.max(0.35, box.getSize(new THREE.Vector3()).length() * 0.6);
-      const k = easeOut(clamp01((now - F.lockT) / 450)); // snaps in from wide to tight
-      F.lock.position.copy(box.getCenter(new THREE.Vector3())); F.lock.quaternion.copy(this.camera.quaternion);
-      F.lock.scale.setScalar(r * (1.5 - 0.5 * k)); lockMatOf(F).opacity = 0.9 * k;
+      if (F.lockId !== sel.id) { F.lockId = sel.id; F.lockT = now; this._selAnimUntil = now + 2600; }
+      const box = new THREE.Box3().setFromObject(sel.mesh), c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+      const age = now - F.lockT, k = easeOut(clamp01(age / 500));
+      const settle = this.lowQuality && age > 2400; // slow computers: one sweep, then hold still
+      const [scan, beam, foot] = F.lock.children;
+      // laser grid: sweeps bottom to top and back, a little wider than the part
+      const ph = settle ? 0.5 : (Math.sin(age / 520 - Math.PI / 2) + 1) / 2;
+      scan.position.set(c.x, box.min.y + sz.y * ph, c.z);
+      scan.scale.set(Math.max(0.9, sz.x * 1.3) * (0.6 + 0.4 * k), 1, Math.max(0.9, sz.z * 1.3) * (0.6 + 0.4 * k));
+      scan.material.opacity = (settle ? 0.35 : 0.85) * k;
+      scan.children[0].material.opacity = (settle ? 0.5 : 1) * k;
+      // light beam from the plinth up to the part's underside
+      const base = F.group.position.y + 0.005, top = box.min.y, h = top - base, r = Math.max(0.12, Math.min(sz.x, sz.z) * 0.32);
+      beam.visible = foot.visible = h > 0.15;
+      if (beam.visible) {
+        beam.position.set(c.x, base, c.z); beam.scale.set(r, h * k, r);
+        beam.material.map.offset.y = settle ? 0 : -age / 1400; beam.material.opacity = 0.5 * k;
+        foot.position.set(c.x, base + 0.004, c.z); foot.scale.setScalar(r * 3.2 * (0.7 + 0.3 * k)); foot.material.opacity = 0.9 * k;
+      }
+      // the part's own edges glow and breathe
+      const pulse = settle ? 0.7 : 0.7 + 0.3 * Math.sin(age / 260);
+      sel.edges.material.color.setRGB(0.35, 0.9, 1).multiplyScalar(1.6 * pulse); sel.edges.material.opacity = 0.95; sel.edges.material.toneMapped = false;
     } else F.lockId = null;
     // hover lift: the part under the pointer rises a little toward you
     if (this._liftAnim) {
@@ -918,7 +941,7 @@ export class AssemblyView {
     return !!(this.intro || this.whatif || this.sweep || this.ringT0 || this.xray || this.sparks?.length
       || (this.bloomT0 && now - this.bloomT0 < 1500) || now - (this._active || 0) < 700
       || (this.fxOn && ((!this.lowQuality && !!this.lastPaint?.selected) || Math.abs((this.fx?.group.position.y ?? 0) - this.floor.position.y - 0.01) > 1e-3))
-      || !!this._liftAnim);
+      || !!this._liftAnim || (this._selAnimUntil && now < this._selAnimUntil && !!this.lastPaint?.selected));
   }
 
   // Slow computer (integrated graphics): drop the glow pass, soft shadows and extra pixels so the page stays responsive.
@@ -1260,3 +1283,28 @@ export class AssemblyView {
 
 installAxes(AssemblyView);
 installSwap(AssemblyView);
+
+// ---------------------------------------------------------------- holographic selection textures
+function scanTexture() { // fine cyan grid with a bright rim and a glowing centre band
+  const c = document.createElement("canvas"); c.width = c.height = 256; const g = c.getContext("2d");
+  const grd = g.createRadialGradient(128, 128, 10, 128, 128, 180); grd.addColorStop(0, "rgba(90,220,255,.35)"); grd.addColorStop(1, "rgba(90,220,255,.06)");
+  g.fillStyle = grd; g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = "rgba(140,235,255,.55)"; g.lineWidth = 1;
+  for (let i = 0; i <= 256; i += 16) { g.beginPath(); g.moveTo(i + 0.5, 0); g.lineTo(i + 0.5, 256); g.stroke(); g.beginPath(); g.moveTo(0, i + 0.5); g.lineTo(256, i + 0.5); g.stroke(); }
+  g.strokeStyle = "rgba(200,250,255,.95)"; g.lineWidth = 6; g.strokeRect(3, 3, 250, 250);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function beamTexture() { // vertical light: strong at the base, fading upward, with faint bands that drift up
+  const c = document.createElement("canvas"); c.width = 8; c.height = 256; const g = c.getContext("2d");
+  for (let y = 0; y < 256; y++) {
+    const v = y / 255, band = 0.55 + 0.45 * Math.sin(v * Math.PI * 10) ** 2;
+    g.fillStyle = `rgba(90,215,255,${(0.08 + 0.5 * band) * (0.35 + 0.65 * v)})`; g.fillRect(0, y, 8, 1);
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function footTexture() { // soft square glow where the beam meets the plinth
+  const c = document.createElement("canvas"); c.width = c.height = 128; const g = c.getContext("2d");
+  const grd = g.createRadialGradient(64, 64, 4, 64, 64, 64); grd.addColorStop(0, "rgba(140,235,255,.9)"); grd.addColorStop(0.35, "rgba(90,215,255,.35)"); grd.addColorStop(1, "rgba(90,215,255,0)");
+  g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
