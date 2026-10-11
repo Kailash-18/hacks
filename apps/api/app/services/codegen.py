@@ -280,8 +280,15 @@ def generate_code(analysis: SystemAnalysis, image: bytes | None, mime: str | Non
         try:
             if use_text:
                 long_base = len(base_code) > 18000 and hasattr(client, "generate_code_text_images")
-                text = (client.generate_code_text_images([(image, mime or "image/png")], prompt, max_tokens=32000, timeout_s=300)
-                        if long_base else client.generate_code_text(image, mime or "image/png", prompt))  # a whole app needs room
+                ask = lambda pr: (client.generate_code_text_images([(image, mime or "image/png")], pr, max_tokens=32000, timeout_s=300)
+                                  if long_base else client.generate_code_text(image, mime or "image/png", pr))  # a whole app needs room
+                try:
+                    text = ask(prompt)
+                except Exception as exc:  # e.g. the model refuses to copy a long article word for word (RECITATION)
+                    if "empty response" not in str(getattr(exc, "message", exc)):
+                        raise
+                    text = ask(prompt + "\nLong passages of article text: write only the first sentence of each paragraph, then '…'. "
+                                        "Keep every heading, link label, button and short text exactly.")
                 code, notes, complete = parse_code_text(text)
                 if not complete and base_code:
                     raise ValueError("the answer was cut off at the length limit")

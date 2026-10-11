@@ -21,3 +21,4 @@ apps/api/out/
 node_modules/
 *.bundle
 **/.cache*/
+apps/viewer/testdata/random/

@@ -139,7 +139,12 @@ class GeminiVisionClient:
                 resp = self._get().models.generate_content(model=model, contents=contents,
                                                            config=types.GenerateContentConfig(**c))
                 if not resp.text:
-                    raise ProviderError("Vision provider returned an empty response.", 502)
+                    why = ""
+                    try:
+                        why = str(resp.candidates[0].finish_reason).rsplit(".", 1)[-1]
+                    except Exception:
+                        pass
+                    raise ProviderError(f"Vision provider returned an empty response{f' ({why})' if why else ''}.", 502)
                 return resp if raw else resp.text
             except ProviderError:
                 raise
@@ -257,7 +262,7 @@ class GeminiVisionClient:
     @staticmethod
     def _cfg(max_tokens: int | None = None, temperature: float = 0.2) -> dict:
         return {"response_mime_type": "application/json", "temperature": temperature,
-                "max_output_tokens": max_tokens or int(os.getenv("GEMINI_MAX_TOKENS", "12000"))}
+                "max_output_tokens": max_tokens or int(os.getenv("GEMINI_MAX_TOKENS", "16000"))}
 
     # ------------------------------------------------------------------ errors
     @staticmethod

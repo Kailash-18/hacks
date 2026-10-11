@@ -144,3 +144,10 @@ def test_main_app_serves_both_labs_with_one_error_shape(monkeypatch):
     assert api.get(f"/api/analysis/{phys['analysisId']}").json()["domain"] == "physical"
     c = api.post(f"/api/analysis/{phys['analysisId']}/chat", json={"question": "What does the wheel connect to?"})
     assert c.status_code == 200 and any("not measured" in x for x in c.json()["limitations"])
+
+
+def test_truncated_model_json_keeps_the_complete_parts():
+    from app.services.vision_provider import parse_model_json
+    cut = '{"title": "Feed", "components": [{"id": "a", "label": "Item \\"one\\""}, {"id": "b", "label": "Item tw'
+    raw = parse_model_json(cut)
+    assert raw["_truncated"] and [c["id"] for c in raw["components"]] == ["a"] and raw["title"] == "Feed"

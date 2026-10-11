@@ -305,6 +305,8 @@ def build_components_and_relationships(raw: dict[str, Any]) -> tuple[list[Compon
 
 def build_digital_analysis(raw: dict[str, Any], *, filename: str, sha256: str, provider: Provider) -> SystemAnalysis:
     components, relationships, warnings = build_components_and_relationships(raw)
+    if raw.get("_truncated"):
+        warnings.insert(0, "The screen is very busy: the model's answer hit its length limit, so the last parts it listed were left out.")
     model_limits = [_clean_text(x, 240) for x in raw.get("limitations", []) if isinstance(x, str)][:5]
     summary = _clean_text(raw.get("summary"), 800)
     if not components:

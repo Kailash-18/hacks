@@ -516,7 +516,7 @@ def _apply_identification(result: SystemAnalysis, ident: dict | None) -> None:
     if pr.model:
         name = pr.model if (pr.brand or "").lower() in pr.model.lower() else f"{pr.brand or ''} {pr.model}".strip()
         generic = (result.title or "").strip().lower() in {"", "photographed object", (pr.category or "").lower()}
-        if generic or hint:
+        if generic or hint or (pr.confidence or 0) >= 0.9:  # a confident exact match names the object
             result.title = name
 
 

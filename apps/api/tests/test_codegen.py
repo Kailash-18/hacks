@@ -277,3 +277,20 @@ def test_only_the_active_screen_shows():
     out = codegen.one_screen_at_a_time(html)
     assert '[data-screen]:not(.active){display:none!important}' in out and 'class="active screen flex">A' in out
     assert out.count("active ") == 1 and codegen.one_screen_at_a_time(out) == out
+
+
+def test_code_retries_when_the_model_refuses_to_copy_long_text():
+    a, img = login()
+
+    class Refuses(Fake):
+        calls = 0
+
+        def generate_code_text(self, image, mime, prompt):
+            self.prompts.append(prompt); Refuses.calls += 1
+            if Refuses.calls == 1:
+                raise VisionProviderError("provider_error", "Vision provider returned an empty response (RECITATION).", 502)
+            return "```html\n" + HTML + "\n```"
+
+    fake = Refuses()
+    out = codegen.generate_code(a, img, "image/png", fake)
+    assert out["source"] == "ai" and len(fake.prompts) == 2 and "first sentence" in fake.prompts[1]
