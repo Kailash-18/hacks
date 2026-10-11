@@ -41,6 +41,24 @@ def rel(a, t, b, why):
     return {"id": f"{a}--{t}--{b}", "from": a, "to": b, "type": t, "status": "inferred", "evidence": [why]}
 
 
+def tilt_lid(parts, details, hy, hz, deg, ids):
+    """Open the lid past vertical (like a laptop in use): turn the lid parts and their details back around the hinge."""
+    import math
+    a = math.radians(deg); ca, sa = math.cos(a), math.sin(a)
+    def turn(pos):
+        x, y, z = pos; dy, dz = y - hy, z - hz
+        return [x, hy + dy * ca + dz * sa, hz - dy * sa + dz * ca]
+    for p in parts:
+        A = p["a"]
+        if A["componentId"] in ids:
+            A["position"] = turn(A["position"])
+            A["rotation"] = [A["rotation"][0] - deg, A["rotation"][1], A["rotation"][2]]
+            d = A["explodeDir"]; A["explodeDir"] = [d[0], d[1] * ca + d[2] * sa, -d[1] * sa + d[2] * ca]
+    for d in details:
+        if d["parentId"] in ids:
+            d["position"] = turn(d["position"]); d["rotation"] = [d["rotation"][0] - deg, d["rotation"][1], d["rotation"][2]]
+
+
 def build(sid, title, kind, summary, product, parts, details, rels, overall):
     kind_txt = CURATED.format(kind=kind)
     comps = []
@@ -70,7 +88,7 @@ def macbook():
     back = -D / 2
     P = [
         part("bottom_case", "Aluminium bottom case", "cover", True, "Closes the base from below; no vents, because the M3 Air has no fan.",
-             "The inside is exposed.", "plate", (W - 2, 1.2, D - 2), (0, -T / 2 + 0.6, 0), "#c7cbd1", "aluminum", (0, -1, 0), 1.2, r=10),
+             "The inside is exposed.", "plate", (W - 2, 1.2, D - 2), (0, -T / 2 + 0.6, 0), "#2e3440", "aluminum", (0, -1, 0), 1.2, r=10),
         part("battery", "Li-polymer battery (4 cells, 52.6 Wh)", "power_source", False,
              "Stores energy and powers the Mac when it is unplugged.", "Runs only while plugged in.",
              "rounded_box", (232, 3.5, 112), (0, -2.8, 44), "#2b2f36", "plastic", (0, -1, 0), 1.0, r=4,
@@ -104,7 +122,7 @@ def macbook():
         part("display_cables", "Display and camera cables", "cable", False, "Carry the picture to the screen and the camera feed back.",
              "The screen stays black and the camera stops.", "box", (40, 1.0, 14), (0, 0.6, back + 12), "#2a2a2a", "plastic", (0, -1, 0), 1.0),
         part("top_case", "Top case with keyboard", "cover", True, "Top of the base: the aluminium deck holding the keyboard and trackpad.",
-             "Keyboard and trackpad have nothing to sit in.", "plate", (W - 2, 1.4, D - 2), (0, T / 2 - 0.7, 0), "#c7cbd1", "aluminum", (0, 1, 0), 0.5, r=10),
+             "Keyboard and trackpad have nothing to sit in.", "plate", (W - 2, 1.4, D - 2), (0, T / 2 - 0.7, 0), "#2e3440", "aluminum", (0, 1, 0), 0.5, r=10),
         part("keyboard", "Magic Keyboard (backlit)", "interface", True, "Typing input.", "No typing without an external keyboard.",
              "plate", (268, 1.0, 102), (0, T / 2 + 0.4, -42), "#1b1d21", "plastic", (0, 1, 0), 1.6, r=3),
         part("touch_id", "Touch ID power button", "sensor", True, "Turns the Mac on and reads your fingerprint.",
@@ -117,8 +135,8 @@ def macbook():
              why="Sits under the trackpad; there is no moving hinge, only a vibration motor."),
         part("hinge", "Display hinge (clutch)", "mechanism", True, "Holds the lid at any angle.", "The lid flops shut or falls off.",
              "cylinder", (7, 250, 7), (0, T / 2 + 2, back + 4), "#9aa1aa", "aluminum", (0, 0, -1), 0.5, rot=(0, 0, 90)),
-        part("lid", "Display lid (aluminium)", "cover", True, "Protects the back of the screen; carries the Apple logo.",
-             "The screen is unprotected.", "plate", (W - 2, 200, 4), (0, T / 2 + 102, back - 2), "#c7cbd1", "aluminum", (0, 0, -1), 1.2, r=10),
+        part("lid", "Display lid (aluminium)", "cover", True, "Protects the back of the screen.",
+             "The screen is unprotected.", "plate", (W - 2, 200, 4), (0, T / 2 + 102, back - 2), "#2e3440", "aluminum", (0, 0, -1), 1.2, r=10),
         part("display_panel", "13.6\" Liquid Retina display", "display", True, "Shows the picture (2560 × 1664).",
              "No picture; an external display still works.", "plate", (292, 186, 2.5), (0, T / 2 + 101, back + 1.5), "#0d1117", "screen", (0, 0, 1), 0.7, r=8),
         part("bezel", "Display bezel with notch", "cover", True, "Thin border around the screen, with the camera notch.",
@@ -135,7 +153,9 @@ def macbook():
         det("keyboard", "slots", (256, 0.5, 15), (0, T / 2 + 1.0, -30), "#2a2d33", count=13),
         det("keyboard", "slots", (248, 0.5, 15), (0, T / 2 + 1.0, -12), "#2a2d33", count=12),
         det("keyboard", "rounded_box", (96, 0.5, 15), (0, T / 2 + 1.0, 6), "#2a2d33", r=2),
-        det("lid", "rounded_box", (22, 0.8, 26), (0, T / 2 + 110, back - 4.2), "#e6e8eb", "glossy_plastic", r=4),
+        det("bezel", "rounded_box", (32, 1.2, 7), (0, T / 2 + 195, back + 4.4), "#050607", "plastic", r=3),
+        det("battery", "slots", (228, 0.6, 108), (0, -0.9, 44), "#3a3f47", count=4),
+        det("trackpad", "rounded_box", (118, 0.3, 74), (0, T / 2 + 0.85, 58), "#c4c9d0", "glass", r=6),
         det("bottom_case", "disc", (12, 1.2, 12), (-135, -T / 2 - 0.6, -92), "#1a1a1a", "rubber"),
         det("bottom_case", "disc", (12, 1.2, 12), (135, -T / 2 - 0.6, -92), "#1a1a1a", "rubber"),
         det("bottom_case", "disc", (12, 1.2, 12), (-135, -T / 2 - 0.6, 92), "#1a1a1a", "rubber"),
@@ -144,6 +164,7 @@ def macbook():
         det("io_board", "rounded_box", (1.5, 2.5, 8.5), (-W / 2, 0, -55), "#111111"),
         det("io_board", "rounded_box", (1.5, 3.0, 11), (-W / 2, 0, -38), "#111111"),
     ]
+    tilt_lid(P, Dt, T / 2 + 2, back + 4, 18, {"lid", "display_panel", "bezel", "camera"})
     R = [
         rel("battery", "powers", "logic_board", "The battery feeds the logic board's power circuit."),
         rel("io_board", "feeds", "battery", "MagSafe / USB-C charge the battery."),
@@ -178,7 +199,7 @@ def macbook():
     product = {"category": "laptop", "brand": "Apple", "model": "MacBook Air 13-inch (M3)", "searchQuery": "MacBook Air 13 M3 teardown",
                "identifiedFrom": "Curated reference model (no photo), based on the published layout of the M3 MacBook Air.",
                "confidence": None, "dimensionsMm": [304.1, 11.3, 215.0]}
-    return build("macbook-air", "MacBook Air 13-inch (M3)", "MacBook Air 13-inch (M3)",
+    return build("macbook-air", "MacBook Air 13-inch (M3, Midnight)", "MacBook Air 13-inch (M3)",
                  "Apple's MacBook Air with the M3 chip: a fanless laptop whose small logic board carries the M3 with its unified memory and "
                  "soldered SSD, powered by four flat battery cells under the palm rest; the Liquid Retina display hangs on one hinge in its own lid.",
                  product, P, Dt, R, [W, 213.0, D + 6])
@@ -200,23 +221,23 @@ def desktop():
              "cylinder", (14, 4, 14), (50, Y / 2 + 2, 160), "#c9ccd2", "metal", (0, 1, 0), 0.5),
         part("front_io", "Front I/O (USB-C, USB-A, audio)", "connector", True, "Front ports for USB and headphones.", "Only the rear ports remain.",
              "box", (70, 4, 16), (-30, Y / 2 + 2, 160), "#15171b", "plastic", (0, 1, 0), 0.5),
-        part("motherboard", "ATX motherboard", "controller", True, "Connects CPU, memory, storage, graphics card and power.",
+        part("motherboard", "B650 ATX motherboard (AM5)", "controller", True, "Connects CPU, memory, storage, graphics card and power.",
              "Nothing works: it is the hub every other part plugs into.", "plate", (3, 305, 244), (X / 2 - 14, 45, -40), "#1f6f43", "pcb", (1, 0, 0), 0.9),
-        part("cpu", "Processor (CPU)", "controller", False, "Runs the operating system and every program.", "The PC cannot start.",
+        part("cpu", "AMD Ryzen 7 7800X3D (CPU)", "controller", False, "Runs the operating system and every program.", "The PC cannot start.",
              "box", (4, 40, 40), (X / 2 - 17.5, 120, -20), "#c9ccd2", "metal", (-1, 0, 0), 0.8, why="Hidden under the air cooler."),
-        part("ram", "RAM (2× DDR5 DIMM, 32 GB)", "storage", True, "Working memory for running programs.", "The PC beeps and will not boot.",
+        part("ram", "32 GB DDR5-6000 RAM (2 × 16 GB)", "storage", True, "Working memory for running programs.", "The PC beeps and will not boot.",
              "box", (32, 133, 18), (X / 2 - 31, 120, 50), "#1c1f26", "metal", (-1, 0, 0), 1.0),
-        part("cooler", "CPU tower air cooler", "mechanism", True, "Draws heat away from the CPU through heat pipes and fins.",
+        part("cooler", "Dual-tower CPU air cooler", "mechanism", True, "Draws heat away from the CPU through heat pipes and fins.",
              "The CPU overheats within seconds and the PC shuts down.", "box", (78, 150, 120), (X / 2 - 60, 120, -20), "#b8bec6", "aluminum", (-1, 0, 0), 1.2),
         part("cooler_fan", "Cooler fan (120 mm)", "actuator", True, "Blows air through the cooler fins.", "The cooler loses most of its capacity; the CPU throttles.",
              "box", (78, 120, 25), (X / 2 - 60, 120, 53), "#23262b", "plastic", (-1, 0, 0), 1.3),
-        part("gpu", "Graphics card (GPU)", "controller", True, "Draws the picture on the monitor and runs games and 3D.",
+        part("gpu", "NVIDIA GeForce RTX 4070 Super (GPU)", "controller", True, "Draws the picture on the monitor and runs games and 3D.",
              "No picture from the card's ports (the CPU's own graphics may still work).", "box", (118, 45, 270), (X / 2 - 75, -40, -40), "#23262b", "plastic", (-1, 0, 0), 1.0),
-        part("ssd", "M.2 NVMe SSD (1 TB)", "storage", False, "Stores the operating system, programs and files.", "Starts but finds nothing to boot from.",
+        part("ssd", "2 TB PCIe 4.0 NVMe SSD", "storage", False, "Stores the operating system, programs and files.", "Starts but finds nothing to boot from.",
              "plate", (3, 22, 80), (X / 2 - 17, 20, 20), "#1d2a44", "pcb", (-1, 0, 0), 0.6, why="On the motherboard, under its heat spreader."),
-        part("psu", "Power supply (PSU, 750 W)", "power_source", False, "Turns mains power into the voltages every part needs.", "The PC is dead: nothing gets power.",
+        part("psu", "750 W 80+ Gold power supply", "power_source", False, "Turns mains power into the voltages every part needs.", "The PC is dead: nothing gets power.",
              "box", (150, 86, 150), (0, -Y / 2 + 49, -Z / 2 + 82), "#202227", "metal", (0, -1, 0), 1.0, why="Inside the PSU shroud at the bottom."),
-        part("hdd", "3.5\" hard drive", "storage", False, "Large storage for files and media.", "Files on it are unavailable; the PC still boots from the SSD.",
+        part("hdd", "4 TB 3.5\" hard drive (storage)", "storage", False, "Large storage for files and media.", "Files on it are unavailable; the PC still boots from the SSD.",
              "box", (101, 26, 147), (0, -Y / 2 + 22, Z / 2 - 90), "#9aa1aa", "aluminum", (0, -1, 0), 1.0, why="In the drive cage at the bottom front."),
         part("front_fans", "Front intake fans (3× 120 mm)", "actuator", True, "Pull cool air in through the front mesh.", "The inside heats up; parts throttle.",
              "box", (120, 380, 25), (0, 10, Z / 2 - 20), "#15171b", "plastic", (0, 0, 1), 0.4),
@@ -278,9 +299,9 @@ def desktop():
     ]
     product = {"category": "gaming PC", "brand": None, "model": None, "searchQuery": "gaming pc build parts",
                "identifiedFrom": "Curated reference model (no photo).", "confidence": None}
-    return build("gaming-pc", "Gaming PC (custom tower)", "custom-built gaming PC tower",
-                 "A custom-built gaming PC in a mid-tower case: the PSU powers the ATX motherboard, which carries the CPU (under a tower air cooler), RAM, "
-                 "an M.2 SSD and the graphics card; front fans pull air in and a rear fan pushes it out.",
+    return build("gaming-pc", "Gaming PC · Ryzen 7 + RTX 4070 Super", "custom-built gaming PC (Ryzen 7 7800X3D, RTX 4070 Super)",
+                 "A custom-built 1440p gaming PC in a glass-panel mid-tower: the 750 W PSU powers the ATX motherboard, which carries the Ryzen 7 7800X3D (under a dual-tower air cooler), 32 GB DDR5, "
+                 "a 2 TB NVMe SSD and the RTX 4070 Super; front fans pull air in and a rear fan pushes it out.",
                  product, P, Dt, R, [X, Y + 6, Z + 6])
 
 
