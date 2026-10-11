@@ -2,7 +2,7 @@
 
 **Plan to submit by 12 Oct, 08:00 IST.** Feature freeze 07:30 IST. Earliest listed deadline: 12 Oct 09:30 IST (11:59 PM EDT, 11 Oct); other official pages say AoE, so use the earlier one.
 
-Status as of 10 Oct, 10:40 IST. Owner in brackets. Tick in the PR that completes the item.
+Status as of 12 Oct, 02:15 IST. Owner in brackets. Tick in the PR that completes the item.
 
 ## Eligibility (blocks submission)
 - [ ] [Team] Email team@bananahacks.tech: confirm all three are on the registered team, and disclose that the concept/README existed before the opening ceremony while all code was written in the window. Keep the reply.
@@ -14,7 +14,7 @@ Status as of 10 Oct, 10:40 IST. Owner in brackets. Tick in the PR that completes
   - [x] [Krishna] Container + host config: `Dockerfile`, `render.yaml`, steps in `docs/DEPLOY.md`.
   - [ ] [Kailash/Krishna] Build the image once locally (not built in the authoring environment) and deploy.
 - [ ] [Team] Public YouTube video, ≤ 3:00 — script in `docs/DEMO_SCRIPT.md`.
-- [ ] [Krishna] Devpost write-up ≤ 500 words — `docs/DEVPOST_WRITEUP.md` (482 words now).
+- [x] [Krishna] Devpost write-up ≤ 500 words — `docs/DEVPOST_WRITEUP.md` (492 words, 12 Oct; recount after edits).
 - [ ] [Team] Project name, all team members added on Devpost.
 - [x] [Krishna] Credits for pre-trained models, libraries and APIs — README "Credits" and write-up "Built with".
 - [x] [Krishna] Generative AI tools disclosed — README and write-up (Claude for coding; Gemini as the product's model).
@@ -23,7 +23,8 @@ Status as of 10 Oct, 10:40 IST. Owner in brackets. Tick in the PR that completes
 ## Product must-haves (from the brief)
 - [x] [Samvit] Physical: real image-AI inference, explode control, selectable parts, what-if graph.
 - [x] [Krishna] Digital: real vision inference, normalized boxes, component tree data, relationship graph with observed/inferred/estimated, grounded chat.
-- [x] [Krishna/Samvit] Evidence and uncertainty in every result; samples labelled as saved results.
+- [x] [Krishna/Samvit] Evidence and uncertainty in every result; samples labelled as saved results or curated reference models.
+- [x] [Krishna] Physical docs updated: `README.md`, `docs/PHYSICAL_LAB.md` (parts check, 3D viewer, samples, honesty rules).
 - [ ] [Kailash] **Digital Lab UI** (boxes on screenshot, tree, graph, chat). Handoff: `docs/FRONTEND_HANDOFF.md`, types: `contracts/system-analysis.ts`.
 - [ ] [Kailash] Deployment + CORS for the deployed frontend origin.
 - [ ] [Team] Fresh-browser test of the live URL end to end (both labs), or the video proves it.
