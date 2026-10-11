@@ -12,13 +12,14 @@ Both labs produce the same `SystemAnalysis` shape: components, relationships, ev
 
 ## How it works (Physical Lab)
 
-1. **Vision AI (Gemini, free tier):** one structured call returns visible parts with segmentation masks, front-to-back order, likely hidden parts, and relationships.
-2. **Untrusted-output validation:** ids, types, boxes, masks and references are checked; bad items are dropped, not trusted.
-3. **OpenCV:** masks are cleaned (GrabCut fallback when a mask is missing), overlaps go to the front-most part, each part becomes an RGBA layer, and the object body behind the parts is **inpainted** so pulling a part out never leaves a hole.
-4. **Depth in the browser:** Depth Anything V2 (small) runs client-side via transformers.js and gives each layer real relief; a silhouette "dome" and stacked edge slices make parts read as solid.
-5. **Graph what-if:** deterministic traversal of dependency edges (`powers`, `drives`, `controls`, `supports`…) with the full path shown. This is graph reasoning, not physics.
+1. **Vision AI (Gemini, free tier):** one structured call per photo (up to 4 views) returns the visible parts with outlines and front-to-back order, the parts this product has inside, and how they connect.
+2. **Exact product identification:** in parallel, Gemini with Google Search reads logos and label text and finds the exact model and its real dimensions.
+3. **Parts check against real sources:** iFixit teardown steps and a search-grounded check rename parts to what they really are, drop inside guesses the product does not have and add real missing ones. A part is marked **✓ verified** only when a web source confirms it.
+4. **Validation + OpenCV:** ids, boxes, outlines and edges are checked; masks are cleaned (GrabCut fallback), each part becomes an RGBA cut-out and the body behind it is inpainted.
+5. **3D model:** every part becomes a simple solid with real proportions and materials; the viewer fits inside parts into the shell, explodes the levels without overlap and keeps everything above the base. Turn it Horizontal or Vertical, view from Front / Top / Side.
+6. **Explore:** click a part (it turns into a hologram) to see what it does and what breaks without it; **what if I remove it?** traces the failure through the dependency graph (graph reasoning, not physics); **could be replaced with** shows three alternatives with one pro and one con each and swaps them onto the model; the Ask tab answers questions from this analysis only.
 
-Everything shown is labelled **seen in photo** or **inferred**. The 3D view is a layered 2.5D exploded diagram, not a CAD reconstruction.
+Everything shown is labelled **seen in photo** or **inferred**. Samples: three saved real analyses (iPhone 17, Game Boy, mouse) and two curated reference models (MacBook Air M3, gaming PC), labelled as such. Details: `docs/PHYSICAL_LAB.md`.
 
 ## How it works (Digital Lab)
 
@@ -54,8 +55,10 @@ Both labs share one vision client: Gemini first, switching Flash models when a f
 |---|---|---|
 | GET | `/api/health` | Provider readiness (no secrets) |
 | POST | `/api/physical/analyze` | multipart `image` → `SystemAnalysis` (+ `scene` layers) |
-| POST | `/api/physical/whatif` | `{analysisId, removedComponentId}` → affected parts + paths |
-| GET | `/api/physical/samples` | Saved results of earlier real analyses (sample mode) |
+| POST | `/api/physical/identify` | photos (+ optional typed model) → exact product, dimensions, alternatives |
+| POST | `/api/physical/whatif` | `{analysisId, removedComponentId}` → verdict, % working, affected parts + paths |
+| GET | `/api/physical/teardown?q=&topic=` | iFixit teardown guides for the product (credited, CC BY-NC-SA) |
+| GET | `/api/physical/samples` | Saved real analyses and curated reference models (sample mode) |
 | POST | `/api/digital/analyze` | multipart `image` (screenshot) → `SystemAnalysis` (domain `digital`) |
 | GET | `/api/digital/samples` | Saved real Digital Lab results (+ `/{id}`, `/{id}/image`) |
 | POST | `/api/digital/whatif` · `/workflow` · `/diff` · `/reconstruct` | Digital explorer (see `docs/DIGITAL_LAB.md`) |
@@ -70,5 +73,6 @@ All errors use one shape: `{"error": {"code": "...", "message": "..."}}`.
 - [Depth Anything V2 Small](https://huggingface.co/onnx-community/depth-anything-v2-small) via [transformers.js](https://github.com/huggingface/transformers.js) (Apache-2.0)
 - [three.js](https://threejs.org) (MIT), OpenCV (Apache-2.0), FastAPI (MIT), Pydantic (MIT), Pillow (MIT-CMU)
 - [Playwright](https://playwright.dev) (Apache-2.0) to render the team-made mock UI screens used for evaluation
+- [iFixit](https://www.ifixit.com) public API: teardown steps and photos (CC BY-NC-SA, credited in the app)
 - iPhone 17 sample photo: ["Black iPhone 17.jpg"](https://commons.wikimedia.org/wiki/File:Black_iPhone_17.jpg) by Ahmad Ali Karim, CC0, Wikimedia Commons
 - AI tools used in development: Claude (coding assistant), disclosed per event rules.

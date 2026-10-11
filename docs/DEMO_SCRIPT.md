@@ -24,7 +24,7 @@ Record at 1080p; zoom the browser to 110–125% so text is readable.
 | 2:45–3:00 | Back to the exploded object; product name + live URL on screen | "Visual Reverse Engineering. From visual evidence to explorable systems." |
 
 ## Fallbacks during recording
-- Gemini quota or rate limit: open a **sample** (physical: `iphone-17`, `game-boy`, `lenovo-mouse`; digital: `landing-page`, `ops-dashboard`, `mobile-login`). They are saved results of real runs, and the UI marks them as such. Don't present a sample as a fresh upload.
+- Gemini quota or rate limit: open a **sample** (physical: `iphone-17`, `game-boy`, `lenovo-mouse` are saved real results; `macbook-air`, `gaming-pc` are curated reference models and the page says so; digital: `landing-page`, `ops-dashboard`, `mobile-login`). They are saved results of real runs, and the UI marks them as such. Don't present a sample as a fresh upload.
 - A slow live call: cut the wait in editing and label it, don't hide it.
 
 ## Assets for the eval moment

@@ -8,7 +8,7 @@ Changes after integration are **additive only**.
 
 | Change | Why |
 |---|---|
-| New optional `scene` field (physical only, digital omits it) | Physical Lab is now photo → layered 2.5D exploded diagram. Spec: `docs/PHYSICAL_LAB.md` (Samvit). |
+| New optional `scene` field (physical only, digital omits it) | Physical Lab: photos → identified product, checked parts list and an exploded 3D model (plus photo layers). Spec: `docs/PHYSICAL_LAB.md`. |
 | `assetId` and `modelNodeId` are `null` for physical results | No fixed GLB asset any more. |
 | Edge direction rule fixed (below) | Old digital example `hero-cta → hero-section (contains)` was backwards. |
 | `confidence` is always `null` from both labs | Model scores are not calibrated. |
