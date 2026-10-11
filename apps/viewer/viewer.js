@@ -544,6 +544,7 @@ function renderPanel() {
     pe.hidden = false;
   } else pe.hidden = true;
   partsQuery = ""; $("partsSearch").value = "";
+  $("parts").classList.add("intro"); clearTimeout(renderPanel.t); renderPanel.t = setTimeout(() => $("parts").classList.remove("intro"), 900);
   renderStats(); renderParts(); renderGraph(); renderDetail(); resetChat();
   const panel = $("panel"); panel.classList.remove("boot"); void panel.offsetWidth; panel.classList.add("boot"); // boot-up sequence once per result
 }
@@ -773,41 +774,60 @@ function renderLinks() {
     else if (r.from === fid && FLOW[r.type]) downs.push([r, r.to]);
     else if ((r.from === fid || r.to === fid) && HOLD.has(r.type)) holds.push([r, r.from === fid ? r.to : r.from]);
   }
-  const node = (id, r, dir) => {
+  const node = (id, r, dir, i) => {
     const c = compById(id), fam = FAMILY[c.type] || "other";
     const b = el("button", ["lk-node", fam, r.status !== "observed" && "inf", affected.has(id) && "hit", id === removed && "gone"].filter(Boolean).join(" "));
-    b.type = "button";
+    b.type = "button"; b.dataset.id = id; b.dataset.dir = dir; b.dataset.rel = FLOW[r.type]?.[1] || "control";
+    b.style.animationDelay = 60 + i * 45 + "ms";
     const verb = FLOW[r.type]?.[0] || r.type.replace(/_/g, " ");
-    // read the link from the focused part's point of view
     const phrase = r.type === "depends_on" ? (dir === "up" ? "it needs this" : "needs it") : dir === "up" ? verb + " it" : "it " + verb;
     b.append(el("span", "lk-dot"), el("span", "lk-name", c.label), el("span", "lk-verb", phrase));
     b.title = r.evidence?.[0] || "";
     b.onclick = () => select(id);
-    b.onmouseenter = () => { if (mode === "3d") asm.setHover(id, "links"); };
-    b.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "links"); };
+    b.onmouseenter = () => { box.classList.add("hovering"); b.classList.add("on"); box.querySelector(`path[data-id="${CSS.escape(id)}"]`)?.classList.add("on"); if (mode === "3d") asm.setHover(id, "links"); };
+    b.onmouseleave = () => { box.classList.remove("hovering"); b.classList.remove("on"); box.querySelectorAll("path.on").forEach((p) => p.classList.remove("on")); if (mode === "3d") asm.setHover(null, "links"); };
     return b;
   };
-  const group = (title, items, dir, empty) => {
-    const g = el("div", "lk-group " + dir);
-    g.append(el("div", "lk-cap", title));
+  const col = (title, items, dir, empty) => {
+    const g = el("div", "lk-group " + dir); g.append(el("div", "lk-cap", title));
     if (!items.length) g.append(el("div", "lk-empty", empty));
-    items.forEach(([r, id], i) => { const n = node(id, r, dir); n.style.animationDelay = i * 40 + "ms"; g.append(n); });
+    items.forEach(([r, id], i) => g.append(node(id, r, dir, i)));
     return g;
   };
-  box.append(group("Needs", ups, "up", "Nothing upstream: it needs no other part to work."));
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("class", "lk-wires");
+  box.append(svg, col("Needs", ups, "up", "Nothing upstream: it works without any other part."));
   const fc = el("div", "lk-focus " + (FAMILY[f.type] || "other"));
-  fc.append(el("span", "lk-ftype", f.type.replace(/_/g, " ")), el("strong", "", f.label));
-  const sub = el("span", "lk-fsub", `${ups.length} in · ${downs.length} out${f.status !== "observed" ? " · inferred" : ""}`); fc.append(sub);
+  fc.append(el("span", "lk-ftype", f.type.replace(/_/g, " ")), el("strong", "", f.label),
+    el("span", "lk-fsub", `${ups.length} in · ${downs.length} out${f.status !== "observed" ? " · inferred" : ""}`));
   if (!selected) fc.append(el("em", "lk-hint", "Most connected part. Pick any part to focus on it."));
-  box.append(fc);
-  box.append(group("Depends on it", downs, "down", "Nothing depends on it."));
+  box.append(fc, col("Depends on it", downs, "down", "Nothing depends on it."));
   if (holds.length) {
     const hg = el("div", "lk-holds"); hg.append(el("div", "lk-cap", "Held together with"));
     const row = el("div", "lk-chips");
     for (const [r, id] of holds) { const b = el("button", "lk-chip" + (r.status !== "observed" ? " inf" : ""), compById(id).label); b.type = "button"; b.onclick = () => select(id); row.append(b); }
     hg.append(row); box.append(hg);
   }
+  requestAnimationFrame(() => drawWires(box, svg, fc));
 }
+// a trunk line in the left gutter joins every neighbour to the focused part; each branch is its own path, so it can light
+// up on hover, and its dashes flow the way power and signals travel (from what it needs, out to what depends on it)
+function drawWires(box, svg, fc) {
+  if (!box.isConnected || !box.offsetWidth) return;
+  const NS = "http://www.w3.org/2000/svg", B = box.getBoundingClientRect(), F = fc.getBoundingClientRect();
+  svg.setAttribute("width", B.width); svg.setAttribute("height", box.scrollHeight); svg.innerHTML = "";
+  const X = 12, fy = F.top - B.top + F.height / 2, r = 8;
+  const add = (d, cls, id) => { const p = document.createElementNS(NS, "path"); p.setAttribute("d", d); p.setAttribute("class", cls); if (id) p.dataset.id = id; svg.append(p); return p; };
+  for (const n of box.querySelectorAll(".lk-node")) {
+    const R = n.getBoundingClientRect(), y = R.top - B.top + R.height / 2, nx = R.left - B.left - 2, up = n.dataset.dir === "up";
+    const cls = "wire " + n.dataset.rel + (n.classList.contains("inf") ? " inf" : "") + (n.classList.contains("hit") ? " hit" : "");
+    const d = up ? `M${nx},${y} H${X + r} Q${X},${y} ${X},${y + r} V${fy}` : `M${X},${fy} V${y - r} Q${X},${y} ${X + r},${y} H${nx}`;
+    add(d, cls, n.dataset.id);
+  }
+  // the socket where the trunk meets the focused part
+  add(`M${X},${fy} H${F.left - B.left - 2}`, "wire stub");
+  const dot = document.createElementNS(NS, "circle"); dot.setAttribute("cx", X); dot.setAttribute("cy", fy); dot.setAttribute("r", 4); dot.setAttribute("class", "hub"); svg.append(dot);
+}
+addEventListener("resize", () => { if (panelTab === "links") renderLinks(); });
 
 // ---------------------------------------------------------------- panel tabs
 let panelTab = "parts";

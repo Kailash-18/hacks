@@ -321,13 +321,13 @@ details summary { cursor: pointer; font-weight: 600; color: var(--muted); }
 .parts li { position: relative; transition: background .15s, border-color .15s, padding-left .15s var(--ease); }
 .parts li::after { content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px; border-radius: 3px; background: var(--accent);
   box-shadow: 0 0 10px var(--accent); transform: scaleY(0); transition: transform .2s var(--ease); }
-.parts li:hover, .parts li.hov { background: var(--surface-2); padding-left: 12px; }
+.parts li:hover, .parts li.hov { background: var(--surface-2); }
 .parts li:hover::after, .parts li.hov::after, .parts li.sel::after { transform: scaleY(1); }
 .parts li .st { transition: transform .2s var(--ease), box-shadow .2s; }
 .parts li:hover .st, .parts li.hov .st { transform: scale(1.35); box-shadow: 0 0 8px currentColor; }
 
 /* 3D callouts: hovering a part, its callout or its row lights all three and draws the leader line */
-.labels3d .lbl { pointer-events: auto; cursor: pointer; transition: transform .18s var(--ease), background .15s, border-color .15s, box-shadow .2s, opacity .15s; }
+.labels3d .lbl { pointer-events: auto; cursor: pointer; transition: background .15s, border-color .15s, box-shadow .2s, opacity .15s; }
 .labels3d .lbl.hov { border-color: #8fd0ff; background: rgba(20, 50, 90, .85); box-shadow: 0 0 0 3px rgba(79, 140, 255, .25), 0 6px 22px rgba(0, 0, 0, .45); }
 .labels3d .lbl.hov::before { box-shadow: 0 0 12px #59d8ff; }
 .leaders3d .leader path { transition: stroke .15s, stroke-width .15s, opacity .2s; }
@@ -434,13 +434,14 @@ details summary { cursor: pointer; font-weight: 600; color: var(--muted); }
 .parts li.group .gcount { font: 11px "JetBrains Mono", monospace; letter-spacing: 0; }
 .parts li.group::after, .parts li.group::before { display: none; }
 .parts li.part { --fam: var(--fam-other); position: relative; display: flex; align-items: center; gap: 12px; padding: 7px 10px; border-radius: 10px;
-  border: 1px solid transparent; cursor: pointer; animation: rowIn .35s var(--ease) both; transition: background .18s, border-color .18s, transform .18s var(--ease); }
+  border: 1px solid transparent; cursor: pointer; transition: background .18s, border-color .18s, transform .18s var(--ease); }
+.parts.intro li.part { animation: rowIn .45s var(--ease) both; }
 .parts li.part.power { --fam: var(--fam-power); } .parts li.part.control { --fam: var(--fam-control); }
 .parts li.part.motion { --fam: var(--fam-motion); } .parts li.part.structure { --fam: var(--fam-structure); }
 @keyframes rowIn { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
 .parts li.part::after { content: ""; position: absolute; left: -1px; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: var(--fam);
   box-shadow: 0 0 10px var(--fam); transform: scaleY(0); transition: transform .2s var(--ease); }
-.parts li.part:hover, .parts li.part.hov { background: rgba(255, 255, 255, .04); transform: translateX(2px); padding-left: 10px; }
+.parts li.part:hover, .parts li.part.hov { background: rgba(255, 255, 255, .04); }
 .parts li.part:hover::after, .parts li.part.hov::after, .parts li.part.sel::after { transform: scaleY(1); }
 .parts li.part.sel { background: linear-gradient(90deg, rgba(79, 140, 255, .16), rgba(79, 140, 255, .03)); border-color: rgba(79, 140, 255, .35); }
 .parts li.part.affected { background: rgba(255, 107, 91, .08); border-color: rgba(255, 107, 91, .35); }
@@ -473,46 +474,55 @@ details summary { cursor: pointer; font-weight: 600; color: var(--muted); }
 .detail .row { margin-top: 10px; }
 .btn.ghost { background: none; }
 
-/* connections: needs -> part -> depends on it, joined by a softly flowing line */
-.links { position: relative; display: grid; gap: 10px; padding-left: 14px; }
-.links::before { content: ""; position: absolute; left: 4px; top: 10px; bottom: 10px; width: 2px; border-radius: 2px;
-  background: repeating-linear-gradient(180deg, rgba(79, 140, 255, .7) 0 6px, transparent 6px 12px); background-size: 2px 24px; animation: flowDown 1.2s linear infinite; opacity: .6; }
-@keyframes flowDown { to { background-position: 0 24px; } }
-.lk-cap { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #6f7886; margin: 2px 0 6px; }
-.lk-group { display: grid; gap: 4px; }
-.lk-empty { font-size: 12.5px; color: #6f7886; padding: 6px 2px; }
-.lk-node { --fam: var(--fam-other); appearance: none; display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 10px; text-align: left;
-  padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .06); background: rgba(255, 255, 255, .025); color: var(--text);
-  font: 13.5px Inter, sans-serif; cursor: pointer; animation: rowIn .35s var(--ease) both; transition: border-color .18s, background .18s, transform .18s var(--ease); }
+/* connections: needs -> part -> depends on it, wired with curves whose light flows the way power and signals travel */
+.links { position: relative; display: grid; gap: 12px; padding-left: 30px; }
+.lk-wires { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.wire { fill: none; stroke-width: 1.4; stroke: var(--wc, #4f8cff); opacity: .55; stroke-linecap: round;
+  stroke-dasharray: 2 7; animation: wireFlow 1.6s linear infinite; transition: opacity .2s, stroke-width .2s; }
+.wire.power { --wc: var(--fam-power); } .wire.control { --wc: var(--fam-control); } .wire.motion { --wc: var(--fam-motion); }
+.wire.hit { --wc: #ff6b5b; opacity: .9; }
+.wire.inf { stroke-dasharray: 2 9; }
+@keyframes wireFlow { to { stroke-dashoffset: -18; } }
+.links.hovering .wire { opacity: .12; }
+.links.hovering .wire.on { opacity: 1; stroke-width: 2.2; filter: drop-shadow(0 0 4px var(--wc)); }
+.lk-cap { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #6f7886; margin: 0 0 6px; }
+.lk-group { display: grid; gap: 5px; }
+.lk-empty { font-size: 12.5px; color: #6f7886; padding: 4px 2px; }
+.lk-node { --fam: var(--fam-other); appearance: none; display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; gap: 10px; text-align: left;
+  padding: 9px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .06); background: rgba(255, 255, 255, .025); color: var(--text);
+  font: 13.5px Inter, sans-serif; cursor: pointer; animation: nodeIn .4s var(--ease) both; transition: border-color .2s, background .2s, box-shadow .2s; }
+@keyframes nodeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .lk-node.power { --fam: var(--fam-power); } .lk-node.control { --fam: var(--fam-control); } .lk-node.motion { --fam: var(--fam-motion); } .lk-node.structure { --fam: var(--fam-structure); }
-.lk-node:hover { border-color: color-mix(in srgb, var(--fam) 60%, transparent); background: color-mix(in srgb, var(--fam) 9%, transparent); transform: translateX(3px); }
+.lk-node:hover, .lk-node.on { border-color: color-mix(in srgb, var(--fam) 55%, transparent); background: color-mix(in srgb, var(--fam) 8%, rgba(255, 255, 255, .02));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--fam) 20%, transparent), 0 8px 24px rgba(0, 0, 0, .25); }
+.lk-node:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .lk-node.inf { border-style: dashed; }
 .lk-node.hit { border-color: rgba(255, 107, 91, .6); background: rgba(255, 107, 91, .1); }
 .lk-node.gone { opacity: .45; }
-.lk-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fam); box-shadow: 0 0 10px var(--fam); }
+.lk-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fam); box-shadow: 0 0 8px var(--fam); }
 .lk-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lk-verb { font: 11px "JetBrains Mono", monospace; color: #7f8896; }
-.lk-focus { --fam: var(--fam-other); position: relative; display: grid; gap: 2px; padding: 14px 16px; border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--fam) 55%, transparent);
-  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--fam) 22%, transparent), rgba(255, 255, 255, .02) 70%);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, .2), 0 0 28px color-mix(in srgb, var(--fam) 18%, transparent); animation: focusIn .45s var(--ease) both; }
+.lk-verb { font: 11px "JetBrains Mono", monospace; color: #7f8896; white-space: nowrap; }
+.lk-focus { --fam: var(--fam-other); position: relative; display: grid; gap: 3px; padding: 14px 16px; border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--fam) 50%, transparent);
+  background: radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--fam) 20%, transparent), rgba(255, 255, 255, .02) 70%);
+  box-shadow: 0 0 32px color-mix(in srgb, var(--fam) 14%, transparent); animation: focusIn .5s var(--ease) both; }
 .lk-focus.power { --fam: var(--fam-power); } .lk-focus.control { --fam: var(--fam-control); } .lk-focus.motion { --fam: var(--fam-motion); } .lk-focus.structure { --fam: var(--fam-structure); }
-.lk-focus::before { content: ""; position: absolute; left: -15px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%;
-  background: var(--fam); box-shadow: 0 0 0 4px rgba(0, 0, 0, .4), 0 0 16px var(--fam); }
-@keyframes focusIn { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
-.lk-ftype { font: 11px "JetBrains Mono", monospace; color: var(--fam); text-transform: lowercase; }
+@keyframes focusIn { from { opacity: 0; transform: scale(.98); } to { opacity: 1; transform: none; } }
+.lk-ftype { font: 11px "JetBrains Mono", monospace; color: var(--fam); }
 .lk-focus strong { font-size: 17px; font-weight: 600; color: #fff; }
 .lk-fsub { font-size: 12px; color: #8b93a1; }
 .lk-hint { font-style: normal; font-size: 12px; color: #6f7886; margin-top: 4px; }
-.lk-holds { margin-top: 4px; }
 .lk-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .lk-chip { appearance: none; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); color: #b4bcc8; font: 12px Inter, sans-serif;
-  padding: 4px 10px; border-radius: 999px; cursor: pointer; transition: border-color .15s, color .15s; }
-.lk-chip:hover { border-color: var(--fam-structure); color: #fff; } .lk-chip.inf { border-style: dashed; }
-.links-note { margin-top: 14px; }
+  padding: 4px 11px; border-radius: 999px; cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+.lk-chip:hover { border-color: var(--fam-structure); color: #fff; background: rgba(143, 163, 191, .08); } .lk-chip.inf { border-style: dashed; }
+.links-note { margin-top: 16px; }
+@media (prefers-reduced-motion: reduce) { .wire { animation: none; } }
 
 /* Ask tab */
 .chat-ctx { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
 .chat .chat-log { max-height: none; }
 
-@media (prefers-reduced-motion: reduce) { .links::before { animation: none; } }
+.wire.stub { stroke: #4f8cff; opacity: .7; stroke-dasharray: none; animation: none; }
+.lk-wires .hub { fill: #0f1319; stroke: #4f8cff; stroke-width: 2; filter: drop-shadow(0 0 6px #4f8cff); }
+.links { padding-left: 28px; }

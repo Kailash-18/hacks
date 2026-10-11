@@ -357,36 +357,38 @@ export class AssemblyView {
   }
 
   // ---------------------------------------------------------------- effects
-  // Hologram projector under the model, drifting light motes, exploded-view guide lines from each part back to
+  // A machined display plinth under the model, exploded-view guide lines from each part back to
   // where it sits, a target-lock reticle around the selected part, and a small lift toward you on hover.
   buildEffects() {
-    if (this.fx) { this.root.remove(this.fx.group); this.fx.group.traverse((o) => { o.geometry?.dispose(); o.material?.dispose?.(); }); }
-    const g = new THREE.Group(), R = Math.max(this.size.x, this.size.z) * 0.9 + 1;
+    if (this.fx) for (const o of [this.fx.group, this.fx.guides, this.fx.lock]) { this.root.remove(o); o.traverse((q) => { q.geometry?.dispose(); q.material?.dispose?.(); }); }
+    const g = new THREE.Group(), R = Math.hypot(this.size.x, this.size.z) * 0.55 + 0.35; // just wider than the assembled object
     const add = (o) => { g.add(o); return o; };
-    // projector pad: soft glow disc + two dashed rings turning in opposite directions
-    const c = document.createElement("canvas"); c.width = c.height = 256; const x = c.getContext("2d");
-    const grd = x.createRadialGradient(128, 128, 0, 128, 128, 128);
-    grd.addColorStop(0, "rgba(90,200,255,.55)"); grd.addColorStop(.35, "rgba(60,150,255,.18)"); grd.addColorStop(1, "rgba(40,100,255,0)");
-    x.fillStyle = grd; x.fillRect(0, 0, 256, 256);
-    const padTex = new THREE.CanvasTexture(c);
-    const pad = add(new THREE.Mesh(new THREE.CircleGeometry(R, 64), new THREE.MeshBasicMaterial({ map: padTex, transparent: true, depthWrite: false,
-      blending: THREE.AdditiveBlending, toneMapped: false })));
-    pad.rotation.x = -Math.PI / 2;
-    const ringMat = (col, op) => new THREE.LineDashedMaterial({ color: col, dashSize: 0.18, gapSize: 0.12, transparent: true, opacity: op, toneMapped: false });
-    const ringGeo = (r) => { const pts = []; for (let i = 0; i <= 128; i++) { const a = (i / 128) * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r)); } return new THREE.BufferGeometry().setFromPoints(pts); };
-    const ring1 = add(new THREE.Line(ringGeo(R * 0.92), ringMat(0x59d8ff, 0.7))); ring1.computeLineDistances();
-    const ring2 = add(new THREE.Line(ringGeo(R * 0.7), ringMat(0x9b8cff, 0.55))); ring2.computeLineDistances();
-    const tick = add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([...Array(48)].flatMap((_, i) => {
-      const a = (i / 48) * Math.PI * 2, r0 = R * (i % 4 ? 0.98 : 0.95);
-      return [new THREE.Vector3(Math.cos(a) * r0, 0, Math.sin(a) * r0), new THREE.Vector3(Math.cos(a) * R, 0, Math.sin(a) * R)]; })),
-      new THREE.LineBasicMaterial({ color: 0x59d8ff, transparent: true, opacity: 0.5, toneMapped: false })));
-    // light motes drifting up through the scene
-    const N = 340, pos = new Float32Array(N * 3), seed = [];
-    for (let i = 0; i < N; i++) { const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * R * 1.3;
-      pos.set([Math.cos(a) * r, Math.random() * this.size.y * 2.2, Math.sin(a) * r], i * 3); seed.push(0.15 + Math.random() * 0.35); }
-    const pg = new THREE.BufferGeometry(); pg.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    const particles = add(new THREE.Points(pg, new THREE.PointsMaterial({ map: glowSprite(), size: 0.13, color: 0x8fdcff, transparent: true, opacity: 0.8,
-      depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })));
+    // display plinth: a dark machined disc the object stands on, with a lit edge and a slowly turning engraved ring
+    const H = 0.34, top = new THREE.Group(); g.add(top);
+    const metal = new THREE.MeshPhysicalMaterial({ color: 0x0e131c, metalness: 0.7, roughness: 0.42, clearcoat: 0.4, clearcoatRoughness: 0.35, envMapIntensity: 0.55 });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 1.04, H, 128, 1), metal); body.position.y = -H / 2; body.receiveShadow = true;
+    const lipMat = new THREE.MeshPhysicalMaterial({ color: 0x1a2232, metalness: 0.85, roughness: 0.3, clearcoat: 0.8, envMapIntensity: 0.6 });
+    const lip = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.06, R * 1.08, H * 0.22, 128, 1), lipMat); lip.position.y = -H - H * 0.11;
+    const face = new THREE.Mesh(new THREE.CircleGeometry(R * 0.985, 128), new THREE.MeshPhysicalMaterial({ color: 0x080b11, metalness: 0.35, roughness: 0.62,
+      clearcoat: 0.35, clearcoatRoughness: 0.5, envMapIntensity: 0.35, bumpMap: tiled(brushedTexture(), 3, 3), bumpScale: 0.1 }));
+    face.rotation.x = -Math.PI / 2; face.position.y = 0.001; face.receiveShadow = true;
+    const glowMat = (col, i) => new THREE.MeshBasicMaterial({ color: new THREE.Color(col).multiplyScalar(i), toneMapped: false });
+    const edge = new THREE.Mesh(new THREE.TorusGeometry(R * 0.995, 0.012, 8, 192), glowMat(0x59d8ff, 2.2)); edge.rotation.x = Math.PI / 2; edge.position.y = 0.004;
+    const foot = new THREE.Mesh(new THREE.TorusGeometry(R * 1.075, 0.008, 8, 192), glowMat(0x4f8cff, 1.4)); foot.rotation.x = Math.PI / 2; foot.position.y = -H - H * 0.22;
+    const ticks = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([...Array(120)].flatMap((_, i) => {
+      const a = (i / 120) * Math.PI * 2, r1 = R * 0.9, r0 = R * (i % 10 ? 0.875 : 0.84);
+      return [new THREE.Vector3(Math.cos(a) * r0, 0.004, Math.sin(a) * r0), new THREE.Vector3(Math.cos(a) * r1, 0.004, Math.sin(a) * r1)]; })),
+      new THREE.LineBasicMaterial({ color: 0x59d8ff, transparent: true, opacity: 0.35, toneMapped: false }));
+    const innerRing = new THREE.Mesh(new THREE.RingGeometry(R * 0.6, R * 0.605, 160), new THREE.MeshBasicMaterial({ color: 0x59d8ff, transparent: true, opacity: 0.18,
+      toneMapped: false, side: THREE.DoubleSide })); innerRing.rotation.x = -Math.PI / 2; innerRing.position.y = 0.003;
+    top.add(body, lip, face, edge, foot, ticks, innerRing);
+    const c = document.createElement("canvas"); c.width = c.height = 128; const x = c.getContext("2d");
+    const grd = x.createRadialGradient(64, 64, 0, 64, 64, 64); grd.addColorStop(0, "rgba(70,150,255,.28)"); grd.addColorStop(1, "rgba(70,150,255,0)");
+    x.fillStyle = grd; x.fillRect(0, 0, 128, 128);
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(R * 1.9, 64), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false,
+      blending: THREE.AdditiveBlending, toneMapped: false }));
+    pool.rotation.x = -Math.PI / 2; pool.position.y = -H - H * 0.22 - 0.01; top.add(pool);
+    const pad = face, ring1 = ticks, ring2 = innerRing, tick = edge;
     // exploded-view guide lines: one dashed line per part from where it sits to where it is now
     const gpos = new Float32Array(this.parts.length * 6);
     const gg = new THREE.BufferGeometry(); gg.setAttribute("position", new THREE.BufferAttribute(gpos, 3));
@@ -401,9 +403,10 @@ export class AssemblyView {
     for (let k = 0; k < 3; k++) outer.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arc(1, k * 2.094, k * 2.094 + 1.5)), lockMat));
     for (let k = 0; k < 4; k++) inner.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arc(0.82, k * 1.571 + 0.3, k * 1.571 + 1.1)), lockMat));
     lock.add(outer, inner); this.root.add(lock);
-    g.position.y = this.floor.position.y + 0.02;
+    g.position.y = this.floor.position.y + 0.01;
     this.root.add(g);
-    this.fx = { group: g, pad, ring1, ring2, tick, particles, seed, R, guides, lock, outer, inner, lockT: 0 };
+    this.fx = { group: g, pad, ring1, ring2, tick, R, H, guides, lock, outer, inner, lockT: 0 };
+    this.floor.visible = false; // the plinth face catches the shadows now
     this.fxOn = true;
     this.updateGuides();
   }
@@ -422,14 +425,12 @@ export class AssemblyView {
 
   updateEffects(now, dt) {
     const F = this.fx; if (!F) return;
-    F.group.position.y = this.floor.position.y + 0.02;
-    F.ring1.rotation.y += dt * 0.25; F.ring2.rotation.y -= dt * 0.4; F.tick.rotation.y += dt * 0.08;
-    F.pad.material.opacity = 0.75 + 0.25 * Math.sin(now / 900);
-    if (F.particles.visible) {
-      const P = F.particles.geometry.attributes.position, top = this.size.y * 2.2;
-      for (let i = 0; i < P.count; i++) { let y = P.getY(i) + dt * F.seed[i]; if (y > top) y = 0; P.setY(i, y); }
-      P.needsUpdate = true; F.particles.rotation.y += dt * 0.02;
-    }
+    // the plinth follows the lowest point of the model (it drops as the parts spread out)
+    const want = this.floor.position.y + 0.01;
+    F.group.position.y += (want - F.group.position.y) * Math.min(1, dt * 8 || 1);
+    this.grid.position.y = F.group.position.y - F.H * 1.3 - 0.02;
+    F.ring1.rotation.y += dt * 0.06; // the engraved ring turns slowly, like a turntable index
+    F.tick.material.color.setRGB(0.35, 0.85, 1).multiplyScalar(1.9 + 0.35 * Math.sin(now / 1100)); // the lit edge breathes gently
     // target lock follows the selected part and faces the camera
     const sel = this.parts.find((p) => p.id === this.lastPaint?.selected && p.group.visible);
     F.lock.visible = !!sel;
@@ -911,7 +912,8 @@ export class AssemblyView {
   busy(now = performance.now()) {
     return !!(this.intro || this.whatif || this.sweep || this.ringT0 || this.xray || this.sparks?.length
       || (this.bloomT0 && now - this.bloomT0 < 1500) || now - (this._active || 0) < 700
-      || (this.fxOn && !this.lowQuality) || !!this._liftAnim);
+      || (this.fxOn && !this.lowQuality && (!!this.lastPaint?.selected || Math.abs((this.fx?.group.position.y ?? 0) - this.floor.position.y - 0.01) > 1e-3))
+      || !!this._liftAnim);
   }
 
   // Slow computer (integrated graphics): drop the glow pass, soft shadows and extra pixels so the page stays responsive.
@@ -927,7 +929,6 @@ export class AssemblyView {
     this.renderer.setPixelRatio(1);
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     const keyL = this.lights.children[0]; if (keyL.shadow) { keyL.shadow.mapSize.set(1024, 1024); keyL.shadow.map?.dispose(); keyL.shadow.map = null; }
-    if (this.fx) { this.fx.particles.visible = false; }
     console.info("3D view: lighter rendering for this computer");
   }
 
