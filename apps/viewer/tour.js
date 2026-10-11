@@ -108,11 +108,9 @@
     await sleep(900);
     await slide(ex, 1, 0.7, 900);
     cap(5, "X-ray the wiring: how power and signals flow between the parts");
-    setCheck("#xray", true);   // spreads out, moves to the full view, then the scan sweeps across
-    await sleep(3400);
-    await A.orbitTo({ az: 0.35, ms: 2400 });
+    setCheck("#xray", true);   // the scan sweeps across and the wiring appears behind it
+    await A.orbitTo({ theta: 2.6, el: 0.4, ms: 4200 });
     setCheck("#xray", false);
-    await sleep(700);
     cap(6, "Click any part: what it does, what it is made of, what it connects to");
     q('#ptabs [data-tab="parts"]')?.click();
     const board = partLi(/logic|board|pcb|circuit/i) || q("#parts li");
