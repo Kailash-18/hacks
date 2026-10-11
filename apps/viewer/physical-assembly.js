@@ -4,6 +4,7 @@ const canvas = document.querySelector("#physicalAssemblyCanvas");
 const stage = canvas?.parentElement;
 const visual = canvas?.closest(".physical-visual");
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+const widePhysicalStage = matchMedia("(min-width: 1121px)");
 const apiBase = new URLSearchParams(location.search).get("api") || "";
 
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
@@ -493,9 +494,58 @@ function createPrecisionScene() {
   if (sourceName) sourceName.textContent = "AXIOM / MULTI-DIE CPU";
   if (sourceCount) sourceCount.textContent = "100 CPU PACKAGE COMPONENTS";
   if (fallback) {
-    fallback.alt = "Illustrative exploded multi-die CPU package with compute tiles, power components, and BGA contacts";
+    fallback.alt = "Animated exploded CPU assembly with silicon dies, circuit layers, a floating heat spreader, and a dense field of underside contacts";
     fallback.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 440"><defs><linearGradient id="b" x2=".9" y2="1"><stop stop-color="#203a51"/><stop offset="1" stop-color="#101925"/></linearGradient><linearGradient id="l" x2="1" y2="1"><stop stop-color="#edf6ff"/><stop offset=".48" stop-color="#82a6d1"/><stop offset="1" stop-color="#465978"/></linearGradient><radialGradient id="d"><stop stop-color="#70e8f1"/><stop offset="1" stop-color="#405fc7"/></radialGradient></defs><g fill="#d4a95f" opacity=".92">${Array.from({length:48},(_,i)=>{const x=100+(i%8)*34,y=94+Math.floor(i/8)*34;return `<circle cx="${x}" cy="${y}" r="4"/>`;}).join("")}</g><rect x="70" y="70" width="300" height="300" rx="26" fill="url(#b)" stroke="#89adce" stroke-width="5"/><path d="M86 100h268M86 340h268M100 86v268M340 86v268" stroke="#b98a4e" stroke-width="3" opacity=".85"/><g fill="#111c2c" stroke="#6e94b4" stroke-width="4">${Array.from({length:8},(_,i)=>{const x=153+(i%2)*74,y=142+Math.floor(i/2)*48;return `<rect x="${x}" y="${y}" width="62" height="37" rx="5"/>`;}).join("")}</g><g fill="url(#d)">${Array.from({length:8},(_,i)=>{const x=164+(i%2)*74,y=151+Math.floor(i/2)*48;return `<rect x="${x}" y="${y}" width="39" height="19" rx="3"/>`;}).join("")}</g><path d="M314 128l36-48 44 10-6 54-50 17z" fill="url(#l)" stroke="#dce9f9" stroke-width="4"/><path d="M323 117h26m-22 12h27m-22 12h19" stroke="#627d9b" stroke-width="3"/><circle cx="117" cy="124" r="8" fill="#61e7dc"/><circle cx="323" cy="306" r="8" fill="#a68dff"/></svg>`
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 500">
+        <defs>
+          <linearGradient id="board" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1d5664"/><stop offset=".48" stop-color="#102b3d"/><stop offset="1" stop-color="#091625"/></linearGradient>
+          <linearGradient id="metal" x1="0" y1="0" x2=".9" y2="1"><stop stop-color="#f4fbff"/><stop offset=".24" stop-color="#a8c2d6"/><stop offset=".58" stop-color="#526c83"/><stop offset=".82" stop-color="#d6e6f2"/><stop offset="1" stop-color="#566b81"/></linearGradient>
+          <linearGradient id="silicon" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#79efff"/><stop offset=".42" stop-color="#4e92ec"/><stop offset="1" stop-color="#554dd0"/></linearGradient>
+          <linearGradient id="copper" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe2a0"/><stop offset=".44" stop-color="#c68748"/><stop offset="1" stop-color="#704327"/></linearGradient>
+          <radialGradient id="aura"><stop stop-color="#557ff4" stop-opacity=".32"/><stop offset="1" stop-color="#557ff4" stop-opacity="0"/></radialGradient>
+          <pattern id="microtrace" width="18" height="18" patternUnits="userSpaceOnUse"><path d="M0 9h7l4-4h7M9 18v-5l4-4" fill="none" stroke="#61d6d3" stroke-opacity=".28" stroke-width="1"/><circle cx="7" cy="9" r="1.3" fill="#9ed9c7" fill-opacity=".7"/></pattern>
+          <filter id="shadow" x="-.4" y="-.4" width="1.8" height="1.9"><feGaussianBlur in="SourceAlpha" stdDeviation="12"/><feOffset dy="17"/><feComponentTransfer><feFuncA type="linear" slope=".52"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="glow" x="-.8" y="-.8" width="2.6" height="2.6"><feGaussianBlur stdDeviation="5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <style>
+            .orbit{transform-origin:340px 250px;animation:orbit 18s linear infinite}.lid{transform-box:fill-box;transform-origin:center;animation:lid 5.2s ease-in-out infinite}.pulse{animation:pulse 2.4s ease-in-out infinite}.scan{animation:scan 4.6s ease-in-out infinite}.spark{animation:spark 2s ease-in-out infinite alternate}
+            @keyframes orbit{to{transform:rotate(360deg)}}@keyframes lid{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}@keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}@keyframes scan{0%,100%{opacity:0;transform:translateY(-82px)}22%,70%{opacity:.7}55%{transform:translateY(105px);opacity:.18}}@keyframes spark{to{opacity:.3;filter:brightness(1.7)}}
+            @media(prefers-reduced-motion:reduce){.orbit,.lid,.pulse,.scan,.spark{animation:none}}
+          </style>
+        </defs>
+        <ellipse cx="340" cy="265" rx="270" ry="210" fill="url(#aura)"/>
+        <g class="orbit" fill="none" stroke="#74cfff" stroke-opacity=".34"><ellipse cx="340" cy="250" rx="272" ry="91" transform="rotate(-17 340 250)"/><ellipse cx="340" cy="250" rx="248" ry="126" transform="rotate(23 340 250)" stroke="#9b86ff" stroke-opacity=".26"/></g>
+        <g transform="translate(340 251)">
+          <g filter="url(#shadow)" transform="translate(11 72) matrix(1 .16 -.18 .91 0 0)">
+            <rect x="-168" y="-104" width="336" height="208" rx="20" fill="#07101b" stroke="#90b8d0" stroke-opacity=".75" stroke-width="3"/>
+            <rect x="-157" y="-93" width="314" height="186" rx="15" fill="url(#metal)" stroke="#e2f0f8" stroke-opacity=".72" stroke-width="2"/>
+            <rect x="-144" y="-80" width="288" height="160" rx="10" fill="#101f31" stroke="#6fe1e4" stroke-opacity=".66" stroke-width="2"/>
+            ${Array.from({length:120},(_,i)=>{const x=-130+(i%12)*23.6,y=-68+Math.floor(i/12)*13.7;return `<circle cx="${x}" cy="${y}" r="4.1" fill="url(#copper)" stroke="#fff0bd" stroke-opacity=".48" stroke-width=".8"/>`;}).join("")}
+            <path d="M-139-86h278M-139 86h278M-149-72v144M149-72v144" stroke="#f1c77e" stroke-opacity=".78" stroke-width="2"/>
+          </g>
+          <g transform="matrix(1 .16 -.18 .91 0 0)">
+            <rect x="-184" y="-120" width="368" height="240" rx="19" fill="#07101a" stroke="#b2d5e9" stroke-opacity=".9" stroke-width="3"/>
+            <rect x="-173" y="-109" width="346" height="218" rx="14" fill="url(#board)" stroke="#4bd6d2" stroke-opacity=".72" stroke-width="2"/>
+            <rect x="-165" y="-101" width="330" height="202" rx="10" fill="url(#microtrace)" opacity=".94"/>
+            <path d="M-154-85h52l15 14h25m-92 111h41l12-12h24m223-112h-39l-13 13h-24m76 105h-43l-14-13h-20M-111-102v26m220-25v26M-116 102V76m228 25V73" fill="none" stroke="#e6a85e" stroke-width="3" stroke-linecap="round"/>
+            <path d="M-153-91h34v18h32m110-24v17h-23m113-6h-29v19h-22M-154 89h29V72h28m102 31V88h24m99 3h-32V73h-18" fill="none" stroke="#77f0dc" stroke-opacity=".68" stroke-width="2"/>
+            ${Array.from({length:24},(_,i)=>{const x=-139+(i%12)*25.3,y=i<12?-96:96;return `<g><rect x="${x-5}" y="${y-4}" width="10" height="8" rx="2" fill="#111c28" stroke="#e4b96e" stroke-width="1.3"/><circle cx="${x}" cy="${y}" r="1.4" fill="#79d5ec"/></g>`;}).join("")}
+            ${Array.from({length:8},(_,i)=>{const x=i%2?-40:40,y=-68+Math.floor(i/2)*42;return `<g><rect x="${x-33}" y="${y-17}" width="66" height="34" rx="5" fill="#080e1b" stroke="#d09452" stroke-width="2"/><rect x="${x-28}" y="${y-13}" width="56" height="26" rx="3" fill="#172641" stroke="#56b6d8" stroke-width="1.5"/><rect x="${x-21}" y="${y-8}" width="42" height="16" rx="2" fill="url(#silicon)" opacity=".92"/><path d="M${x-17} ${y-3}h34M${x-17} ${y+2}h34" stroke="#c8fbff" stroke-opacity=".48" stroke-width="1"/></g>`;}).join("")}
+            ${Array.from({length:20},(_,i)=>{const side=i<10?-1:1,row=i%10,x=side*145,y=-77+row*17;return `<g transform="translate(${x} ${y})"><rect x="-7" y="-5" width="14" height="10" rx="2" fill="#111925" stroke="#d4b072" stroke-width="1.2"/><path d="M-3-5v10M3-5v10" stroke="#e3edf5" stroke-opacity=".62" stroke-width="1"/><circle class="pulse" r="1.5" fill="#62e5dc"/></g>`;}).join("")}
+            <path d="M-178-115h28m-28 0v28M178-115h-28m28 0v28M-178 115h28m-28 0v-28M178 115h-28m28 0v-28" fill="none" stroke="#b7d5ff" stroke-width="2"/>
+          </g>
+          <path d="M-98-115v-28M98-115v-28M-131-101v-23M131-101v-23" stroke="#8fe5ed" stroke-opacity=".55" stroke-dasharray="4 5"/>
+          <g transform="translate(-7 -158) matrix(1 .15 -.19 .9 0 0)" filter="url(#shadow)"><g class="lid">
+            <rect x="-130" y="-68" width="260" height="136" rx="20" fill="#09111d" stroke="#a4c8e5" stroke-opacity=".8" stroke-width="3"/>
+            <rect x="-121" y="-60" width="242" height="118" rx="15" fill="url(#metal)" stroke="#f0f8ff" stroke-opacity=".8" stroke-width="2"/>
+            <rect x="-104" y="-44" width="208" height="86" rx="10" fill="#24374d" stroke="#8bb9de" stroke-width="2"/>
+            ${Array.from({length:8},(_,i)=>{const y=-31+i*9;return `<path d="M-91${y}h182" stroke="#b3c8da" stroke-opacity=".6" stroke-width="2"/>`;}).join("")}
+            <rect x="-37" y="-19" width="74" height="38" rx="9" fill="#121f31" stroke="#a9dff2" stroke-width="2"/><rect class="pulse" x="-27" y="-11" width="54" height="22" rx="6" fill="url(#silicon)" filter="url(#glow)"/>
+            <circle cx="-101" cy="-48" r="7" fill="url(#copper)"/><circle cx="101" cy="-48" r="7" fill="url(#copper)"/><circle cx="-101" cy="48" r="7" fill="url(#copper)"/><circle cx="101" cy="48" r="7" fill="url(#copper)"/>
+          </g></g>
+          <path class="scan" d="M-190-122h380" stroke="#8af4ff" stroke-width="2" stroke-opacity=".85" filter="url(#glow)"/>
+          <g class="spark" filter="url(#glow)"><circle cx="-213" cy="-44" r="3.5" fill="#73efff"/><circle cx="218" cy="52" r="3" fill="#a88aff"/><circle cx="-184" cy="149" r="2.6" fill="#62e4d9"/></g>
+        </g>
+      </svg>`
     );
   }
 
@@ -516,6 +566,9 @@ function createPrecisionScene() {
   const warm = new THREE.PointLight(0xffa751, 13, 12, 2); warm.position.set(0, 3, -2); scene.add(warm);
 
   const movement = new THREE.Group(); scene.add(movement);
+  const packageModel = new THREE.Group();
+  packageModel.scale.setScalar(1.13);
+  movement.add(packageModel);
   const parts = [];
   const calloutParts = [];
   const mat = {
@@ -548,7 +601,7 @@ function createPrecisionScene() {
   const torus = (parent, radius, thickness, material, z = 0, arc = Math.PI * 2) =>
     addMesh(parent, new THREE.TorusGeometry(radius, thickness, 10, 72, arc), material, [0, 0, z]);
   const addPart = (name, position, layer, build, options = {}) => {
-    const group = new THREE.Group(); group.position.set(...position); movement.add(group); build(group);
+    const group = new THREE.Group(); group.position.set(...position); packageModel.add(group); build(group);
     const angle = options.angle ?? Math.atan2(position[1], position[0]);
     const direction = new THREE.Vector3(Math.cos(angle) * (options.radial ?? .56), Math.sin(angle) * (options.radial ?? .56), options.axial ?? (parts.length % 2 ? .82 : -.82)).normalize();
     const part = { name, group, base: group.position.clone(), direction, layer, index: parts.length, radius: options.radius ?? .12, speed: options.speed ?? 0, baseRotation: group.rotation.clone() };
@@ -698,7 +751,7 @@ function createPrecisionScene() {
   const status = document.querySelector("#physicalInteractionStatus");
   const assemblyProgress = document.querySelector("#physicalAssemblyProgress");
   let hovered = null, selected = null, frame = 0, shownProgress = 0;
-  let targetTiltX = -.24, targetTiltY = .14;
+  let targetTiltX = -.24, targetTiltY = 0;
   const started = performance.now();
   const updateStatus = () => {
     if (!status) return;
@@ -744,10 +797,10 @@ function createPrecisionScene() {
   canvas.addEventListener("pointermove", (event) => {
     if (event.pointerType === "touch") return;
     hovered = pick(event);
-    const bounds = visual.getBoundingClientRect(); targetTiltY = ((event.clientX - bounds.left) / bounds.width - .5) * .28; targetTiltX = ((event.clientY - bounds.top) / bounds.height - .5) * -.2;
+    const bounds = visual.getBoundingClientRect(); targetTiltY = ((event.clientX - bounds.left) / bounds.width - .5) * .2; targetTiltX = -.24 + ((event.clientY - bounds.top) / bounds.height - .5) * -.16;
     canvas.style.cursor = hovered ? "pointer" : "grab"; updateStatus(); schedule();
   });
-  canvas.addEventListener("pointerleave", () => { hovered = null; targetTiltX = -.24; targetTiltY = .14; canvas.style.cursor = "grab"; updateStatus(); schedule(); });
+  canvas.addEventListener("pointerleave", () => { hovered = null; targetTiltX = -.24; targetTiltY = 0; canvas.style.cursor = "grab"; updateStatus(); schedule(); });
   canvas.addEventListener("click", (event) => { const part = pick(event); selected = part === selected ? null : part; hovered = part; updateStatus(); schedule(); });
   addEventListener("scroll", schedule, { passive: true }); addEventListener("resize", schedule, { passive: true });
 
@@ -759,8 +812,10 @@ function createPrecisionScene() {
     const scrollOpen = smooth(.035, .87, shownProgress);
     const autoOpen = reducedMotion.matches ? 0 : smooth(.3, 1.2, seconds) * (1 - smooth(2.2, 3.7, seconds)) * .56;
     const opening = Math.max(scrollOpen, autoOpen);
+    const zoomProgress = reducedMotion.matches ? 0 : smooth(.08, .94, shownProgress);
+    packageModel.scale.setScalar(1.13 + zoomProgress * (widePhysicalStage.matches ? .14 : .08));
     movement.rotation.x += ((reducedMotion.matches ? -.24 : -.24 + Math.sin(seconds * .31) * .025 + targetTiltX * .18) - movement.rotation.x) * .055;
-    movement.rotation.y += ((reducedMotion.matches ? .1 : .1 + seconds * .055 + targetTiltY) - movement.rotation.y) * .035;
+    movement.rotation.y += ((reducedMotion.matches ? .1 : .1 + Math.sin(seconds * .22) * .055 + targetTiltY) - movement.rotation.y) * .045;
     movement.position.y = reducedMotion.matches ? 0 : Math.sin(seconds * .65) * .035;
     orbit.rotation.z = reducedMotion.matches ? 0 : seconds * .12; stars.rotation.z = reducedMotion.matches ? 0 : -seconds * .012;
     parts.forEach((part) => {

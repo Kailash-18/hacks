@@ -2062,3 +2062,85 @@ html:has(body.physical-site) { scroll-behavior: smooth; }
   .physical-site .physical-scroll-story { grid-row: 4; }
   .physical-site .physical-landing:not(:has(#physicalSamples:not([hidden]))) .physical-about { grid-row: 5; }
 }
+
+/* Let the object recede behind the study while the saved-photo rail arrives early. */
+@media (min-width: 1121px) {
+  .physical-site .physical-landing {
+    grid-template-rows: minmax(420px, 52svh) auto auto auto;
+    row-gap: clamp(15px, 1.6vw, 24px);
+  }
+  .physical-site .physical-visual {
+    grid-row: 1 / span 3;
+    height: min(49svh, 540px);
+    min-height: 370px;
+    transition: opacity 1.05s cubic-bezier(.2,.7,.2,1), filter 1.05s cubic-bezier(.2,.7,.2,1), transform 1.2s cubic-bezier(.16,.76,.24,1);
+  }
+  .physical-site .physical-visual[data-story-mode="active"] {
+    opacity: var(--model-scroll-opacity, .68);
+    filter: var(--model-scroll-filter, blur(1.8px) saturate(.84) brightness(.9));
+    transform: translate3d(var(--model-scroll-x, -24vw), var(--model-scroll-y, -2.5vh), 0) scale(var(--model-scroll-scale, 1.12));
+  }
+  .physical-site .physical-sample-shelf { grid-row: 2; }
+  .physical-site .physical-scroll-story { grid-row: 3; }
+  .physical-site .physical-scroll-story::before { border: 0; background: transparent; backdrop-filter: none; }
+}
+
+@media (min-width: 841px) and (max-width: 1120px) {
+  .physical-site .physical-visual {
+    grid-row: 2;
+    height: clamp(340px, 40svh, 420px);
+    min-height: 340px;
+    transition: opacity 1.05s cubic-bezier(.2,.7,.2,1), filter 1.05s cubic-bezier(.2,.7,.2,1), transform 1.2s cubic-bezier(.16,.76,.24,1);
+  }
+  .physical-site .physical-sample-shelf {
+    grid-row: 2;
+    border-color: rgba(147,187,243,.12);
+    background: linear-gradient(112deg, rgba(13,23,38,.52), rgba(12,18,31,.38) 64%, rgba(30,26,53,.42));
+    box-shadow: none;
+    backdrop-filter: blur(1px);
+  }
+  .physical-site .physical-visual[data-story-mode="active"] {
+    opacity: var(--model-scroll-opacity, .68);
+    filter: var(--model-scroll-filter, blur(1.8px) saturate(.84) brightness(.9));
+    transform: translate3d(var(--model-scroll-x, 0vw), var(--model-scroll-y, -2.5vh), 0) scale(var(--model-scroll-scale, 1.06));
+  }
+  .physical-site .physical-scroll-story { grid-row: 3; }
+  .physical-site .physical-scroll-story::before { border: 0; background: transparent; backdrop-filter: none; }
+}
+
+@media (max-width: 840px) {
+  .physical-site .physical-sample-shelf {
+    grid-row: 2;
+    background: linear-gradient(112deg, rgba(13,23,38,.56), rgba(12,18,31,.42) 64%, rgba(30,26,53,.48));
+    box-shadow: none;
+    backdrop-filter: blur(1px);
+  }
+  .physical-site .physical-visual {
+    grid-row: 3 / span 2;
+    opacity: 1;
+    transition: opacity 1.05s cubic-bezier(.2,.7,.2,1), filter 1.05s cubic-bezier(.2,.7,.2,1), transform 1.2s cubic-bezier(.16,.76,.24,1);
+  }
+  .physical-site .physical-visual[data-story-mode="active"] {
+    opacity: var(--model-scroll-opacity, .68);
+    filter: var(--model-scroll-filter, blur(1.8px) saturate(.84) brightness(.9));
+    transform: translate3d(var(--model-scroll-x, 0vw), var(--model-scroll-y, -2.5vh), 0) scale(var(--model-scroll-scale, 1.04));
+  }
+  .physical-site .physical-scroll-story { grid-row: 4; }
+  .physical-site .physical-scroll-story::before { inset: 0 -22px; border: 0; background: transparent; backdrop-filter: none; }
+}
+
+/* Keep the no-WebGL CPU preview reading like an exploded assembly, not an app icon. */
+.physical-site .source-fallback {
+  width: min(90%, 720px);
+  height: auto;
+  max-width: 90%;
+  max-height: 88%;
+  aspect-ratio: 17 / 12;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  filter: drop-shadow(0 24px 22px rgba(0,0,0,.28));
+  transform: perspective(1200px) rotateY(-5deg) rotateX(2deg) scale(1.04);
+}
+.physical-site .source-fallback img { border-radius: 0; object-fit: contain; }

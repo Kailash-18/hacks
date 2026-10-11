@@ -251,6 +251,14 @@
       visual.dataset.storyMode = firstBounds.top < window.innerHeight * 0.84 && lastBounds.bottom > window.innerHeight * 0.16 ? "active" : "idle";
       storyProgress?.style.setProperty("width", `${(progress * 100).toFixed(2)}%`);
       visual.style.setProperty("--scroll-depth", progress.toFixed(3));
+      const centerShift = window.matchMedia("(min-width: 1121px)").matches ? -24 * progress : 0;
+      const stageZoom = window.matchMedia("(min-width: 1121px)").matches ? .12 : .06;
+      const modelBlur = reducedMotion.matches ? 0 : progress * 1.8;
+      visual.style.setProperty("--model-scroll-x", `${centerShift.toFixed(2)}vw`);
+      visual.style.setProperty("--model-scroll-y", `${(-2.5 * progress).toFixed(2)}vh`);
+      visual.style.setProperty("--model-scroll-scale", (1 + stageZoom * progress).toFixed(3));
+      visual.style.setProperty("--model-scroll-opacity", (1 - .32 * progress).toFixed(3));
+      visual.style.setProperty("--model-scroll-filter", `blur(${modelBlur.toFixed(2)}px) saturate(${(1 - .16 * progress).toFixed(3)}) brightness(${(1 - .1 * progress).toFixed(3)})`);
       visual.style.setProperty("--scan-y", `${(8 + (reducedMotion.matches ? 0 : progress * 84)).toFixed(1)}%`);
       visual.style.setProperty("--explode-progress", reducedMotion.matches ? "0" : progress.toFixed(3));
       visual.dataset.storyProgress = progress.toFixed(3);
