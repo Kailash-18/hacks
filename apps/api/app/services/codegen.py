@@ -67,6 +67,21 @@ JSON_TAIL = 'Return ONLY JSON: {"code": "<the full code>", "notes": ["at most 4 
 _FENCE = re.compile(r"```[a-zA-Z0-9]*[ \t]*\n(.*?)(?:\n```|$)", re.S)
 
 
+def _split_trailing_prose(code: str, rest: str = "", complete: bool = True) -> tuple[str, str, bool]:
+    """Models sometimes forget the closing fence, so the NOTES (or other prose) end up inside the code and the
+    browser shows them as page text. Anything after </html>, or from a NOTES: line on, is moved out of the code."""
+    end = code.lower().rfind("</html>")
+    if end >= 0:
+        if code[end + 7:].strip():  # the page closed and the model went on writing: it finished, the fence was just left open
+            return code[:end + 7], code[end + 7:] + "\n" + rest, True
+        return code[:end + 7], rest, complete
+    m = re.search(r"^\s*NOTES:", code, re.M)
+    if m:
+        rest = code[m.start():] + "\n" + rest
+        code = code[:m.start()].rstrip().removesuffix("```")
+    return code, rest, complete
+
+
 def parse_code_text(text: str) -> tuple[str, list[str], bool]:
     """(code, notes, complete) from a fenced-block answer. complete=False when the fence never closed."""
     text = (text or "").strip()
@@ -79,6 +94,7 @@ def parse_code_text(text: str) -> tuple[str, list[str], bool]:
         code, rest, complete = text[start:], "", True
         if "NOTES:" in code:
             code, rest = code.split("NOTES:", 1)
+    code, rest, complete = _split_trailing_prose(code, rest, complete)
     notes = []
     if "NOTES:" in rest:
         rest = rest.split("NOTES:", 1)[1]
@@ -157,7 +173,10 @@ def _cache_get(name: str) -> dict | None:
     for p in [CACHE / f"{name}.json", *SAMPLES_DIR.glob(f"*/build/{name}.json")]:
         try:
             if p.exists():
-                return json.loads(p.read_text(encoding="utf-8"))
+                hit = json.loads(p.read_text(encoding="utf-8"))
+                if isinstance(hit, dict) and hit.get("target") == "html" and isinstance(hit.get("code"), str):
+                    hit["code"] = _split_trailing_prose(hit["code"])[0]  # results cached before the NOTES fix
+                return hit
         except (OSError, ValueError):
             continue
     return None

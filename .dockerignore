@@ -20,3 +20,5 @@ docs
 /MASTER_PROJECT_BRIEF.md
 /API_CONTRACT.md
 node_modules
+apps/viewer/devtest.js
+apps/api/check_key.py

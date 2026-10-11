@@ -1,0 +1,66 @@
+/* Shared navbar for both labs, and the lab-switch transition (lab-transit.js). */
+header.vre-nav {
+  position: relative; z-index: 20; height: 56px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px;
+  padding: 0 20px; margin: 0; border: 0; font-family: "Archivo", Inter, system-ui, sans-serif;
+  background: rgba(7, 11, 20, .78); backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3);
+}
+header.vre-nav::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(94, 230, 255, .45) 30%, rgba(139, 123, 255, .45) 70%, transparent); }
+.vre-brand { justify-self: start; display: inline-flex; align-items: center; gap: 10px; min-width: 0; color: #e9f0fb; text-decoration: none;
+  font-size: 15px; font-weight: 700; font-variation-settings: "wdth" 108; letter-spacing: -.005em; white-space: nowrap; }
+.vre-brand span { overflow: hidden; text-overflow: ellipsis; }
+.vre-mark { width: 30px; height: 30px; flex: none; overflow: visible; }
+.vre-mark path { transition: transform .35s cubic-bezier(.3, .9, .3, 1.3); }
+.vre-brand:hover .vre-mark .m1 { transform: translateY(-3px); }
+.vre-brand:hover .vre-mark .m3 { transform: translateY(3px); }
+
+.lab-switch { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 13px;
+  background: rgba(255, 255, 255, .045); border: 1px solid rgba(147, 164, 191, .2); }
+.lab-switch a { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 116px;
+  padding: 7px 16px; border-radius: 9px; font: 600 14px/1 "Archivo", Inter, sans-serif; font-variation-settings: "wdth" 100;
+  color: #93a4bf; text-decoration: none; transition: color .35s ease; }
+.lab-switch a:hover { color: #e9f0fb; }
+.lab-switch a svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+.lab-switch[data-on="physical"] a[data-lab="physical"], .lab-switch[data-on="digital"] a[data-lab="digital"] { color: #06101f; }
+.lab-thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 9px;
+  background: linear-gradient(135deg, #5ee6ff, #4f8cff); box-shadow: 0 4px 18px rgba(79, 140, 255, .45), inset 0 1px 0 rgba(255, 255, 255, .5);
+  transition: transform .5s cubic-bezier(.65, 0, .25, 1), background .5s ease; }
+.lab-switch[data-on="digital"] .lab-thumb { transform: translateX(100%); background: linear-gradient(135deg, #a497ff, #4f8cff); box-shadow: 0 4px 18px rgba(139, 123, 255, .5), inset 0 1px 0 rgba(255, 255, 255, .5); }
+header.vre-nav .actions { justify-self: end; display: flex; align-items: center; gap: 8px; }
+header.vre-nav :focus-visible { outline: 2px solid #5ee6ff; outline-offset: 2px; }
+@media (max-width: 700px) {
+  header.vre-nav { grid-template-columns: auto 1fr auto; padding: 0 12px; gap: 10px; }
+  .vre-brand span { display: none; }
+  .lab-switch { justify-self: center; }
+  .lab-switch a { min-width: 0; padding: 7px 12px; }
+}
+@media (max-width: 420px) { .lab-switch a svg { display: none; } }
+
+/* ---- lab switch transition: slabs close over the page, the destination lab's name lands, the slabs fly apart */
+html.lab-arriving::after { content: ""; position: fixed; inset: 0; z-index: 10000; background: #081022; }
+html.lab-arriving.lt-digital::after { background: #0d0b24; }
+.lab-transit { position: fixed; inset: 0; z-index: 10001; pointer-events: all; perspective: 1300px; overflow: hidden; }
+.lab-transit i { position: absolute; top: 0; bottom: 0; left: calc(var(--i) * 100% / 7); width: calc(100% / 7 + 1px);
+  background: var(--slab); background-size: 100vw 100vh; background-position: calc(var(--i) * -100vw / 7) 0;
+  box-shadow: inset -1px 0 0 var(--edge); transform: translateY(var(--y0)) rotateX(var(--rx0)); will-change: transform; }
+.lt-physical { --edge: rgba(94, 230, 255, .4); --accent: #5ee6ff;
+  --slab: repeating-linear-gradient(0deg, rgba(94, 230, 255, .09) 0 1px, transparent 1px 34px), repeating-linear-gradient(90deg, rgba(94, 230, 255, .09) 0 1px, transparent 1px 34px),
+    radial-gradient(900px 600px at 50% 45%, #13306a, #081022 70%); }
+.lt-digital { --edge: rgba(164, 151, 255, .45); --accent: #a497ff;
+  --slab: radial-gradient(circle, rgba(190, 180, 255, .22) 1px, transparent 1.5px) 0 0 / 22px 22px, radial-gradient(900px 600px at 50% 45%, #2a1f6e, #0d0b24 70%); }
+.lt-digital i { background-size: 22px 22px, 100vw 100vh; background-position: calc(var(--i) * -100vw / 7) 0, calc(var(--i) * -100vw / 7) 0; }
+.lab-transit.closing i { transform: none; transition: transform .52s cubic-bezier(.75, 0, .2, 1) var(--d1); }
+.lab-transit.closed i { transform: none; }
+.lab-transit.opening i { transform: translateZ(520px) translateX(calc(var(--c) * 34%)) rotateY(calc(var(--c) * -16deg)); opacity: 0;
+  transition: transform .78s cubic-bezier(.55, 0, .2, 1) var(--d2), opacity .5s ease calc(var(--d2) + .26s); }
+.lt-title { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; pointer-events: none;
+  opacity: 0; transform: scale(.94); font-family: "Archivo", Inter, sans-serif; color: #e9f0fb; }
+.lt-title b { font-size: clamp(64px, 11vw, 176px); font-weight: 800; font-variation-settings: "wdth" 125; line-height: .9; letter-spacing: -.045em; }
+.lt-title span { font-size: clamp(15px, 1.4vw, 19px); font-weight: 600; font-variation-settings: "wdth" 100; color: var(--accent); }
+.lt-title::after { content: ""; position: absolute; left: 50%; top: 50%; width: min(70vw, 900px); height: 2px; margin-left: min(-35vw, -450px);
+  background: linear-gradient(90deg, transparent, var(--accent), transparent); box-shadow: 0 0 18px var(--accent); transform: scaleX(0); }
+.lab-transit.closing .lt-title { opacity: 1; transform: none; transition: opacity .25s ease .38s, transform .5s cubic-bezier(.2, .8, .2, 1) .38s; }
+.lab-transit.closing .lt-title::after { transform: scaleX(1); transition: transform .45s cubic-bezier(.65, 0, .25, 1) .3s; }
+.lab-transit.closed .lt-title { opacity: 1; transform: none; }
+.lab-transit.opening .lt-title { opacity: 0; transform: scale(1.06); transition: opacity .22s ease, transform .4s ease; }
+@media (prefers-reduced-motion: reduce) { .lab-transit { display: none; } html.lab-arriving::after { display: none; } }

@@ -110,7 +110,7 @@ LIMITATIONS = [
 ]
 
 MAX_VIEWS = 4
-LAST_TIMING: dict = {}  # filled per request; exposed as a Server-Timing header for debugging
+TIMINGS: dict = {}  # analysis id -> step durations; main.py pops it for the Server-Timing header (safe with concurrent requests)
 PIPELINE_VERSION = "16"  # bump when building logic changes, so saved results are rebuilt (model answers stay cached)
 
 
@@ -414,8 +414,12 @@ def _ask_model(image_bytes: bytes, vision_client: VisionClient, cache_dir=None) 
     except ValueError as exc:
         raise AnalysisError("One of the files is not a readable image.", 400) from exc
     jpeg = ops.encode_jpeg(ops.fit(img, 768))  # smaller upload = faster model call; coords are normalized
-    key = hashlib.sha256(jpeg + vision_client.model.encode() + PROMPT.encode()).hexdigest()
+    key = hashlib.sha256(jpeg + PROMPT.encode()).hexdigest()  # not the model: it changes when quota runs out
     cached = cache_dir / f"raw-{key}.json" if cache_dir else None
+    if cached and not cached.exists():  # answers saved before this change were also keyed on the model name
+        old = cache_dir / f"raw-{hashlib.sha256(jpeg + (vision_client.model or '').encode() + PROMPT.encode()).hexdigest()}.json"
+        if old.exists():
+            cached = old
     if cached and cached.exists():
         return json.loads(cached.read_text(encoding="utf-8")), img, jpeg
     t0 = time.perf_counter()
@@ -534,7 +538,9 @@ def analyze_physical_images(files: list[tuple[bytes, str]], vision_client: Visio
             id_jpegs.append(ops.encode_jpeg(ops.fit(ops.decode_image(b), 768)))
         except ValueError:
             pass
-    with ThreadPoolExecutor(max_workers=len(files) + 1) as pool:
+    # not a `with` block: leaving one waits for every thread, so a hung web lookup would ignore the timeout below
+    pool = ThreadPoolExecutor(max_workers=len(files) + 1)
+    try:
         # exact-model lookup (web search) runs alongside the part analysis, so it adds no waiting time
         id_future = pool.submit(identify_product, id_jpegs, vision_client, cache_dir, hint)
         results = list(pool.map(lambda f: _ask_model(f[0], vision_client, cache_dir), files))
@@ -542,6 +548,8 @@ def analyze_physical_images(files: list[tuple[bytes, str]], vision_client: Visio
             ident = id_future.result(timeout=120)
         except Exception:
             ident = None
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
     t1 = time.perf_counter()
     groups, odd = _merge_groups([r for r, _, _ in results], vision_client)
     if odd:  # never merge two different products into one model
@@ -575,8 +583,9 @@ def analyze_physical_images(files: list[tuple[bytes, str]], vision_client: Visio
         log.warning("physical: 3D assembly failed (%s: %s)", type(exc).__name__, exc)
         result.scene.notes.append(f"3D model could not be built ({type(exc).__name__}: {str(exc)[:160]}); showing photo layers only.")
     t4 = time.perf_counter()
-    LAST_TIMING.clear()
-    LAST_TIMING.update(model=t1 - t0, merge=t2 - t1, build=t3 - t2, assembly=t4 - t3)
+    TIMINGS[result.analysis_id] = dict(model=t1 - t0, merge=t2 - t1, build=t3 - t2, assembly=t4 - t3)
+    while len(TIMINGS) > 50:  # never grows without bound if a caller does not pop it
+        TIMINGS.pop(next(iter(TIMINGS)))
     log.info("physical: %d photos -> %d parts (%d seen); model %.1f s, merge %.1f s, build %.1f s, 3D %.1f s", len(files),
              len(result.components), len(result.components) - len(result.scene.ghost_component_ids), t1 - t0, t2 - t1, t3 - t2, t4 - t3)
     return result

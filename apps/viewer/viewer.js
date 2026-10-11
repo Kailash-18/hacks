@@ -68,7 +68,11 @@ function steps(active, through = active, names = STEP_NAMES) { // steps active..
   $("loading").hidden = done;
   if (done) { clearInterval(scanTimer); scanTimer = null; }
 }
+// while a photo is being scanned the side panel (the previous object's parts) is hidden and the scan uses the full width
+new MutationObserver(() => { if ($("loading").hidden) document.body.classList.remove("scanning"); })
+  .observe($("loading"), { attributes: true, attributeFilter: ["hidden"] });
 function startScan(file) { // photo with a sweeping laser while the AI works
+  document.body.classList.add("scanning");
   const img = $("scanImg");
   if (file) { if (img.dataset.url) URL.revokeObjectURL(img.dataset.url); img.dataset.url = img.src = URL.createObjectURL(file); }
   $("scanPhoto").hidden = !file;
@@ -1081,7 +1085,9 @@ $("chatForm").addEventListener("submit", (e) => { e.preventDefault(); const q = 
 
 // ---------------------------------------------------------------- upload & samples
 async function shrink(file, max = 1600) { // client-side downscale keeps uploads fast
-  const img = await loadImage(URL.createObjectURL(file));
+  const url = URL.createObjectURL(file);
+  let img;
+  try { img = await loadImage(url); } finally { URL.revokeObjectURL(url); }
   const s = Math.min(1, max / Math.max(img.width, img.height));
   const c = document.createElement("canvas"); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
   c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
@@ -1121,17 +1127,24 @@ async function showTeardowns(query, btn, topic = "") {
     }
     const add = el("button", "btn small primary", "Add to the model"); add.disabled = true; add.hidden = isSample;
     add.onclick = async () => {
+      const room = 4 - currentFiles.length;
+      if (room <= 0) { showError("This object already has 4 photos, the most one analysis can use."); return; }
       add.disabled = true; add.textContent = "Downloading…";
       const blobs = [];
-      let n = 0;
-      for (const u of picked) {
-        add.textContent = `Downloading ${++n} of ${picked.size}…`;
-        const r = await fetch(API + "/api/physical/teardown/image?u=" + encodeURIComponent(u));
-        if (r.ok) blobs.push(await shrink(new File([await r.blob()], "teardown.jpg", { type: "image/jpeg" })));
-      }
-      add.textContent = `Add ${picked.size} to the model`; add.disabled = false;
-      const all = currentFiles.concat(blobs).slice(0, 4);
-      if (blobs.length) analyze(all, { added: blobs });
+      let n = 0, failed = 0;
+      try {
+        for (const u of [...picked].slice(0, room)) {
+          add.textContent = `Downloading ${++n} of ${Math.min(picked.size, room)}…`;
+          try {
+            const r = await fetch(API + "/api/physical/teardown/image?u=" + encodeURIComponent(u));
+            if (r.ok) blobs.push(await shrink(new File([await r.blob()], "teardown.jpg", { type: "image/jpeg" })));
+            else failed++;
+          } catch { failed++; }
+        }
+      } finally { add.textContent = `Add ${picked.size} to the model`; add.disabled = false; }
+      if (picked.size > room) showError(`Only ${room} more photo${room === 1 ? "" : "s"} fit (4 at most); used the first ${room}.`);
+      else if (failed) showError(`${failed} iFixit photo${failed === 1 ? "" : "s"} could not be downloaded.`);
+      if (blobs.length) analyze(currentFiles.concat(blobs), { added: blobs, hint: currentHint });
     };
     box.append(add, el("div", "td-note", isSample ? "Reference photos only in sample mode. Upload your own photos to add these to the model."
       : "Pick up to 3 photos that show the inside, then add them to the model."));
@@ -1139,6 +1152,7 @@ async function showTeardowns(query, btn, topic = "") {
   finally { btn.disabled = false; btn.textContent = "Find teardown photos (iFixit)"; }
 }
 
+let currentHint = ""; // the user-confirmed model name, kept when photos are added
 let currentFiles = []; // shrunk blobs of the current object (re-sent on "Add photo"; server caches each photo)
 
 async function analyze(files, { added = null, hint = "" } = {}) {
@@ -1159,10 +1173,10 @@ async function analyze(files, { added = null, hint = "" } = {}) {
     if (!r.ok && added && data.error && data.error.code === "different_object") {
       // the added photo is another product: analyse it on its own instead of merging two objects
       showError("That photo shows a different object, so it gets its own analysis.");
-      return analyze(added);
+      return analyze(added, { hint });
     }
     if (!r.ok) throw new Error(errText(data, r.status));
-    currentFiles = files;
+    currentFiles = files; currentHint = hint;
     await build(data, { sample: false });
   } catch (err) { $("loading").hidden = true; showError(err.message || "Something went wrong."); }
 }
@@ -1186,8 +1200,11 @@ $("addFile").addEventListener("change", async (e) => {
   const list = [...e.target.files]; e.target.value = "";
   if (!list.length) return;
   const blobs = await pickFiles(list);
-  const all = currentFiles.concat(blobs).slice(0, 4);
-  if (all.length > currentFiles.length) analyze(all, { added: blobs.slice(0, 4) });
+  const room = 4 - currentFiles.length;
+  if (room <= 0) { if (blobs.length) showError("This object already has 4 photos, the most one analysis can use."); return; }
+  if (blobs.length > room) showError(`Only ${room} more photo${room === 1 ? "" : "s"} fit (4 at most); used the first ${room}.`);
+  const add = blobs.slice(0, room);
+  if (add.length) analyze(currentFiles.concat(add), { added: add, hint: currentHint });
 });
 
 async function loadSamples() {
@@ -1215,7 +1232,9 @@ controls.addEventListener("start", () => { if (controls.autoRotate) { controls.a
 // a still page does no work, which keeps slower laptops responsive.
 for (const ev of ["pointermove", "pointerdown", "pointerup", "wheel", "keydown", "input", "change", "click", "resize"]) addEventListener(ev, () => asm.poke(), { passive: true });
 controls.addEventListener("change", () => asm.poke());
+const landing = $("empty");
 renderer.setAnimationLoop(() => {
+  if (!landing.hidden) return; // the landing covers the 3D view: drawing it underneath cost slower laptops nearly every frame
   controls.update();
   if (mode === "3d" && asm.root.visible && !controls.autoRotate && !drag && !asm.busy()) return;
   if (!asm.renderScene()) renderer.render(scene3, camera);

@@ -44,6 +44,7 @@ from .routes_digital import SAMPLES as DIGITAL_SAMPLES  # noqa: E402
 from .routes_digital import router as digital_router  # noqa: E402
 from .services.vision_provider import make_shared_client, provider_status, set_shared_client  # noqa: E402
 from .store import store as shared_store  # noqa: E402
+from .uploads import validate_image  # noqa: E402
 
 MAX_BYTES = 8 * 1024 * 1024
 from .services.assembly import PROMPT as ASSEMBLY_PROMPT  # noqa: E402
@@ -162,19 +163,21 @@ async def physical_analyze(request: Request):
         raise HTTPException(400, f"Upload at most {MAX_VIEWS} photos of the same object.")
     files = []
     for u in uploads:
-        if (u.content_type or "").split(";")[0] not in ALLOWED_MIME:
-            raise HTTPException(415, "Upload JPEG, PNG or WebP images.")
         data = await u.read(MAX_BYTES + 1)
-        if len(data) > MAX_BYTES:
-            raise HTTPException(413, "Each image must be 8 MB or smaller.")
-        if not data:
-            raise HTTPException(400, "Empty file.")
+        # size, real file type (magic bytes) and a pixel cap, so a tiny file that unpacks huge cannot exhaust memory
+        validate_image(data, u.filename)
         files.append((data, u.filename or f"photo{len(files) + 1}"))
 
     hint = str(form.get("model_hint") or "").strip()[:100]  # user-confirmed exact model (optional)
-    key = hashlib.sha256(b"".join(hashlib.sha256(d).digest() for d, _ in files) + vision.model.encode()
+    # keyed on photos + prompts + hint, NOT the model: the client switches model (or falls back to LM Studio) when
+    # quota runs out mid-run, and a saved result must still be found afterwards instead of paying for a second call
+    key = hashlib.sha256(b"".join(hashlib.sha256(d).digest() for d, _ in files)
                          + PROMPT_VERSION.encode() + hint.lower().encode()).hexdigest()
     cached = CACHE_DIR / f"{key}.json"
+    if not cached.exists():  # results saved before this change were also keyed on the model name
+        legacy = CACHE_DIR / (hashlib.sha256(b"".join(hashlib.sha256(d).digest() for d, _ in files) + (vision.model or "").encode()
+                                             + PROMPT_VERSION.encode() + hint.lower().encode()).hexdigest() + ".json")
+        cached = legacy if legacy.exists() else cached
     cached_hit = cached.exists()
     if cached_hit:  # free-tier friendly: same photos never cost a second model call
         analysis = SystemAnalysis.model_validate(json.loads(cached.read_text(encoding="utf-8")))
@@ -184,9 +187,10 @@ async def physical_analyze(request: Request):
         if analysis.scene and analysis.scene.assembly:  # never save a result whose 3D step failed
             CACHE_DIR.mkdir(exist_ok=True)
             cached.write_text(json.dumps(analysis.dump()), encoding="utf-8")
-    _remember(analysis)
     from .services import physical_analysis as pa
-    timing = ", ".join(f"{k};dur={v * 1000:.0f}" for k, v in pa.LAST_TIMING.items()) if not cached_hit else "cache;dur=0"
+    t = pa.TIMINGS.pop(analysis.analysis_id, {}) if not cached_hit else {}
+    timing = ", ".join(f"{k};dur={v * 1000:.0f}" for k, v in t.items()) if t else "cache;dur=0"
+    _remember(analysis)
     return JSONResponse(analysis.dump(), headers={"Server-Timing": timing})
 
 
@@ -195,13 +199,19 @@ async def physical_identify(request: Request):
     """Exact-model lookup only (Gemini + Google Search). Form: ``images`` (1-4), optional ``model_hint``."""
     from .services import identify as idm
     from .services import image_ops as ops
-    form = await request.form()
-    uploads = [u for u in form.getlist("images") if hasattr(u, "read")][:MAX_VIEWS]
+    try:
+        form = await request.form()
+    except Exception:
+        raise HTTPException(400, "Send the photos as multipart form data.")
+    uploads = [u for u in form.getlist("images") if hasattr(u, "read")]
     if not uploads:
         raise HTTPException(400, "Upload at least one photo.")
+    if len(uploads) > MAX_VIEWS:
+        raise HTTPException(400, f"Upload at most {MAX_VIEWS} photos of the same object.")
     jpegs = []
     for u in uploads:
         data = await u.read(MAX_BYTES + 1)
+        validate_image(data, u.filename)  # same limits as /analyze: 8 MB, JPEG/PNG/WebP, pixel cap
         try:
             jpegs.append(ops.encode_jpeg(ops.fit(ops.decode_image(data), 768)))
         except ValueError:
@@ -227,7 +237,7 @@ def list_samples():
             items.append({"id": f.stem, "title": d.get("title", f.stem)})
         except (OSError, json.JSONDecodeError):
             continue
-    return {"samples": items, "note": "Samples are saved results of earlier real analyses (sample mode)."}
+    return {"samples": items, "note": "Samples are saved results of earlier real analyses, except those whose provider is 'curated': those are hand-built reference models, not AI scans."}
 
 
 @app.get("/api/physical/samples/{sample_id}")

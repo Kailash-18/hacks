@@ -17,7 +17,7 @@ from .vision_client import VisionClient
 
 log = logging.getLogger("uvicorn.error")
 
-SHAPES = ("box", "rounded_box", "cylinder", "disc", "sphere", "ellipsoid", "dome", "capsule", "cone", "torus", "plate", "frame")
+SHAPES = ("box", "rounded_box", "cylinder", "disc", "sphere", "ellipsoid", "dome", "capsule", "cone", "torus", "plate", "frame", "arch")
 DETAIL_SHAPES = SHAPES + ("cross", "slots")
 MAX_DETAILS = 40
 MAX_EXTRA = 6
@@ -68,6 +68,9 @@ rotation in degrees (XYZ). Shapes:
 - torus: size = [outer diameter, tube thickness, outer diameter]
 - frame = a closed band around the edge of a slab-shaped body (the metal side frame of a phone, tablet or
   watch; a bezel; a picture frame): size = outer [x, y, z], "wall" = band thickness in mm.
+- arch = a curved band bent into a half ring, ends pointing down (-y): a headphone headband, a bag, kettle or
+  bucket handle, a U-shaped bracket. size = [span between the outer ends, rise, band depth z]; "wall" = band
+  thickness in mm. Rotate it for other orientations. Never draw a curved band as a straight box.
 Optional on box, rounded_box, plate and frame: "corner_radius" in mm = how rounded the corners look when you
 face the part's large face (a phone body ~ 15% of its width, a camera plateau, keycaps and cards are rounded).
 Materials: {materials}.
@@ -94,6 +97,10 @@ Rules:
 - "extra_parts": up to {max_extra} important INTERNAL parts this kind of object (or this exact product) really
   has that are missing from the list (e.g. optical sensor, microswitches, battery contacts, motor, PCB, antenna).
   Never duplicate a listed part. Give each one a "parts" entry too (geometry inside the housing). [] if none.
+  Also use extra_parts for the missing twin of a mirrored pair when only one side is listed (headphones: the
+  other ear cup's pad, cover and driver; a bike's other wheel; glasses' other lens): same shape and size,
+  mirrored across the centre. Both sides of a symmetric object must look alike when assembled.
+  EVERY extra_parts id MUST also have its own "parts" entry with geometry, or it is dropped.
 - "relationships": the real system wiring between ALL parts (listed + extra), like an engineer's block diagram.
   Types: {rel_types}. Direction: "from" -> "to" means "to" depends on "from".
   Cover every chain: power (battery powers board, board powers sensor/LEDs/motor), control and signals
@@ -116,6 +123,13 @@ Rules:
   frame (board, battery, speakers, haptic motor, ports, camera modules), back cover (thin, back). Give the
   display, frame, back cover and camera plateau the real corner_radius. Lenses are "disc"s of glass inside a
   thin metal "torus" ring; the flash is a small disc. Never use a detail as the whole body or to cover a face.
+- Over-ear / on-ear headphones (worn upright, as on a head): headband = ONE "arch" with rotation [0, 0, 0] whose
+  ends come down onto the two yokes; ear cups = "cylinder"s with rotation [0, 0, 90] (axis along x, the round
+  face looks sideways) at x = +/- half the headband span, hanging below the headband ends; ear pads = "torus" with
+  rotation [0, 0, 90] on the INNER face of each cup (towards x = 0); yokes = small "arch"es with rotation [0, 90, 0]
+  (a U-fork around the top of the cup). Drivers, battery and board sit inside the cups. Both sides alike.
+- Everything is connected: each part touches the part that holds it (no gaps between headband, yokes and cups,
+  no floating parts).
 - Keep it compact. No prose.
 """
 
@@ -211,7 +225,7 @@ def parse_assembly(raw: dict, component_ids: set[str], types: dict[str, str] | N
             color=color, material=mat, explodeDir=d,
             explodeDist=_num(p.get("explode_dist"), 1.0, 0.0, 3.0),
             cornerRadius=_radius(p.get("corner_radius"), size),
-            wall=_num(p.get("wall"), 0.0, 0.0, 500.0) or None if shape == "frame" else None,
+            wall=_num(p.get("wall"), 0.0, 0.0, 500.0) or None if shape in ("frame", "arch") else None,
         ))
     if len(parts) < 2:
         return None
@@ -439,7 +453,10 @@ def find_duplicates(raw: dict, comps: list) -> dict[str, str]:
                 continue
             ratio = min(vol[a], vol[b]) / max(vol[a], vol[b])
             shape_eq = geo[a].get("shape") == geo[b].get("shape")
-            same_name = bool(_words(by_id[a].label) & _words(by_id[b].label))
+            # same name = one name's words are all in the other's ("Power Pins" / "Power Plug Pins"); sharing ONE word
+            # is not enough: "Ear pad" and "Left ear cup" overlap in space but are different parts
+            wa, wb = _words(by_id[a].label), _words(by_id[b].label)
+            same_name = bool(wa and wb) and (wa <= wb or wb <= wa)
             if (same_name and contain >= 0.4 and (shape_eq or ratio > 0.25)) or \
                     (shape_eq and ratio > 0.45 and contain >= 0.8 and by_id[a].type == by_id[b].type):
                 k, d = keep_first(root(a), root(b))

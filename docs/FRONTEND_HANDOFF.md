@@ -66,7 +66,7 @@ Types: `contracts/system-analysis.ts` now includes `Product` (confidence, candid
 - **Product card:** `scene.product`. Show `brand + model`, `confidence` as "NN% sure", `identifiedFrom`, `visibleText`, and `candidates` as "Not it? Maybe:" buttons. A click re-posts the same photos with `model_hint`. If `webChecked` is false, label it "AI match · not web-verified".
 - **System graph:** `relationships` with `from → to` meaning "to depends on from". Colour by type: power (`powers`, `feeds`) amber `#ffb020`; control (`controls`) cyan `#36d6ff`; motion (`drives`, `transmits`) magenta `#ff5fd2`; structure (`supports`, `mounts`) steel `#8fa3bf`. Node size from `importance`.
 - **Part details:** `function` ("Does: …") and `ifRemoved` ("Without it: …") when non-empty.
-- **What-if:** use `verdict` (dead / degraded / works) as the headline and `health` (0–100) for a meter. List `affected` in `hops` order, as `label` + `impact` with `why` underneath, red for `severity: "fails"` and amber for `"loose"`. The viewer reveals each affected part about 0.7 s apart by `hops` for a cascade effect. Always show `method` (it is a graph what-if, not physics).
+- **What-if:** use `verdict` (dead / degraded / works; digital screens say broken instead of dead) as the headline and `health` (0–100) for a meter. List `affected` in `hops` order, as `label` + `impact` with `why` underneath, red for `severity: "fails"` and amber for `"loose"`. The viewer reveals each affected part about 0.7 s apart by `hops` for a cascade effect. Always show `method` (it is a graph what-if, not physics).
 - **Notes and limits:** show `scene.notes` and `limitations` in a collapsible section.
 
 ### Physical errors worth handling

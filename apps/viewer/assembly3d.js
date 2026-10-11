@@ -110,6 +110,12 @@ function geometryFor(shape, s, o = {}) {
     case "dome": // upper half ellipsoid, open at the bottom, centred on its bounding box
       g = new THREE.SphereGeometry(0.5, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2); g.scale(x, y * 2, z); g.translate(0, -y / 2, 0); break;
     case "capsule": { const r = Math.min(x, z) / 2; g = new THREE.CapsuleGeometry(r, Math.max(0.001, y - 2 * r), 10, 32); g.scale(1, 1, z / x || 1); break; }
+    case "arch": { // curved band (headband, handle): half ring, ends pointing down, centred on its bounding box
+      const f = Math.min(0.45, Math.max(0.03, (o.wall || Math.min(x, y) * 0.14) / x)); // band thickness / span
+      const tau = f / (1 - f); // tube radius of a unit-radius ring with that thickness ratio
+      g = new THREE.TorusGeometry(1, tau, 16, 96, Math.PI); // upper half in the x-y plane
+      g.scale(x / (2 * (1 + tau)), y / (1 + 2 * tau), z / (2 * tau)); g.center(); break;
+    }
     case "torus": { const R = x / 2, t = Math.max(0.01, Math.min(y, R) / 2); g = new THREE.TorusGeometry(Math.max(t, R - t), t, 24, 72); g.rotateX(Math.PI / 2); g.scale(1, 1, z / x || 1); break; }
     default: g = new RoundedBoxGeometry(x, y, z, 4, Math.min(m * 0.45, Math.max(x, y, z) * 0.08));
   }
@@ -350,7 +356,8 @@ export class AssemblyView {
     for (const p of this.parts) { const b = boxOf(p); boxes.set(p, b); all.union(b); }
     const S = all.getSize(new THREE.Vector3()), big = (b) => { const z = b.getSize(new THREE.Vector3());
       return [z.x / S.x, z.y / S.y, z.z / S.z].filter((r) => r > 0.6).length >= 2; };
-    this.housing = new Set(this.parts.filter((p) => ["cover", "structure"].includes(p.type) && big(boxes.get(p))));
+    // an open band (headband, handle) encloses nothing: it is never the housing other parts must fit inside
+    this.housing = new Set(this.parts.filter((p) => ["cover", "structure"].includes(p.type) && p.shape !== "arch" && big(boxes.get(p))));
     if (!this.housing.size) return;
     const env = new THREE.Box3(); for (const p of this.housing) env.union(boxes.get(p));
     const inset = env.getSize(new THREE.Vector3()).multiplyScalar(0.03); env.min.add(inset); env.max.sub(inset);
@@ -360,6 +367,9 @@ export class AssemblyView {
     const loose = env.clone().expandByVector(env.getSize(new THREE.Vector3()).multiplyScalar(0.06));
     for (const p of this.parts) {
       if (this.housing.has(p) || p.sheet) continue;
+      // a shell or body part seen in the photo (an ear cup, a second housing half) is outside, not an internal part:
+      // squeezing it into another part's box shrank headphone ear cups to 40 % inside a thin headband
+      if (!p.inferred && ["cover", "structure"].includes(p.type)) continue;
       const box = outside.has(p.type) && !p.inferred ? loose : env, E2 = box.getSize(new THREE.Vector3());
       const b = boxes.get(p), z = b.getSize(new THREE.Vector3());
       if (box.containsBox(b)) continue;
@@ -1194,10 +1204,16 @@ export class AssemblyView {
       const stageBox = this.stage.getBoundingClientRect();
       const tabs = this.stage.querySelector(".tabs")?.getBoundingClientRect();
       const ctrl = this.stage.querySelector(".controls")?.getBoundingClientRect();
-      this._clear = {
-        top: Math.max(16, tabs && tabs.height ? tabs.bottom - stageBox.top + 10 : 60),
-        bottom: Math.max(16, ctrl && ctrl.height ? stageBox.bottom - ctrl.top + 10 : 76),
-      };
+      // an overlay counts for the edge it actually sits on, and only if it is inside the view: the photo tabs can sit
+      // below the stage, and treating them as a top bar once pushed every label off the bottom of the view
+      const clear = { top: 16, bottom: 16 };
+      for (const o of [tabs, ctrl]) {
+        if (!o || !o.height || o.bottom <= stageBox.top || o.top >= stageBox.bottom) continue;
+        if ((o.top + o.bottom) / 2 < stageBox.top + stageBox.height / 2) clear.top = Math.max(clear.top, o.bottom - stageBox.top + 10);
+        else clear.bottom = Math.max(clear.bottom, stageBox.bottom - o.top + 10);
+      }
+      if (clear.top + clear.bottom > stageBox.height - 80) clear.top = clear.bottom = 16; // tiny view: use it all
+      this._clear = clear;
     }
     const TOP = this._clear.top, BOTTOM = this._clear.bottom, SIDE = 16, GAP = 6, ELBOW = 18;
     const v = new THREE.Vector3(), items = [], live = new Set();

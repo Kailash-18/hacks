@@ -222,7 +222,8 @@ export interface WhatIfResponse {
   consequence: string;
   /** 0–100 share of the object's function still working (graph estimate, not physics) */
   health: number;
-  verdict: "dead" | "degraded" | "works";
+  /** physical what-if: dead | degraded | works; digital what-if (a screen): broken | degraded | works */
+  verdict: "dead" | "broken" | "degraded" | "works";
   affected: WhatIfAffected[];
   unaffectedComponentIds: string[];
   summary: string;

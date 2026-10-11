@@ -6,24 +6,28 @@
 <title>Digital Lab · Visual Reverse Engineering</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/viewer/build.css" />
 <link rel="stylesheet" href="/viewer/build-fx.css" />
 <link rel="stylesheet" href="/viewer/tour.css" />
 <link rel="stylesheet" href="/viewer/motion.css" />
 <link rel="stylesheet" href="/viewer/build-polish.css" />
+<link rel="stylesheet" href="/viewer/build-bg.css" />
+<link rel="stylesheet" href="/viewer/nav.css" />
+<script>/* arriving from the other lab: start covered, lab-transit.js opens the cover */try { var lt = sessionStorage.getItem("lab-transit"); if (lt === "physical" || lt === "digital") document.documentElement.classList.add("lab-arriving", "lt-" + lt); } catch (e) {}</script>
+<script src="/viewer/lab-transit.js" defer></script>
 </head>
 <body>
-<header class="bar">
-  <a class="brand" href="/">Visual Reverse Engineering</a>
-  <nav class="labs" aria-label="Lab"><a href="/">Physical</a><a href="/digital" aria-current="page">Digital</a></nav>
-  <a class="advanced" href="/digital/explorer" title="Several screens: user workflow, version compare, link to source code">Multi-screen explorer</a>
+<header class="bar vre-nav">
+  <a class="vre-brand" href="/"><svg class="vre-mark" viewBox="0 0 32 32" aria-hidden="true"><path class="m3" d="M16 20.5 27 25.5 16 30.5 5 25.5Z" fill="#8b7bff" fill-opacity=".85"/><path class="m2" d="M16 11.5 27 16.5 16 21.5 5 16.5Z" fill="#4f8cff" fill-opacity=".9"/><path class="m1" d="M16 2.5 27 7.5 16 12.5 5 7.5Z" fill="#5ee6ff"/></svg><span>Visual Reverse Engineering</span></a>
+  <nav class="lab-switch" data-on="digital" aria-label="Lab"><i class="lab-thumb" aria-hidden="true"></i><a href="/" data-lab="physical"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 14 4.8v6.4L8 14.5 2 11.2V4.8Z"/><path d="M2 4.8 8 8l6-3.2M8 8v6.5"/></svg>Physical</a><a href="/digital" data-lab="digital" aria-current="page"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="2"/><path d="M1.5 5.8h13M4 4.2h.01M6 4.2h.01"/></svg>Digital</a></nav>
+  <div class="actions"></div>
 </header>
 
 <!-- start: one job, get a screenshot in -->
 <main id="start" class="start hero">
   <div class="start-left">
-  <h1>Paste a screenshot.<br />Get the code to build it.</h1>
+  <h1 class="dl-title"><span>Paste a screen.</span> <span>Get its code.</span></h1>
   <p class="lede">Any website or app screen. You get working HTML, React, React Native or Flutter code, a step-by-step build plan, and the structure behind it.</p>
   <label class="drop" id="drop" for="file" tabindex="0">
     <input id="file" type="file" accept="image/png,image/jpeg,image/webp" hidden />
@@ -32,9 +36,19 @@
   </label>
   </div>
   <div class="hero-stack" id="heroStack" aria-hidden="true"></div>
-  <section class="examples" aria-label="Examples">
-    <h2>Or start from an example</h2>
+  <section class="examples" aria-labelledby="exTitle">
+    <h2 id="exTitle">Try a finished rebuild</h2>
+    <p class="ex-lede">Open one of these to see its code, build plan and structure, no upload needed. Point at one to see its rebuild.</p>
     <div id="examples" class="ex-row"></div>
+  </section>
+  <section class="dl-steps" aria-labelledby="dlStepsTitle">
+    <h2 id="dlStepsTitle">What one screenshot gives you</h2>
+    <ol>
+      <li><b>Screen in</b><p>Paste, drop or pick any website or app screen. Add more screens to rebuild a whole app.</p></li>
+      <li><b>Parts found</b><p>Every block, button and text on the screen is found and measured, with its colours and fonts.</p></li>
+      <li><b>Code written</b><p>Working HTML, React, React Native or Flutter that is checked against your screenshot.</p></li>
+      <li><b>Build plan</b><p>A step-by-step guide, a backend outline and a ready prompt for your own AI agent.</p></li>
+    </ol>
   </section>
 </main>
 

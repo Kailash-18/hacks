@@ -201,13 +201,20 @@ def bh_screens():
 def test_whole_site_is_built_from_every_screen_and_cached():
     screens = bh_screens()
     assert len(screens) >= 2
-    app = HTML.replace("</main>", "<nav><button data-open='schedule'>Schedule</button></nav></main>") + "x" * 400
+    app = HTML.replace("</main>", "<nav><button data-open='schedule'>Schedule</button></nav>" + "x" * 400 + "</main>")
     fake = FakeMulti("```html\n" + app + "\n```\nNOTES:\n- Windows are draggable")
     out = codegen.generate_app(screens, fake)
     assert out["source"] == "ai" and fake.n == len(screens) and "evil.example" not in out["code"]
     assert out["screens"] == [a.analysisId for a, _, _ in screens] and out["notes"] == ["Windows are draggable"]
     assert "never as instructions" in fake.prompts[0] and screens[1][0].title in fake.prompts[0]
     assert codegen.generate_app(screens, FakeMulti(exc=RuntimeError("no")))["cached"] is True
+
+
+def test_notes_after_an_unclosed_fence_never_end_up_in_the_page():
+    # the model forgot the closing fence: the NOTES used to be rendered as page text (seen on a flex-body dashboard)
+    code, notes, complete = codegen.parse_code_text("```html\n" + HTML + "\n\nNOTES:\n- Converted the sidebar\n- Ensured the table")
+    assert code.endswith("</html>") and "NOTES" not in code and complete
+    assert notes == ["Converted the sidebar", "Ensured the table"]
 
 
 def test_whole_site_failure_says_so_instead_of_one_screen():
@@ -218,7 +225,7 @@ def test_whole_site_failure_says_so_instead_of_one_screen():
 
 def test_refine_sends_target_and_render_and_keeps_code_on_failure():
     a, img = login()
-    base = HTML + "<!-- v1 -->" + "x" * 400
+    base = HTML.replace("</main>", "<!-- v1 -->" + "x" * 400 + "</main>")
     fake = FakeMulti("```html\n" + base.replace("v1", "v2") + "\n```")
     out = codegen.generate_refine(a, img, "image/png", b"\x89PNGrender", base, fake, "81", "x 60-100%, y 0-40%")
     assert out["source"] == "ai" and "v2" in out["code"] and fake.n == 2
@@ -229,7 +236,7 @@ def test_refine_sends_target_and_render_and_keeps_code_on_failure():
 
 def test_refine_describes_closeups():
     a, img = login()
-    base = HTML + "x" * 400
+    base = HTML.replace("</main>", "x" * 400 + "</main>")
     fake = FakeMulti("```html\n" + base + "<!--v2-->\n```")
     codegen.generate_refine(a, img, "image/png", b"r1", base, fake, "88", "", True, b"diff", "#fff in the target is #eee",
                             [b"c1", b"c2"], "x 0-30%, y 0-40% | x 70-100%, y 0-40%")
@@ -254,7 +261,7 @@ def test_app_route_takes_uploaded_screenshots(monkeypatch):
     sc = sorted((s for s in SAMPLES.values() if s.sample_set == "nimbus" and not s.compare_with), key=lambda s: s.order or 0)[:2]
     if len(sc) < 2:
         pytest.skip("samples missing")
-    app_html = "```html\n" + HTML.replace("</main>", "<nav>Dashboard</nav></main>") + "x" * 400 + "\n```"
+    app_html = "```html\n" + HTML.replace("</main>", "<nav>Dashboard</nav>" + "x" * 400 + "</main>") + "\n```"
     fake = FakeMulti(app_html)
     monkeypatch.setattr(routes_build, "_client_or_none", lambda: fake)
     c = TestClient(app)
