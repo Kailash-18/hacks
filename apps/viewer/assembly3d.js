@@ -213,18 +213,30 @@ export class AssemblyView {
         const hx = (Math.abs(R[0]) * size[0] + Math.abs(R[4]) * size[1] + Math.abs(R[8]) * size[2]) / 2;
         const hy = (Math.abs(R[1]) * size[0] + Math.abs(R[5]) * size[1] + Math.abs(R[9]) * size[2]) / 2;
         const hz = (Math.abs(R[2]) * size[0] + Math.abs(R[6]) * size[1] + Math.abs(R[10]) * size[2]) / 2;
-        let ok = true;
-        for (const [dx, dz] of [[-hx, -hz], [hx, -hz], [-hx, hz], [hx, hz]]) {
+        const fits = (y) => [[-hx, -hz], [hx, -hz], [-hx, hz], [hx, hz]].every(([dx, dz]) => {
           const x = pos[0] + dx, z = pos[2] + dz;
           const inFoot = ((x - main.cx) / (main.ax * 0.94)) ** 2 + ((z - main.cz) / (main.az * 0.94)) ** 2 <= 1;
           const top = domeTop(main, x, z);
-          if (!inFoot || top === null || pos[1] + hy > main.baseY + (top - main.baseY) * 0.94) { ok = false; break; }
-        }
-        if (ok) break;
+          return inFoot && top !== null && y + hy <= main.baseY + (top - main.baseY) * 0.94;
+        });
+        if (fits(pos[1])) break;
+        // the shell is roomiest near its base: move the part down before making it smaller
+        const low = main.baseY + hy + main.h * 0.04;
+        if (low < pos[1] && fits(low)) { pos[1] = low; break; }
         for (let i = 0; i < 3; i++) size[i] *= 0.9;
         pos[0] += (main.cx - pos[0]) * 0.15; pos[2] += (main.cz - pos[2]) * 0.15;
         pos[1] = Math.max(main.baseY + hy * 0.9, pos[1] - hy * 0.12);
       }
+      fitted[a.componentId] = { size, pos };
+    }
+    // 3) Parts seen on the underside (they fly out downward: label, battery door, switch, sensor window) sit on the
+    //    flat bottom of the shell, not floating half way up inside it.
+    if (main) for (const a of assembly.parts) {
+      const c = comp[a.componentId];
+      if (!c || a.shape === "dome" || bands[a.componentId] || fitted[a.componentId] || !(a.explodeDir && a.explodeDir[1] < -0.5)) continue;
+      const size = a.size.map((v) => v * k), pos = a.position.map((v) => v * k);
+      if (domeTop(main, pos[0], pos[2]) === null || pos[1] - size[1] / 2 <= main.baseY + main.h * 0.02) continue;
+      pos[1] = main.baseY - size[1] * 0.45;
       fitted[a.componentId] = { size, pos };
     }
     for (const a of assembly.parts) {
@@ -240,7 +252,7 @@ export class AssemblyView {
       const host = a.shape !== "dome" && domes.find((d) => domeTop(d, pos[0], pos[2]) !== null);
       if (geom) { /* band or trimmed dome built above */ }
       else if (host && thin && pos[1] > host.baseY + host.h * 0.3 && ["plate", "box", "rounded_box"].includes(a.shape)
-        && !inferred && !INTERNAL.has(c.type) && a.material !== "pcb") {
+        && !inferred && !INTERNAL.has(c.type) && a.material !== "pcb" && !(a.explodeDir && a.explodeDir[1] < -0.5)) {
         // thin part on top of a curved shell (button, badge): bend it onto the shell surface
         const g = new THREE.PlaneGeometry(size[0], size[2], 24, 24); g.rotateX(-Math.PI / 2);
         const P = g.attributes.position;
