@@ -24,6 +24,10 @@ button, input, textarea { font: inherit; color: inherit; }
 .muted { color: var(--ink-2); }
 :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 [hidden] { display: none !important; }
+/* the two preview views are moved off screen instead of display:none: Chrome leaves a sandboxed preview that loaded
+   while not displayed white when it is shown, and a React Native app would measure a 0 x 0 screen */
+#side[hidden] { display: grid !important; } #wipe[hidden] { display: block !important; }
+#side[hidden], #wipe[hidden] { position: absolute !important; left: -12000px !important; top: 0; width: 1000px; pointer-events: none; }
 
 /* bar */
 .bar { display: flex; align-items: center; gap: 20px; height: 56px; padding: 0 24px; background: var(--sheet); border-bottom: 1px solid var(--rule); }
@@ -296,3 +300,21 @@ kbd { font: 500 15px "IBM Plex Mono", monospace; background: var(--paper); borde
 .shot.mini .boxes { inset: 8px; }
 
 .tree-col .ask { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--radius); padding: 12px 14px; margin-top: 12px; }
+
+/* mobile targets: the rebuilt app sits in a phone frame */
+.sideframe.phone { margin: 0 auto; border: 10px solid #1f2937; border-radius: 34px; box-shadow: 0 12px 30px rgba(0,0,0,.35); }
+.sideframe.phone iframe { border-radius: 24px; }
+.side img { width: auto; max-width: 100%; margin: 0 auto; }
+.side figure { align-items: center; }
+
+/* whole site from every saved screen of it */
+.whole { display: grid; gap: 6px; padding-bottom: 14px; border-bottom: 1px solid var(--rule); }
+.whole-btn { width: 100%; display: flex; justify-content: center; align-items: baseline; gap: 8px; font-weight: 600; color: #04131a;
+  background: linear-gradient(92deg, #5ef2ff, #4f8cff); border: 0; box-shadow: 0 0 22px rgba(94,242,255,.25); }
+.whole-btn small { font-weight: 500; opacity: .75; }
+.whole-btn:hover { filter: brightness(1.08); }
+.whole-btn:disabled { opacity: .6; }
+.whole p { margin: 0; font-size: 13px; color: var(--ink-2); }
+.refine-btn { border: 0; border-radius: 999px; padding: 5px 12px; font: 600 12px Inter, system-ui, sans-serif; cursor: pointer; color: #04131a;
+  background: linear-gradient(92deg, #5ef2ff, #4f8cff); }
+.refine-btn:disabled { opacity: .55; cursor: progress; }

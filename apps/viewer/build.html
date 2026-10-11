@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/viewer/build.css" />
+<link rel="stylesheet" href="/viewer/build-fx.css" />
+<link rel="stylesheet" href="/viewer/tour.css" />
 </head>
 <body>
 <header class="bar">
@@ -17,14 +19,17 @@
 </header>
 
 <!-- start: one job, get a screenshot in -->
-<main id="start" class="start">
+<main id="start" class="start hero">
+  <div class="start-left">
   <h1>Paste a screenshot.<br />Get the code to build it.</h1>
-  <p class="lede">Any website or app screen. You get working HTML or React, a step-by-step build plan, and the structure behind it.</p>
+  <p class="lede">Any website or app screen. You get working HTML, React, React Native or Flutter code, a step-by-step build plan, and the structure behind it.</p>
   <label class="drop" id="drop" for="file" tabindex="0">
     <input id="file" type="file" accept="image/png,image/jpeg,image/webp" hidden />
     <span class="drop-main"><kbd>Ctrl</kbd> + <kbd>V</kbd> to paste</span>
     <span class="drop-sub">or drop an image here, or <u>choose a file</u></span>
   </label>
+  </div>
+  <div class="hero-stack" id="heroStack" aria-hidden="true"></div>
   <section class="examples" aria-label="Examples">
     <h2>Or start from an example</h2>
     <div id="examples" class="ex-row"></div>
@@ -58,11 +63,12 @@
       <div class="stage-col">
         <div class="tools">
           <div class="seg" id="viewSeg"><button data-v="wipe" class="on">Compare</button><button data-v="side">Side by side</button><button data-v="code">Code</button></div>
-          <div class="seg" id="targetSeg"><button data-t="html" class="on">HTML</button><button data-t="react">React</button></div>
+          <div class="seg" id="targetSeg"><button data-t="html" class="on">HTML</button><button data-t="react">React</button><button data-t="react-native" title="Mobile app (Expo), live preview in a phone frame">React Native</button><button data-t="flutter" title="Mobile app (Dart); runs in DartPad">Flutter</button></div>
           <div class="acc" id="acc" hidden title="How closely the rebuilt page matches the screenshot, measured pixel by pixel">
             <span class="acc-ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" class="trk"/><circle cx="18" cy="18" r="15" class="bar" id="accBar"/></svg></span>
             <span class="acc-txt"><b id="accPct">–</b><small id="accLbl">visual match</small></span>
             <label class="acc-heat"><input type="checkbox" id="accHeat" /> Show differences</label>
+            <button type="button" class="refine-btn" id="refineBtn" title="The AI looks at how its code renders next to the screenshot and fixes what differs, round after round">Refine to 95%</button>
           </div>
         </div>
         <div id="stage" class="stage">
@@ -88,6 +94,10 @@
           <button class="btn primary" id="copy">Copy code</button>
           <button class="btn" id="download">Download</button>
           <button class="btn" id="openTab" title="Open the rebuilt page in a new tab">Open</button>
+        </div>
+        <div class="whole" id="whole" hidden>
+          <button class="btn whole-btn" id="wholeBtn" type="button">Build the whole site</button>
+          <p>All saved screens of this site in one working app: its menus, dock and windows open the other screens.</p>
         </div>
         <form id="changeForm" class="change">
           <label for="change">Change it</label>
@@ -172,6 +182,8 @@
 </main>
 
 <div id="toast" class="toast" role="alert" hidden></div>
+<script src="/viewer/tour.js"></script>
 <script src="/viewer/build.js"></script>
+<script src="/viewer/build-fx.js"></script>
 </body>
 </html>

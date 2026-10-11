@@ -243,6 +243,14 @@ class GeminiVisionClient:
         return self._generate([types.Part.from_bytes(data=image_bytes, mime_type=mime_type), prompt],
                               {"temperature": 0.2, "max_output_tokens": int(os.getenv("GEMINI_CODE_MAX_TOKENS", "20000"))})
 
+    def generate_code_text_images(self, images: list[tuple[bytes, str]], prompt: str, max_tokens: int = 32000) -> str:
+        """Several screenshots + prompt -> plain text (a whole multi-screen app in one file)."""
+        from google.genai import types
+        # a whole site is a long answer: give this one call minutes, not the default 100 s
+        return self._generate([types.Part.from_bytes(data=b, mime_type=m) for b, m in images] + [prompt],
+                              {"temperature": 0.2, "max_output_tokens": max_tokens,
+                               "http_options": types.HttpOptions(timeout=int(os.getenv("GEMINI_APP_TIMEOUT_MS", "360000")))})
+
     @staticmethod
     def _cfg(max_tokens: int | None = None, temperature: float = 0.2) -> dict:
         return {"response_mime_type": "application/json", "temperature": temperature,

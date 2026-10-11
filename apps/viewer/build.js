@@ -6,8 +6,8 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const S = {
   shot: null,          // {blob, url, w, h, name}
   analysis: null,
-  versions: { html: [], react: [] },  // [{code, notes, source, change, label}]
-  cur: { html: -1, react: -1 },
+  versions: { html: [], react: [], "react-native": [], flutter: [] },  // [{code, notes, source, change, label}]
+  cur: { html: -1, react: -1, "react-native": -1, flutter: -1 },
   target: "html", view: "wipe", tab: "code",
   guide: null, tree: null, sel: null, wipe: 50, run: 0,
 };
@@ -61,11 +61,12 @@ async function loadExamples() {
     const all = await api("/api/digital/samples");
     const set = all.filter((s) => s.set).sort((a, b) => (a.order ?? 99) - (b.order ?? 99)).filter((s) => !s.compareWith);
     const list = (set.length ? set : all).slice(0, 4);
+    S.sets = {}; for (const s of set) S.sets[s.set] = (S.sets[s.set] || 0) + 1;  // screens per saved site
     $("#examples").innerHTML = list.map((s) => `<button class="ex" data-id="${esc(s.id)}"><img src="${esc(s.imageUrl)}" alt="" loading="lazy" /><span>${esc(s.title.replace(/^.*·\s*/, ""))}</span></button>`).join("");
     $$(".ex").forEach((b) => (b.onclick = async () => {
       const s = list.find((x) => x.id === b.dataset.id);
       const blob = await (await fetch(s.imageUrl)).blob();
-      start(blob, `${s.id}.png`, s.title.replace(/^.*·\s*/, ""));
+      start(blob, `${s.id}.png`, s.title.replace(/^.*·\s*/, ""), s.set);
     }));
     if (!list.length) $(".examples").hidden = true;
   } catch { $(".examples").hidden = true; }
@@ -74,16 +75,20 @@ async function loadExamples() {
 function showStart() {
   $("#start").hidden = false; $("#work").hidden = true;
   S.run++;  // late responses from the previous screenshot are ignored
+  window.fx?.abort();
 }
 
 // ---------- main flow ----------
-async function start(blob, name, title = "") {
+async function start(blob, name, title = "", set = null) {
   const run = ++S.run;
   if (S.shot?.url) URL.revokeObjectURL(S.shot.url);
   const url = URL.createObjectURL(blob);
   const [w, h] = await imgSize(url);
-  Object.assign(S, { shot: { blob, url, w, h, name }, analysis: null, guide: null, tree: null, sel: null,
-    versions: { html: [], react: [] }, cur: { html: -1, react: -1 }, target: "html", backend: null, a11y: null, acc: {} });
+  const n = set ? S.sets?.[set] || 0 : 0;
+  $("#whole").hidden = n < 2;
+  if (n >= 2) $("#wholeBtn").innerHTML = `Build the whole site <small>${n} screens</small>`;
+  Object.assign(S, { set: n >= 2 ? set : null, shot: { blob, url, w, h, name }, analysis: null, guide: null, tree: null, sel: null,
+    versions: { html: [], react: [], "react-native": [], flutter: [] }, cur: { html: -1, react: -1, "react-native": -1, flutter: -1 }, target: "html", backend: null, a11y: null, acc: {} });
   $("#acc").hidden = true; $("#heat").hidden = true; $("#accHeat").checked = false;
   for (const id of ["#beImg", "#axImg"]) $(id).src = url;
   $("#beSummary").textContent = "Inferring the data model and API from what the screen shows…"; $("#beEr").innerHTML = "";
@@ -97,6 +102,7 @@ async function start(blob, name, title = "") {
   $("#guide").innerHTML = `<p class="muted">The build guide appears here once the screenshot is read.</p>`;
   $("#tree").innerHTML = ""; $("#boxes").innerHTML = ""; $("#answer").textContent = "";
   setTarget("html", false); setTab("code"); setView("wipe");
+  window.fx?.scan(url, w, h);  // teardown animation (build-fx.js)
   wait("Reading the screenshot…");
   status("Finding every section, button and text on the screen.");
   renderVersions(); renderNotes();
@@ -109,13 +115,16 @@ async function start(blob, name, title = "") {
     $("#title").textContent = title || a.title;
     $("#summary").textContent = a.summary || "";
     renderStructure();
+    window.fx?.analysed(a);
   } catch (e) {
     if (run !== S.run) return;
+    window.fx?.abort();
     wait(null); status(`Could not read the screenshot: ${e.message}`, true); return;
   }
   wait("Writing the code…");
   status("Writing the code and the build plan. This takes about 20–40 seconds.");
   const code = makeCode({ target: "html" }, "First version", run);
+  code.then(() => { if (run === S.run) window.fx?.done(S.versions.html.at(-1)?.code); });
   const guide = api("/api/digital/guide", { method: "POST", body: form() })
     .then((g) => { if (run === S.run) { S.guide = g; renderGuide(); } })
     .catch((e) => { if (run === S.run) $("#guide").innerHTML = `<p class="fallback">Could not write the guide: ${esc(e.message)}</p>`; });
@@ -125,7 +134,7 @@ async function start(blob, name, title = "") {
 
 async function makeCode(params, label, run = S.run) {
   const t = params.target;
-  wait(params.change ? "Applying the change…" : t === "react" ? "Converting to React…" : "Writing the code…");
+  wait(params.change && !CONVERT[t]?.startsWith(params.change.slice(0, 20)) ? "Applying the change…" : t === "html" ? "Writing the code…" : `Converting to ${TARGET_NAME[t]}…`);
   busy(true);
   try {
     const out = await api("/api/digital/code", { method: "POST", body: form(params) });
@@ -145,12 +154,59 @@ async function makeCode(params, label, run = S.run) {
 
 const current = () => S.versions[S.target][S.cur[S.target]];
 function busy(on) { for (const id of ["#apply", "#regen", "#copy", "#download", "#openTab"]) $(id).disabled = on; $$("#targetSeg button").forEach((b) => (b.disabled = on)); }
-function wait(msg) { $("#stageWait").hidden = !msg; if (msg) $("#stageWaitText").textContent = msg; }
+// waiting message with a running seconds counter, so a slow model call never looks frozen
+function wait(msg) {
+  clearInterval(wait.t);
+  $("#stageWait").hidden = !msg;
+  if (!msg) return;
+  const t0 = Date.now(), el = $("#stageWaitText");
+  const tick = () => {
+    const s = Math.round((Date.now() - t0) / 1000);
+    el.textContent = s < 3 ? msg : `${msg} ${s} s` + (s > 45 ? " · the AI is busy, still trying" : "");
+  };
+  tick(); wait.t = setInterval(tick, 1000);
+}
 
 // ---------- code view ----------
 // preview only: no scrollbar strip over the comparison (the downloaded code is untouched)
 const NO_BAR = "<style>html{scrollbar-width:none}::-webkit-scrollbar{display:none}</style>";
+// mobile targets: the code is a phone app, so it is previewed in a phone-sized frame next to the screenshot
+const MOBILE = new Set(["react-native", "flutter"]);
+const TARGET_NAME = { html: "HTML", react: "React", "react-native": "React Native", flutter: "Flutter" };
+const CONVERT = {  // the React text is part of the saved example results' cache keys: keep it unchanged
+  react: "Convert this page to a React component; keep the look identical.",
+  "react-native": "Convert this screen to a React Native (Expo) app screen; keep the look and all text identical.",
+  flutter: "Convert this screen to a Flutter app screen; keep the look and all text identical.",
+};
+const isMobile = () => MOBILE.has(S.target);
+const frameSize = () => (isMobile() && S.shot.w > S.shot.h ? { w: 390, h: 844 } : { w: S.shot.w, h: S.shot.h });
+
+function nativeDoc(code) {
+  // React Native runs in the browser through react-native-web, loaded as ES modules from esm.sh
+  const RN = "https://esm.sh/react-native-web@0.19.12?deps=react@18.3.1,react-dom@18.3.1";
+  const R = "https://esm.sh/react@18.3.1";
+  let src = code.replace(/^\s*import[^;\n]*from\s*['\"](?!react['\"]|react-native['\"])[^'\"]+['\"];?\s*$/gm, "")  // other libraries are not available
+    .replace(/from\s*['\"]react-native['\"]/g, `from "${RN}"`).replace(/from\s*['\"]react['\"]/g, `from "${R}"`);
+  if (!/import\s+React\b/.test(src)) src = `import React from "${R}";\n` + src;
+  const m = src.match(/export\s+default\s+function\s+([A-Z]\w*)/) || src.match(/export\s+default\s+([A-Z]\w*)\s*;?/);
+  const name = m ? m[1] : "App";
+  src = src.replace(/export\s+default\s+function/, "function").replace(/^\s*export\s+default\s+[A-Z]\w*\s*;?\s*$/m, "").replace(/<\/script/gi, "<\\/script");
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>html,body,#root{height:100%;margin:0}#root{display:flex;flex-direction:column}</style>${NO_BAR}
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script></head>
+<body><div id="root"></div><script type="text/babel" data-type="module" data-presets="react">
+import { createRoot } from "https://esm.sh/react-dom@18.3.1/client?deps=react@18.3.1";
+${src}
+createRoot(document.getElementById("root")).render(React.createElement(${name}));
+</script></body></html>`;
+}
+const FLUTTER_DOC = `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;
+font:16px system-ui,sans-serif;background:#0b1220;color:#cbd5e1;text-align:center;padding:32px;box-sizing:border-box}b{color:#fff;font-size:20px}</style></head>
+<body><div><b>Flutter runs outside the browser preview</b><p>Press <b>Run in DartPad</b>: the code is copied, DartPad opens, paste it and press Run.<br>Or put it in <code>lib/main.dart</code> of a Flutter project.</p></div></body></html>`;
+
 function previewDoc(v) {
+  if (S.target === "react-native") return nativeDoc(v.code);
+  if (S.target === "flutter") return FLUTTER_DOC;
   if (S.target === "html") return /<\/head>/i.test(v.code) ? v.code.replace(/<\/head>/i, NO_BAR + "</head>") : NO_BAR + v.code;
   // React preview: same Tailwind, React + Babel in the sandboxed frame
   let src = v.code.replace(/^\s*import[^;\n]*;?\s*$/gm, "");
@@ -173,9 +229,13 @@ function renderCode() {
   const v = current();
   if (!v) return;
   const doc = previewDoc(v);
-  for (const id of ["#frame", "#sideFrame"]) if ($(id).dataset.doc !== doc.length + ":" + S.target + S.cur[S.target]) { $(id).srcdoc = doc; $(id).dataset.doc = doc.length + ":" + S.target + S.cur[S.target]; }
+  for (const id of ["#frame", "#sideFrame"]) if ($(id).dataset.doc !== doc.length + ":" + S.target + S.cur[S.target]) {
+    $(id).srcdoc = doc; $(id).dataset.doc = doc.length + ":" + S.target + S.cur[S.target];
+    $(id).dataset.hiddenLoad = String(!$(id).offsetParent);  // loaded while its panel was hidden
+  }
   $("#codeText").textContent = v.code;
   fit();
+  if (isMobile()) { $("#acc").hidden = true; return; }  // pixel match only makes sense for the same-size web page
   measureAccuracy(v, doc);
 }
 
@@ -188,12 +248,19 @@ function fit() {
   const k = Math.min(1, width / w, tall / h);
   wipe.style.width = `${Math.round(w * k)}px`; wipe.style.height = `${Math.round(h * k)}px`;
   sizeFrame($("#frame"), k);
-  const sw = $("#sideFrameWrap"), ks = sw.clientWidth / w;
-  sw.style.height = `${Math.round(h * ks)}px`;
-  sizeFrame($("#sideFrame"), ks);
+  const sw = $("#sideFrameWrap"), f = frameSize();
+  sw.classList.toggle("phone", isMobile());
+  // side by side: original and rebuilt get the same height (a portrait screenshot no longer fills the column)
+  const sideH = Math.max(tall, 600) - 30;
+  $("#sideImg").style.maxHeight = S.shot.h > S.shot.w || isMobile() ? `${sideH}px` : "";
+  // phone frame: as wide as fits, but never taller than that height
+  sw.style.width = isMobile() ? `${Math.round(Math.min(330, sw.parentElement.clientWidth, sideH * f.w / f.h))}px` : "";
+  const ks = sw.clientWidth / f.w;
+  sw.style.height = `${Math.round(f.h * ks)}px`;
+  sizeFrame($("#sideFrame"), ks, f);
   setWipe(S.wipe);
 }
-function sizeFrame(f, k) { f.style.width = `${S.shot.w}px`; f.style.height = `${S.shot.h}px`; f.style.transform = `scale(${k})`; }
+function sizeFrame(f, k, size = S.shot) { f.style.width = `${size.w}px`; f.style.height = `${size.h}px`; f.style.transform = `scale(${k})`; }
 addEventListener("resize", () => { if (!$("#work").hidden) { fit(); placeBoxes(); } });
 
 // wipe slider: original on the left of the line, rebuilt on the right
@@ -218,18 +285,26 @@ function setWipe(p) {
 })();
 
 function setView(v) {
+  if (v === "wipe" && S.shot && isMobile()) { toast("A phone app is compared side by side with the screenshot"); v = "side"; }
   S.view = v;
   $$("#viewSeg button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
   $("#wipe").hidden = v !== "wipe"; $("#side").hidden = v !== "side"; $("#codeView").hidden = v !== "code";
+  // a React Native app measures the screen once at start: one loaded while hidden saw a 0 x 0 screen, so reload it
+  const shown = { wipe: "#frame", side: "#sideFrame" }[v];
+  if (shown && $(shown).dataset.hiddenLoad === "true" && current()) { delete $(shown).dataset.doc; requestAnimationFrame(renderCode); }
   requestAnimationFrame(fit);
 }
 $$("#viewSeg button").forEach((b) => (b.onclick = () => setView(b.dataset.v)));
 
 function setTarget(t, generate = true) {
   S.target = t; renderTarget();
-  if (generate && t === "react" && !S.versions.react.length) {
+  // a mobile app is compared side by side with the screenshot (a wipe needs the same size and layout)
+  if (isMobile() && S.view === "wipe") { S.prevView = "wipe"; setView("side"); }
+  if (!isMobile() && S.prevView === "wipe") { S.prevView = null; if (S.view === "side") setView("wipe"); }
+  $("#openTab").textContent = t === "flutter" ? "Run in DartPad" : "Open";
+  if (generate && t !== "html" && !S.versions[t].length) {
     const base = S.versions.html[S.cur.html];
-    makeCode({ target: "react", baseCode: base?.code, change: base ? "Convert this page to a React component; keep the look identical." : "" }, "First React version");
+    makeCode({ target: t, baseCode: base?.code, change: base ? CONVERT[t] : "" }, `First ${TARGET_NAME[t]} version`);
     return;
   }
   renderVersions(); renderNotes(); renderCode();
@@ -258,6 +333,28 @@ $("#changeForm").onsubmit = (e) => {
   if (!v) return toast("Wait for the first version.");
   makeCode({ target: S.target, change, baseCode: v.code }, change.length > 40 ? change.slice(0, 40) + "…" : change).then(() => ($("#change").value = ""));
 };
+// every saved screen of this site in one working app: its navigation wired, its windows opening and closing
+$("#wholeBtn").onclick = async () => {
+  if (!S.set || !S.analysis) return;
+  const run = S.run, n = S.sets[S.set];
+  wait(`Building the whole site from ${n} screens…`); busy(true); $("#wholeBtn").disabled = true;
+  status(`Reading all ${n} screenshots together and wiring the navigation between them. This takes about a minute.`);
+  try {
+    const fd = new FormData(); fd.append("set", S.set);
+    const out = await api("/api/digital/app", { method: "POST", body: fd });
+    if (run !== S.run) return;
+    S.versions.html.push({ code: out.code, notes: out.notes || [], source: out.source, change: out.change, label: `Whole site · ${n} screens`,
+      model: out.provider?.model, cached: out.cached, app: true });
+    S.cur.html = S.versions.html.length - 1;
+    S.target = "html"; renderTarget(); renderVersions(); renderNotes(); renderCode(); setView("wipe");
+    status(out.source === "ai" ? "Whole site built: click the navigation in the rebuilt page." : (out.notes?.[0] || ""), out.source !== "ai");
+    toast("Use the rebuilt page: its navigation opens the other screens");
+  } catch (e) {
+    if (run === S.run) status(`Could not build the whole site: ${e.message}`, true);
+  } finally {
+    if (run === S.run) { wait(null); busy(false); $("#wholeBtn").disabled = false; }
+  }
+};
 $("#regen").onclick = () => { if (S.analysis) makeCode({ target: S.target, force: "1" }, "Written again"); };
 
 const fileName = () => (S.analysis?.title || "screen").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "screen";
@@ -267,14 +364,20 @@ $("#copy").onclick = async () => {
 };
 $("#download").onclick = () => {
   const v = current(); if (!v) return;
-  const [ext, type] = S.target === "html" ? ["html", "text/html"] : ["jsx", "text/javascript"];
+  const [name, type] = { html: [`${fileName()}.html`, "text/html"], react: [`${fileName()}.jsx`, "text/javascript"],
+    "react-native": ["App.js", "text/javascript"], flutter: ["main.dart", "text/plain"] }[S.target];
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([v.code], { type })); a.download = `${fileName()}.${ext}`; a.click();
+  a.href = URL.createObjectURL(new Blob([v.code], { type })); a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  toast(`Downloaded ${fileName()}.${ext}`);
+  toast(`Downloaded ${name}`);
 };
-$("#openTab").onclick = () => {
+$("#openTab").onclick = async () => {
   const v = current(); if (!v) return;
+  if (S.target === "flutter") {  // DartPad runs Flutter: copy the code, open it, the user pastes and presses Run
+    try { await navigator.clipboard.writeText(v.code); toast("Code copied: paste it into DartPad and press Run"); } catch { toast("Copy the code from the Code view, then paste it into DartPad"); }
+    window.open("https://dartpad.dev/?sample=flutter", "_blank", "noopener");
+    return;
+  }
   const u = URL.createObjectURL(new Blob([previewDoc(v)], { type: "text/html" }));
   window.open(u, "_blank", "noopener");
 };
@@ -286,6 +389,7 @@ function setTab(t) {
   for (const x of ["code", "guide", "structure", "backend", "a11y"]) $(`#tab-${x}`).hidden = x !== t;
   if (t === "code") requestAnimationFrame(fit);
   if (t === "structure") requestAnimationFrame(placeBoxes);
+  if (t === "guide" && S.guide) replayGuide();
   if (t === "backend") loadBackend();
   if (t === "a11y") loadA11y();
 }
@@ -295,19 +399,71 @@ $$(".tabs button").forEach((b) => (b.onclick = () => setTab(b.dataset.tab)));
 function renderGuide() {
   const g = S.guide; if (!g) return;
   const c = g.tokens?.colors || {}, ts = g.tokens?.typeScale || {};
+  const lvl = { easy: 1, medium: 2, hard: 3 }[g.effort?.level] || 2;
+  const mono = (n) => (String(n).match(/[A-Za-z0-9]+/g) || ["?"]).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
+  const icon = { lock: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+    db: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>' };
   $("#guide").innerHTML = `
     ${g.source !== "ai" ? `<p class="fallback">${esc(g.notes?.[0] || "AI unavailable.")} This is a basic outline from the detected structure.</p>` : ""}
-    <h2>How to build ${esc(S.analysis?.title || "this screen")}</h2>
-    <p>${esc(g.summary)}</p>
-    ${g.effort?.estimate ? `<p class="effort">Difficulty <b>${esc(g.effort.level)}</b> · ${esc(g.effort.estimate)}</p>` : ""}
-    ${g.stack?.length ? `<h3>Recommended stack</h3><div class="stack">${g.stack.map((s) => `<div><b>${esc(s.name)}</b><span>${esc(s.why)}</span></div>`).join("")}</div>` : ""}
-    ${g.steps?.length ? `<h3>Steps</h3><ol class="steps">${g.steps.map((s) => `<li><b>${esc(s.title)}</b><p>${esc(s.detail)}</p></li>`).join("")}</ol>` : ""}
-    ${g.components?.length ? `<h3>Components to build</h3><table class="comps">${g.components.map((x) => `<tr><td>${esc(x.name)}</td><td>${esc(x.purpose)}${x.props?.length ? `<br>${x.props.map((p) => `<code>${esc(p)}</code>`).join("")}` : ""}</td></tr>`).join("")}</table>` : ""}
-    ${g.behaviour?.length ? `<h3>What the screenshot can't show</h3><p class="muted">You still need to build these. They are informed guesses from what is visible.</p><ul class="plain">${g.behaviour.map((b) => `<li>${esc(b)}</li>`).join("")}</ul>` : ""}
-    ${g.data?.length ? `<h3>Data it needs</h3><ul class="plain">${g.data.map((b) => `<li>${esc(b)}</li>`).join("")}</ul>` : ""}
-    ${Object.keys(c).length ? `<h3>Design tokens</h3><p class="muted">Measured from the screenshot's pixels.</p><div class="swatches">${Object.entries(c).map(([k, v]) => `<span class="sw"><i style="background:${esc(v)}"></i>${esc(k)} <code>${esc(v)}</code></span>`).join("")}</div>
-      <p class="muted" style="margin-top:12px">Text sizes: ${Object.entries(ts).map(([k, v]) => `${esc(k)} ${esc(v)}px`).join(", ")}</p>` : ""}`;
+    <header class="g-hero">
+      <div class="g-shot"><div class="g-shot-in"><img src="${esc(S.shot?.url || "")}" alt="" /></div></div>
+      <div class="g-intro">
+        <h2>How to build ${esc(S.analysis?.title || "this screen")}</h2>
+        <p>${esc(g.summary)}</p>
+        <div class="g-stats">
+          <div class="g-stat"><span>Difficulty</span><b>${esc(g.effort?.level || "medium")}</b><i class="g-meter">${[1, 2, 3].map((n) => `<em class="${n <= lvl ? "on" : ""}"></em>`).join("")}</i></div>
+          ${g.effort?.estimate ? `<div class="g-stat"><span>Time</span><b>${esc(g.effort.estimate.replace(/ for one developer/i, ""))}</b><small>one developer</small></div>` : ""}
+          <div class="g-stat"><span>Plan</span><b>${g.steps?.length || 0} steps</b><small>${g.components?.length || 0} components</small></div>
+        </div>
+      </div>
+    </header>
+    ${g.stack?.length ? `<section class="g-sec"><h3>Recommended stack</h3><div class="g-stack">${g.stack.map((s, i) => `<div class="g-card" style="--i:${i}"><span class="g-mono">${esc(mono(s.name))}</span><div><b>${esc(s.name)}</b><p>${esc(s.why)}</p></div></div>`).join("")}</div></section>` : ""}
+    ${g.steps?.length ? `<section class="g-sec"><h3>Build plan</h3><ol class="g-steps">${g.steps.map((s, i) => `<li style="--i:${i}"><span class="g-num">${i + 1}</span><div class="g-step"><b>${esc(s.title)}</b><p>${esc(s.detail)}</p></div></li>`).join("")}</ol></section>` : ""}
+    ${g.components?.length ? `<section class="g-sec"><h3>Components to build <small>hover one to find it on the screen</small></h3><div class="g-comp-wrap"><div class="g-mini"><img src="${esc(S.shot?.url || "")}" alt="" /></div><div class="g-comps">${g.components.map((x, i) => `<div class="g-card g-comp" style="--i:${i}" data-name="${esc(x.name)}"><code class="g-tag">&lt;${esc(x.name)} /&gt;</code><p>${esc(x.purpose)}</p>${x.props?.length ? `<div class="g-props">${x.props.map((p) => `<span>${esc(p)}</span>`).join("")}</div>` : ""}</div>`).join("")}</div></div></section>` : ""}
+    ${g.behaviour?.length || g.data?.length ? `<section class="g-sec g-two">
+      ${g.behaviour?.length ? `<div><h3>What the screenshot can't show</h3><p class="muted g-note">You still need to build these. They are informed guesses from what is visible.</p><ul class="g-list">${g.behaviour.map((b) => `<li><i>${icon.lock}</i>${esc(b)}</li>`).join("")}</ul></div>` : ""}
+      ${g.data?.length ? `<div><h3>Data it needs</h3><p class="muted g-note">What the back end has to provide.</p><ul class="g-list">${g.data.map((b) => `<li><i>${icon.db}</i>${esc(b)}</li>`).join("")}</ul></div>` : ""}
+    </section>` : ""}
+    ${Object.keys(c).length ? `<section class="g-sec"><h3>Design tokens <small>measured from the screenshot's pixels</small></h3>
+      <div class="g-swatches">${Object.entries(c).map(([k, v]) => `<div class="g-sw"><i style="background:${esc(v)}"></i><b>${esc(k)}</b><code>${esc(v)}</code></div>`).join("")}</div>
+      ${Object.keys(ts).length ? `<div class="g-type">${Object.entries(ts).map(([k, v]) => `<div><span style="font-size:${Math.min(56, +v || 14)}px">Aa</span><b>${esc(k)}</b><code>${esc(v)}px</code></div>`).join("")}</div>` : ""}
+    </section>` : ""}`;
+  // hover a component card: its parts light up on the screenshot. Matched by visible text first, then by type
+  // ("StatCard" -> every card, "ProjectTable" -> the table), since component names rarely appear on screen.
+  const TYPE_WORDS = { card: ["card", "tile", "stat", "metric"], table: ["table", "grid", "list"], sidebar: ["sidebar", "drawer"],
+    navbar: ["nav", "navbar", "topbar", "header"], header: ["header"], form: ["form", "login", "signup"], button: ["button", "cta"],
+    input: ["input", "field", "search"], image: ["image", "chart", "illustration", "hero"], footer: ["footer"], tabs: ["tabs", "tab"] };
+  function partsFor(name) {
+    const words = name.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+    const byText = window.fx?.matchPart?.(words);
+    if (byText) return [byText];
+    const comps = (S.analysis?.components || []).filter((c) => c.bbox);
+    for (const [type, keys] of Object.entries(TYPE_WORDS)) {
+      if (!keys.some((k) => words.split(" ").includes(k))) continue;
+      const hits = comps.filter((c) => c.type === type || keys.some((k) => c.label.toLowerCase().includes(k)));
+      if (hits.length) return hits.slice(0, 8);
+    }
+    return [];
+  }
+  $$("#guide .g-comp").forEach((card) => {
+    card.onmouseenter = () => {
+      const mini = $("#guide .g-mini");
+      if (!mini) return;
+      mini.querySelectorAll(".g-hl").forEach((e) => e.remove());
+      for (const part of partsFor(card.dataset.name)) {
+        const b = part.bbox, hl = document.createElement("div");
+        hl.className = "g-hl";
+        Object.assign(hl.style, { left: `${b.x * 100}%`, top: `${b.y * 100}%`, width: `${b.width * 100}%`, height: `${b.height * 100}%` });
+        mini.appendChild(hl);
+        requestAnimationFrame(() => hl.classList.add("on"));
+      }
+    };
+    card.onmouseleave = () => $$("#guide .g-mini .g-hl").forEach((e) => e.classList.remove("on"));
+  });
+  replayGuide();
 }
+// one orchestrated entrance each time the plan is shown
+function replayGuide() { const el = $("#guide"); el.classList.remove("reveal"); void el.offsetWidth; el.classList.add("reveal"); }
 
 // ---------- structure ----------
 async function renderStructure() {
@@ -441,6 +597,61 @@ function showAccuracy(r) {
   g.putImageData(img, 0, 0);
   c.hidden = !$("#accHeat").checked;
 }
+// ---------- refine: show the AI how its code renders, let it fix the differences, measure again ----------
+const TARGET_MATCH = 95, MAX_ROUNDS = 4;
+async function measured(v) {
+  const key = `${S.target}:${S.cur[S.target]}`;
+  for (let i = 0; i < 200 && (S.acc[key] === "busy" || S.acc[key] === undefined); i++) {
+    if (S.acc[key] === undefined) measureAccuracy(v, previewDoc(v));
+    await new Promise((ok) => setTimeout(ok, 150));
+  }
+  return S.acc[key];
+}
+function worstRegions(r) {  // a 4 x 3 grid of the difference map, worst cells first, in words the model can use
+  const out = [];
+  for (let gy = 0; gy < 3; gy++) for (let gx = 0; gx < 4; gx++) {
+    let s = 0, n = 0;
+    for (let y = Math.floor(gy * r.gh / 3); y < Math.floor((gy + 1) * r.gh / 3); y++)
+      for (let x = Math.floor(gx * r.gw / 4); x < Math.floor((gx + 1) * r.gw / 4); x++) { s += r.miss[y * r.gw + x]; n++; }
+    out.push({ gx, gy, d: s / Math.max(1, n) });
+  }
+  return out.sort((a, b) => b.d - a.d).slice(0, 4).filter((c) => c.d > 0.08)
+    .map((c) => `x ${c.gx * 25}-${c.gx * 25 + 25}%, y ${Math.round(c.gy * 33.3)}-${Math.round(c.gy * 33.3 + 33.3)}% (${Math.round(c.d * 100)}% off)`).join("; ");
+}
+async function refineLoop() {
+  if (S.target !== "html" || !current()) return;
+  const run = S.run, btn = $("#refineBtn");
+  btn.disabled = true; busy(true);
+  let best = { i: S.cur.html, score: (await measured(current()))?.score ?? 0 };
+  try {
+    for (let round = 1; round <= MAX_ROUNDS && best.score < TARGET_MATCH; round++) {
+      if (run !== S.run) return;
+      S.cur.html = best.i; renderVersions(); renderCode();
+      const v = current(), res = await measured(v);
+      if (!res) throw new Error("the match could not be measured");
+      wait(`Refining, round ${round}: ${res.score}% match, comparing the render with the screenshot…`);
+      status(`Round ${round}: the AI sees its own render next to the screenshot and fixes what differs.`);
+      const png = await (await fetch(await captureDoc(previewDoc(v), S.shot.w, Math.min(S.shot.h, 6000)))).blob();
+      const out = await api("/api/digital/refine", { method: "POST", body: form({ render: new File([png], "render.png", { type: "image/png" }),
+        baseCode: v.code, score: String(res.score), regions: worstRegions(res) }) });
+      if (run !== S.run) return;
+      if (out.source !== "ai") { status(out.notes?.[0] || "Refine unavailable.", true); break; }
+      S.versions.html.push({ code: out.code, notes: out.notes || [], source: out.source, change: out.change, label: `Refined · round ${round}`,
+        model: out.provider?.model, cached: out.cached });
+      S.cur.html = S.versions.html.length - 1; renderVersions(); renderNotes(); renderCode();
+      const now = (await measured(current()))?.score ?? 0;
+      if (now > best.score) best = { i: S.cur.html, score: now };
+    }
+    if (run !== S.run) return;
+    S.cur.html = best.i; renderVersions(); renderNotes(); renderCode();  // keep the best-matching version
+    status(best.score >= TARGET_MATCH ? `Refined to ${best.score}% match.` : `Best so far: ${best.score}% match. Run it again to keep refining.`);
+  } catch (e) {
+    if (run === S.run) status(`Could not refine: ${e.message}`, true);
+  } finally {
+    if (run === S.run) { wait(null); busy(false); btn.disabled = false; }
+  }
+}
+$("#refineBtn").onclick = refineLoop;
 $("#accHeat").onchange = (e) => { $("#heat").hidden = !e.target.checked; if (e.target.checked) setWipe(100); };
 
 // ---------- back end, reverse-engineered ----------

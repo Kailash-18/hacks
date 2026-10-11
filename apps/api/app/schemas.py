@@ -117,6 +117,8 @@ class AssemblyPart(_Model):
     material: str = "plastic"
     explode_dir: list[float] = Field(default=[0, 1, 0], alias="explodeDir")
     explode_dist: float = Field(default=1.0, alias="explodeDist")
+    corner_radius: float | None = Field(default=None, alias="cornerRadius")  # plan-view corner rounding (mm)
+    wall: float | None = None  # "frame" shape: band thickness (mm)
 
 
 class AssemblyDetail(_Model):
@@ -129,6 +131,7 @@ class AssemblyDetail(_Model):
     color: str = "#30343b"
     material: str = "plastic"
     count: int = 1  # for "slots": number of parallel slots
+    corner_radius: float | None = Field(default=None, alias="cornerRadius")
 
 
 class Assembly(_Model):

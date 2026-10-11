@@ -1,0 +1,910 @@
+{
+  "analysisId": "digital-263d6b2ae73f495a",
+  "domain": "digital",
+  "title": "FAQ Section",
+  "source": {
+    "kind": "image",
+    "filename": "bananahacks-faq.png"
+  },
+  "assetId": null,
+  "components": [
+    {
+      "id": "faq-window",
+      "label": "FAQ Window Container",
+      "type": "container",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Retro browser-style framed window"
+      ],
+      "bbox": {
+        "x": 0.004,
+        "y": 0.0,
+        "width": 0.992,
+        "height": 1.0
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "window-header",
+      "label": "Window Title Bar",
+      "type": "header",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Top bar containing window controls and title FAQ"
+      ],
+      "bbox": {
+        "x": 0.004,
+        "y": 0.0,
+        "width": 0.991,
+        "height": 0.073
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "header-title",
+      "label": "FAQ Title",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text 'FAQ' next to icon in header"
+      ],
+      "bbox": {
+        "x": 0.09,
+        "y": 0.027,
+        "width": 0.052,
+        "height": 0.022
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-intro-section",
+      "label": "FAQ Introduction Section",
+      "type": "section",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Yellow banner containing FAQ title and contact link"
+      ],
+      "bbox": {
+        "x": 0.005,
+        "y": 0.073,
+        "width": 0.987,
+        "height": 0.157
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "main-heading",
+      "label": "Frequently Asked Questions Heading",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text 'Frequently Asked Questions'"
+      ],
+      "bbox": {
+        "x": 0.035,
+        "y": 0.121,
+        "width": 0.341,
+        "height": 0.035
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "contact-subtext",
+      "label": "Can't find your answer? Email us",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text 'Can't find your answer? Email us'"
+      ],
+      "bbox": {
+        "x": 0.065,
+        "y": 0.174,
+        "width": 0.204,
+        "height": 0.022
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "contact-link",
+      "label": "Email us Link",
+      "type": "link",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Underlined text 'Email us'"
+      ],
+      "bbox": {
+        "x": 0.212,
+        "y": 0.174,
+        "width": 0.057,
+        "height": 0.02
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "accordion-list",
+      "label": "FAQ Accordion List",
+      "type": "list",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "List of question cards"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.229,
+        "width": 0.937,
+        "height": 0.76
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-1",
+      "label": "Who can participate? (Expanded)",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card showing expanded answer for 01 Who can participate?"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.23,
+        "width": 0.934,
+        "height": 0.302
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-1-badge",
+      "label": "01 Badge",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Black badge with text '01'"
+      ],
+      "bbox": {
+        "x": 0.052,
+        "y": 0.26,
+        "width": 0.024,
+        "height": 0.036
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-1-question",
+      "label": "Who can participate? Question",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Question text 'Who can participate?'"
+      ],
+      "bbox": {
+        "x": 0.088,
+        "y": 0.267,
+        "width": 0.158,
+        "height": 0.023
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-1-collapse-btn",
+      "label": "Collapse Button",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "'x' icon button on the right side"
+      ],
+      "bbox": {
+        "x": 0.935,
+        "y": 0.268,
+        "width": 0.009,
+        "height": 0.019
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-1-answer",
+      "label": "Who can participate? Answer Text",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Paragraph text beginning with 'Students aged 14 to 24...'"
+      ],
+      "bbox": {
+        "x": 0.089,
+        "y": 0.339,
+        "width": 0.85,
+        "height": 0.149
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-2",
+      "label": "Is it free to enter?",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card containing item 02"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.54,
+        "width": 0.935,
+        "height": 0.098
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-2-badge",
+      "label": "02 Badge",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Bordered badge '02'"
+      ],
+      "bbox": {
+        "x": 0.052,
+        "y": 0.57,
+        "width": 0.024,
+        "height": 0.037
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-2-question",
+      "label": "Is it free to enter? Question",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text 'Is it free to enter?'"
+      ],
+      "bbox": {
+        "x": 0.089,
+        "y": 0.578,
+        "width": 0.129,
+        "height": 0.022
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-2-expand-btn",
+      "label": "Expand Button 02",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "'+' icon button"
+      ],
+      "bbox": {
+        "x": 0.936,
+        "y": 0.581,
+        "width": 0.008,
+        "height": 0.014
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-3",
+      "label": "Do I need a team?",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card containing item 03"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.65,
+        "width": 0.935,
+        "height": 0.099
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-3-badge",
+      "label": "03 Badge",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Bordered badge '03'"
+      ],
+      "bbox": {
+        "x": 0.052,
+        "y": 0.68,
+        "width": 0.024,
+        "height": 0.037
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-3-question",
+      "label": "Do I need a team? Question",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text 'Do I need a team?'"
+      ],
+      "bbox": {
+        "x": 0.089,
+        "y": 0.688,
+        "width": 0.131,
+        "height": 0.022
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-3-expand-btn",
+      "label": "Expand Button 03",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "'+' icon button"
+      ],
+      "bbox": {
+        "x": 0.936,
+        "y": 0.691,
+        "width": 0.008,
+        "height": 0.015
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-4",
+      "label": "What tech stack can I use?",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card containing item 04"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.761,
+        "width": 0.935,
+        "height": 0.099
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-4-badge",
+      "label": "04 Badge",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Bordered badge '04'"
+      ],
+      "bbox": {
+        "x": 0.052,
+        "y": 0.791,
+        "width": 0.025,
+        "height": 0.038
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-4-question",
+      "label": "What tech stack can I use? Question",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text 'What tech stack can I use?'"
+      ],
+      "bbox": {
+        "x": 0.089,
+        "y": 0.799,
+        "width": 0.195,
+        "height": 0.023
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-4-expand-btn",
+      "label": "Expand Button 04",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "'+' icon button"
+      ],
+      "bbox": {
+        "x": 0.936,
+        "y": 0.803,
+        "width": 0.008,
+        "height": 0.013
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-5",
+      "label": "How are projects judged?",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card containing item 05"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.872,
+        "width": 0.934,
+        "height": 0.099
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-5-badge",
+      "label": "05 Badge",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Bordered badge '05'"
+      ],
+      "bbox": {
+        "x": 0.052,
+        "y": 0.902,
+        "width": 0.024,
+        "height": 0.038
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-5-question",
+      "label": "How are projects judged? Question",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text 'How are projects judged?'"
+      ],
+      "bbox": {
+        "x": 0.089,
+        "y": 0.909,
+        "width": 0.188,
+        "height": 0.025
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "faq-item-5-expand-btn",
+      "label": "Expand Button 05",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "'+' icon button"
+      ],
+      "bbox": {
+        "x": 0.936,
+        "y": 0.914,
+        "width": 0.008,
+        "height": 0.013
+      },
+      "modelNodeId": null,
+      "transform": null
+    }
+  ],
+  "relationships": [
+    {
+      "id": "faq-window--contains--window-header",
+      "from": "faq-window",
+      "to": "window-header",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "window-header--contains--header-title",
+      "from": "window-header",
+      "to": "header-title",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-window--contains--faq-intro-section",
+      "from": "faq-window",
+      "to": "faq-intro-section",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-intro-section--contains--main-heading",
+      "from": "faq-intro-section",
+      "to": "main-heading",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-intro-section--contains--contact-subtext",
+      "from": "faq-intro-section",
+      "to": "contact-subtext",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "contact-subtext--contains--contact-link",
+      "from": "contact-subtext",
+      "to": "contact-link",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-window--contains--accordion-list",
+      "from": "faq-window",
+      "to": "accordion-list",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "accordion-list--contains--faq-item-1",
+      "from": "accordion-list",
+      "to": "faq-item-1",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-item-1--contains--faq-item-1-badge",
+      "from": "faq-item-1",
+      "to": "faq-item-1-badge",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-item-1--contains--faq-item-1-question",
+      "from": "faq-item-1",
+      "to": "faq-item-1-question",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-item-1--contains--faq-item-1-collapse-btn",
+      "from": "faq-item-1",
+      "to": "faq-item-1-collapse-btn",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-item-1--contains--faq-item-1-answer",
+      "from": "faq-item-1",
+      "to": "faq-item-1-answer",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "accordion-list--contains--faq-item-2",
+      "from": "accordion-list",
+      "to": "faq-item-2",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-item-2--contains--faq-item-2-badge",
+      "from": "faq-item-2",
+      "to": "faq-item-2-badge",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-item-2--contains--faq-item-2-question",
+      "from": "faq-item-2",
+      "to": "faq-item-2-question",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-item-2--contains--faq-item-2-expand-btn",
+      "from": "faq-item-2",
+      "to": "faq-item-2-expand-btn",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "accordion-list--contains--faq-item-3",
+      "from": "accordion-list",
+      "to": "faq-item-3",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-item-3--contains--faq-item-3-badge",
+      "from": "faq-item-3",
+      "to": "faq-item-3-badge",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-item-3--contains--faq-item-3-question",
+      "from": "faq-item-3",
+      "to": "faq-item-3-question",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-item-3--contains--faq-item-3-expand-btn",
+      "from": "faq-item-3",
+      "to": "faq-item-3-expand-btn",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "accordion-list--contains--faq-item-4",
+      "from": "accordion-list",
+      "to": "faq-item-4",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-item-4--contains--faq-item-4-badge",
+      "from": "faq-item-4",
+      "to": "faq-item-4-badge",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-item-4--contains--faq-item-4-question",
+      "from": "faq-item-4",
+      "to": "faq-item-4-question",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-item-4--contains--faq-item-4-expand-btn",
+      "from": "faq-item-4",
+      "to": "faq-item-4-expand-btn",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "accordion-list--contains--faq-item-5",
+      "from": "accordion-list",
+      "to": "faq-item-5",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-item-5--contains--faq-item-5-badge",
+      "from": "faq-item-5",
+      "to": "faq-item-5-badge",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-item-5--contains--faq-item-5-question",
+      "from": "faq-item-5",
+      "to": "faq-item-5-question",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-item-5--contains--faq-item-5-expand-btn",
+      "from": "faq-item-5",
+      "to": "faq-item-5-expand-btn",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "faq-item-1--adjacent_to--faq-item-2",
+      "from": "faq-item-1",
+      "to": "faq-item-2",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Stacked vertically in the accordion list"
+      ]
+    },
+    {
+      "id": "faq-item-2--adjacent_to--faq-item-3",
+      "from": "faq-item-2",
+      "to": "faq-item-3",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Stacked vertically in the accordion list"
+      ]
+    },
+    {
+      "id": "faq-item-3--adjacent_to--faq-item-4",
+      "from": "faq-item-3",
+      "to": "faq-item-4",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Stacked vertically in the accordion list"
+      ]
+    },
+    {
+      "id": "faq-item-4--adjacent_to--faq-item-5",
+      "from": "faq-item-4",
+      "to": "faq-item-5",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Stacked vertically in the accordion list"
+      ]
+    },
+    {
+      "id": "faq-item-1-question--appears_related_to--faq-item-1-answer",
+      "from": "faq-item-1-question",
+      "to": "faq-item-1-answer",
+      "type": "appears_related_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Answer directly positioned below the question header"
+      ]
+    }
+  ],
+  "summary": "The screen displays a retro-styled Frequently Asked Questions section with an accordion list of questions and answers. The top section introduces the FAQ with a prompt to email for unanswered questions, followed by expanded and collapsed accordion cards.",
+  "limitations": [
+    "The bottom of the FAQ list is partially cut off at the bottom border.",
+    "A single screenshot shows layout and visible text only; it does not reveal event handlers, API calls, data sources or where any control navigates.",
+    "Bounding boxes are model estimates and may be offset slightly from the true element edges.",
+    "confidence is null because the model does not produce calibrated probabilities."
+  ],
+  "provider": {
+    "name": "google-gemini",
+    "model": "gemini-3.7-flash"
+  }
+}
