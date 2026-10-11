@@ -235,3 +235,10 @@ def test_refine_describes_closeups():
                             [b"c1", b"c2"], "x 0-30%, y 0-40% | x 70-100%, y 0-40%")
     p = fake.prompts[0]
     assert fake.n == 5 and "Images 4-5 are close-ups" in p and "image 5 = x 70-100%" in p and "#eee" in p
+
+
+def test_font_stretch_loads_the_width_axis():
+    html = ('<html><head><link href="https://fonts.googleapis.com/css2?family=Archivo:wght@800&display=swap" rel="stylesheet">'
+            '</head><body><h1 style="font-stretch:75%">Fast</h1></body></html>')
+    assert "family=Archivo:wdth,wght@62..125,100..900&" in codegen.clean_html(html)
+    assert "family=Archivo:wght@800" in codegen.clean_html(html.replace("font-stretch:75%", ""))

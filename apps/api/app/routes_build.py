@@ -79,7 +79,8 @@ async def refine(request: Request) -> dict:
         raise ApiError(413, "too_large", "The render is too large.")
     out = await rd._call_model(codegen.generate_refine, analysis, img[0], img[1], render, str(form.get("baseCode") or ""),
                                _client_or_none(), str(form.get("score") or ""), str(form.get("regions") or ""), _flag(form, "force", False),
-                               diff, str(form.get("colors") or ""), closeups, str(form.get("closeupWhere") or ""))
+                               diff, str(form.get("colors") or ""), closeups, str(form.get("closeupWhere") or ""),
+                               str(form.get("fontMatch") or ""))
     return {"analysisId": analysis.analysisId, **out}
 
 

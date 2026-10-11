@@ -31,6 +31,13 @@ CACHE = Path(__file__).resolve().parents[2] / ".cache" / "build"
 TAILWIND = '<script src="https://cdn.tailwindcss.com"></script>'
 MAX_HTML = 150_000
 
+FONT_HINT = ("Identify every typeface from its letterforms (a, g, R, Q, digits, stroke contrast, width) instead of defaulting "
+             "to Inter. Pick the closest Google Font, e.g. sans: Inter, Archivo, Space Grotesk, Manrope, DM Sans, Plus Jakarta "
+             "Sans, Poppins, Montserrat, Sora, Outfit, Figtree, Geist, Bricolage Grotesque, Instrument Sans, Work Sans, IBM Plex "
+             "Sans, Rubik, Lexend, Onest, Syne, Unbounded; mono: JetBrains Mono, Martian Mono, IBM Plex Mono, Space Mono, Fira "
+             "Code, Roboto Mono, DM Mono, Geist Mono; or system-ui (Segoe UI / San Francisco) for plain UI text. Match weight "
+             "and letter-spacing too.")
+
 CODE_PROMPT = """You are a senior front-end engineer. Rebuild the screenshot as working front-end code.
 
 Target: {target}
@@ -48,6 +55,7 @@ Rules:
 - Fidelity: reproduce background patterns (grid paper, dots, gradients), border widths, hard offset shadows and
   letter-spacing with CSS; load the closest Google Font for each typeface (a <link> to fonts.googleapis.com);
   size the main headline in px as measured from the screenshot.
+- Fonts: {fonts}
 - Keep it clean and readable: this code is a starting point a developer will continue.
 {change}
 {tail}"""
@@ -207,6 +215,22 @@ _EXT_SCRIPT = re.compile(r"<script\b[^>]*\bsrc\s*=\s*[\"']([^\"']+)[\"'][^>]*>\s
 _EXT_LINK = re.compile(r"<link\b[^>]*\bhref\s*=\s*[\"']([^\"']+)[\"'][^>]*>", re.I)
 
 
+# Google Fonts families with a width axis: when the code uses font-stretch, the font must be loaded with that axis,
+# otherwise the browser gets one fixed width and the stretch does nothing
+WIDTH_FONTS = {"Archivo": "wdth,wght@62..125,100..900", "Open+Sans": "wdth,wght@75..100,300..800",
+               "Encode+Sans": "wdth,wght@75..125,100..900", "Noto+Sans": "wdth,wght@62.5..100,100..900",
+               "Roboto+Flex": "wdth,wght@25..151,100..1000", "Bricolage+Grotesque": "opsz,wdth,wght@12..96,75..100,200..800",
+               "Inconsolata": "wdth,wght@50..200,200..900", "Anybody": "wdth,wght@50..150,100..900"}
+
+
+def _width_axes(code: str) -> str:
+    if "font-stretch" not in code:
+        return code
+    for fam, axes in WIDTH_FONTS.items():
+        code = re.sub(rf"family={re.escape(fam)}(:[^&\"'\s]*)?(?=[&\"'\s])", f"family={fam}:{axes}", code)
+    return code
+
+
 def clean_html(code: str) -> str:
     """Model output is untrusted: keep one Tailwind CDN script, Google Fonts links, nothing else external."""
     code = re.sub(r"^```[a-zA-Z]*\s*|\s*```$", "", code.strip())
@@ -217,7 +241,7 @@ def clean_html(code: str) -> str:
             else f"<!doctype html>\n<html><head><meta charset=\"utf-8\">{TAILWIND}</head><body>\n{code}\n</body></html>"
     if not re.match(r"\s*<!doctype", code, re.I):
         code = "<!doctype html>\n" + code
-    return code[:MAX_HTML]
+    return _width_axes(code)[:MAX_HTML]
 
 
 def clean_react(code: str) -> str:
@@ -252,7 +276,7 @@ def generate_code(analysis: SystemAnalysis, image: bytes | None, mime: str | Non
         use_text = hasattr(client, "generate_code_text")
         prompt = CODE_PROMPT.format(target=TARGETS[target].replace("{{", "{").replace("}}", "}"), w=w, h=h,
                                     tokens=_tokens_text(tokens), components=_components_text(analysis, 60, (w, h)), change=change_txt,
-                                    tail=TEXT_TAIL if use_text else JSON_TAIL)
+                                    tail=TEXT_TAIL if use_text else JSON_TAIL, fonts=FONT_HINT)
         try:
             if use_text:
                 code, notes, complete = parse_code_text(client.generate_code_text(image, mime or "image/png", prompt))
@@ -298,8 +322,9 @@ Where the target's elements are (measured, px):
 Compare the images region by region and fix EVERY difference in the code:
 - Geometry first: the page is exactly {w}px wide. Put each element at the x, y, width and height the target shows
   (use the measured boxes). No centred max-width wrapper unless the target is centred; match the outer margins.
-- Text: font family (closest Google Font), size (match the cap height and line length in the target), weight,
-  line height, letter-spacing, case.
+- Text: font family, size (match the cap height and line length in the target), weight, line height,
+  letter-spacing, case. {fonts}
+  Measured font match: {font_match}.
 - Colours, borders, radii, hard shadows, background patterns (grid lines, dots) and their spacing.
 - Missing or extra elements; illustrations and icons as inline SVG shaped and coloured like the target.
 Keep everything that already matches. Keep all behaviour (scripts, navigation, windows) working.
@@ -312,7 +337,7 @@ CURRENT CODE:
 def generate_refine(analysis: SystemAnalysis, image: bytes, mime: str | None, render: bytes, base_code: str,
                     client: Any | None, score: str = "", regions: str = "", force: bool = False,
                     diff: bytes | None = None, colors: str = "", closeups: list[bytes] | None = None,
-                    closeup_where: str = "") -> dict[str, Any]:
+                    closeup_where: str = "", font_match: str = "") -> dict[str, Any]:
     """Screenshot + a render of the current code -> the code with the visible differences fixed."""
     base_code = (base_code or "").replace("\r\n", "\n")[:MAX_HTML]
     rh = hashlib.sha256(render).hexdigest()[:16]
@@ -337,10 +362,14 @@ def generate_refine(analysis: SystemAnalysis, image: bytes, mime: str | None, re
                       ". Match the left side exactly.")
     images = [(image, mime or "image/png"), (render, "image/png")] + ([(diff, "image/png")] if diff else []) \
         + [(c, "image/png") for c in closeups]
-    prompt = REFINE_PROMPT.format(w=w, h=h, score=score, regions=regions, code=base_code, tail=TEXT_TAIL, diff_note=diff_note, colors=colors,
+    prompt = REFINE_PROMPT.format(w=w, h=h, score=score, regions=regions, code=base_code, tail=TEXT_TAIL, diff_note=diff_note, colors=colors, fonts=FONT_HINT,
+                                  font_match=re.sub(r"[^0-9a-zA-Z%,.;:()\" -]", "", font_match)[:300] or "not measured",
                                   boxes=_components_text(analysis, 60, (w, h)))
     try:
-        code, notes, complete = parse_code_text(client.generate_code_text_images(images, prompt, max_tokens=16000, timeout_s=200))
+        code, notes, complete = parse_code_text(client.generate_code_text_images(images, prompt, max_tokens=32000, timeout_s=300))
+        end = code.lower().rfind("</html>")
+        if not complete and end > 0:  # fence left open, but the page itself is whole
+            code, complete = code[:end + 7], True
         if not complete:
             raise ValueError("the answer was cut off at the length limit")
         if len(code) < 400 or "<" not in code:

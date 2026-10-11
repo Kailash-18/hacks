@@ -737,11 +737,90 @@ function fitText(code) {
     document.body.append(f);
   });
 }
+// font finder: the headline's text is drawn in candidate Google Fonts and compared, ink against ink, with the
+// headline in the screenshot; the closest face is passed to the model (it tends to default to Inter)
+const FONT_CANDIDATES = ["Inter", "Archivo", "Space Grotesk", "Manrope", "DM Sans", "Plus Jakarta Sans", "Poppins", "Montserrat", "Sora",
+  "Outfit", "Figtree", "Geist", "Bricolage Grotesque", "Instrument Sans", "Work Sans", "IBM Plex Sans", "Rubik", "Lexend", "Onest",
+  "Syne", "Unbounded", "Archivo Narrow", "Barlow", "Roboto", "Open Sans", "Lato", "Nunito Sans", "Raleway", "Oswald", "Playfair Display",
+  "Fraunces", "Instrument Serif", "Libre Franklin", "Public Sans", "Urbanist", "Red Hat Display", "Epilogue", "Hanken Grotesk"];
+const WIDTH_AXIS = { Archivo: "wdth,wght@62..125,100..900", "Bricolage Grotesque": "opsz,wdth,wght@12..96,75..100,200..800" };
+const STRETCH = { normal: 100, "semi-condensed": 87.5, condensed: 75, "extra-condensed": 62.5 };
+let fontCache = null;
+async function findFont() {
+  if (fontCache?.id === S.analysis?.analysisId) return fontCache.text;
+  const h = (S.analysis?.components || []).filter((c) => c.type === "heading" && c.bbox && c.label && !c.label.includes(":") && c.label.length >= 8)
+    .sort((a, b) => b.bbox.width * b.bbox.height - a.bbox.width * a.bbox.height)[0];
+  if (!h) return "";
+  if (!document.getElementById("fontFinder")) {
+    const l = document.createElement("link"); l.id = "fontFinder"; l.rel = "stylesheet";
+    l.href = "https://fonts.googleapis.com/css2?" + FONT_CANDIDATES.map((f) => `family=${f.replace(/ /g, "+")}:${WIDTH_AXIS[f] || "wght@500;700;800"}`).join("&") + "&display=block";
+    document.head.append(l); await new Promise((ok) => { l.onload = ok; l.onerror = ok; setTimeout(ok, 8000); });
+  }
+  // the headline's lines in the screenshot: ink bands, each with its ink width, height and density
+  const pad = 6, X = Math.max(0, Math.round(h.bbox.x * S.shot.w) - pad), Y = Math.max(0, Math.round(h.bbox.y * S.shot.h) - pad);
+  const W = Math.min(S.shot.w - X, Math.round(h.bbox.width * S.shot.w) + 2 * pad), H = Math.min(S.shot.h - Y, Math.round(h.bbox.height * S.shot.h) + 2 * pad);
+  const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = S.shot.url; });
+  const tc = document.createElement("canvas"); tc.width = W; tc.height = H;
+  const tg = tc.getContext("2d", { willReadFrequently: true }); tg.drawImage(img, X, Y, W, H, 0, 0, W, H);
+  const td = tg.getImageData(0, 0, W, H).data, lum = (d, i) => 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2];
+  const bg = lum(td, 0), ink = (x, y) => Math.abs(lum(td, (y * W + x) * 4) - bg) > 70;
+  const rows = []; for (let y = 0; y < H; y++) { let n = 0; for (let x = 0; x < W; x++) n += ink(x, y); rows.push(n); }
+  const bands = []; let y0 = -1;
+  const rmax = Math.max(...rows), cut = Math.max(1, rmax * 0.1);  // a descender touching the next line is not a line
+  for (let y = 0; y <= H; y++) { const on = y < H && rows[y] > cut; if (on && y0 < 0) y0 = y; if (!on && y0 >= 0) { if (y - y0 > 6) bands.push([y0, y]); y0 = -1; } }
+  for (let i = 0; i < bands.length; i++) {  // grow each band to its full ink (ascenders, descenders), not past the neighbours
+    const lo = i ? Math.ceil((bands[i - 1][1] + bands[i][0]) / 2) : 0, hi = i < bands.length - 1 ? Math.floor((bands[i][1] + bands[i + 1][0]) / 2) : H;
+    while (bands[i][0] > lo && rows[bands[i][0] - 1] > 0) bands[i][0]--;
+    while (bands[i][1] < hi && rows[bands[i][1]] > 0) bands[i][1]++;
+  }
+  const lines = bands.map(([a, b]) => { let x0 = W, x1 = 0, n = 0;
+    for (let y = a; y < b; y++) for (let x = 0; x < W; x++) if (ink(x, y)) { n++; if (x < x0) x0 = x; if (x > x1) x1 = x; }
+    return { w: x1 - x0 + 1, h: b - a, dens: n / Math.max(1, (x1 - x0 + 1) * (b - a)) }; }).filter((l) => l.w > 20);
+  const words = h.label.replace(/\s+/g, " ").trim().split(" "), N = lines.length;
+  window.__fontFinder = { lines, words };
+  if (!N || N > 4 || words.length < N || words.length > 16) return "";
+  const splits = [];  // every way to break the words into N lines
+  (function rec(i, acc) { if (acc.length === N - 1) { splits.push([...acc, words.length]); return; } for (let j = i + 1; j < words.length; j++) rec(j, [...acc, j]); })(0, []);
+  const c = document.createElement("canvas"); c.width = 900; c.height = 260; const g = c.getContext("2d", { willReadFrequently: true });
+  const box = (t) => { const m = g.measureText(t); return { w: m.actualBoundingBoxLeft + m.actualBoundingBoxRight, h: m.actualBoundingBoxAscent + m.actualBoundingBoxDescent, asc: m.actualBoundingBoxAscent, left: m.actualBoundingBoxLeft }; };
+  let best = null;
+  for (const fam of FONT_CANDIDATES) for (const wt of [500, 700, 800]) for (const st of WIDTH_AXIS[fam] ? Object.keys(STRETCH) : ["normal"]) {
+    const f100 = `${st} ${wt} 100px "${fam}"`;
+    try { await document.fonts.load(f100); } catch { continue; }
+    if (!document.fonts.check(f100)) continue;
+    for (const ls of [0, -0.01, -0.02, -0.03]) {
+      g.font = f100; g.letterSpacing = `${ls * 100}px`;
+      let pick = null;
+      for (const sp of splits) {  // shape match: each line's width / ink height against the screenshot's
+        let err = 0, st = 0, sizes = [];
+        sp.forEach((end, li) => { const t = words.slice(li ? sp[li - 1] : 0, end).join(" "), m = box(t);
+          err += Math.abs(Math.log((m.w / m.h) / (lines[li].w / lines[li].h))); sizes.push(lines[li].h / m.h * 100); });
+        const mean = sizes.reduce((a, b) => a + b) / N; for (const z of sizes) st += Math.abs(z - mean) / mean;  // one size for all lines
+        err = err / N + st / N;
+        if (!pick || err < pick.err) pick = { err, sp, size: mean };
+      }
+      // stroke weight: ink density of the first line drawn at the matched size
+      const t0 = words.slice(0, pick.sp[0]).join(" "); g.font = `${st} ${wt} ${pick.size}px "${fam}"`;
+      const m = box(t0); g.fillStyle = "#000"; g.fillRect(0, 0, c.width, c.height); g.fillStyle = "#fff";
+      g.fillText(t0, m.left + 2, m.asc + 2);
+      const bw = Math.min(c.width, Math.ceil(m.w) + 4), bh = Math.min(c.height, Math.ceil(m.h) + 4), dd = g.getImageData(0, 0, bw, bh).data;
+      let n = 0; for (let i = 0; i < bw * bh; i++) n += dd[i * 4] > 128; const dens = n / Math.max(1, (m.w) * (m.h));
+      const score = pick.err + 1.5 * Math.abs(dens - lines[0].dens);
+      (window.__fontScores ||= []).push([fam, wt, st, ls, +score.toFixed(3)]);
+      if (!best || score < best.score) best = { fam, wt, st, ls, s: Math.round(pick.size), score, lines: pick.sp.length };
+    }
+  }
+  g.letterSpacing = "0px";
+  window.__fontFinder = { lines, best };  // for debugging in the console
+  const text = best && best.score < 0.35 ? `the main headline measures closest to "${best.fam}" weight ${best.wt}${best.st !== "normal" ? `, font-stretch ${STRETCH[best.st]}% (load the font with its wdth axis)` : ""}, about ${best.s}px, letter-spacing ${best.ls}em, ${best.lines} lines (shape error ${best.score.toFixed(2)})` : "";
+  fontCache = { id: S.analysis?.analysisId, text };
+  return text;
+}
 async function refineLoop() {
   if (S.target !== "html" || !current()) return;
   const run = S.run, btn = $("#refineBtn");
   btn.disabled = true; busy(true);
-  let best = { i: S.cur.html, score: (await measured(current()))?.score ?? 0 }, snaps = 0, fits = 0;
+  let best = { i: S.cur.html, score: (await measured(current()))?.score ?? 0 }, snaps = 0, fits = 0, fails = 0;
   try {
     for (let round = 1; round <= MAX_ROUNDS && best.score < TARGET_MATCH; round++) {
       if (run !== S.run) return;
@@ -769,14 +848,15 @@ async function refineLoop() {
         if (now > best.score) { best = { i: S.cur.html, score: now }; if (now >= TARGET_MATCH) break; round--; continue; }
       }
       const png = await (await fetch(shotUrl)).blob(), colors = colorText(pairs), ups = await closeUps(res, shotUrl);
+      const fontMatch = await findFont().catch(() => "");
       const fd = form({ render: new File([png], "render.png", { type: "image/png" }),
         diff: new File([await diffImage(res)], "diff.png", { type: "image/png" }),
-        baseCode: v.code, score: String(res.score), regions: worstRegions(res), colors, force: "1",
+        baseCode: v.code, score: String(res.score), regions: worstRegions(res), colors, fontMatch, force: "1",
         closeupWhere: ups.map((u) => u.where).join(" | ") });
       ups.forEach((u, i) => fd.append("closeup", new File([u.blob], `closeup${i}.png`, { type: "image/png" })));
       const out = await api("/api/digital/refine", { method: "POST", body: fd });
       if (run !== S.run) return;
-      if (out.source !== "ai") { status(out.notes?.[0] || "Refine unavailable.", true); break; }
+      if (out.source !== "ai") { status(out.notes?.[0] || "Refine unavailable.", true); if (++fails >= 2) break; continue; }  // one bad round is retried
       S.versions.html.push({ code: out.code, notes: out.notes || [], source: out.source, change: out.change, label: `Refined · round ${round}`,
         model: out.provider?.model, cached: out.cached });
       S.cur.html = S.versions.html.length - 1; renderVersions(); renderNotes(); renderCode();

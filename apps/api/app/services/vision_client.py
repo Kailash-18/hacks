@@ -251,7 +251,7 @@ class GeminiVisionClient:
         from google.genai import types
         # a whole site is a long answer: give this one call minutes, not the default 100 s
         return self._generate([types.Part.from_bytes(data=b, mime_type=m) for b, m in images] + [prompt],
-                              {"temperature": 0.2, "max_output_tokens": max_tokens, "_attempts": 3,
+                              {"temperature": 0.2, "max_output_tokens": max_tokens, "_attempts": 6,
                                "http_options": types.HttpOptions(timeout=timeout_s * 1000)})
 
     @staticmethod

@@ -85,7 +85,25 @@ class LMStudioVisionClient:
         return self._chat([self._img(image_bytes, mime_type), {"type": "text", "text": prompt}], max_tokens=8000)
 
     def generate_code_text_images(self, images: list[tuple[bytes, str]], prompt: str, max_tokens: int = 12000, **_) -> str:
-        return self._chat([self._img(b, m) for b, m in images] + [{"type": "text", "text": prompt}], max_tokens=max_tokens)
+        # a laptop model reads big screenshots slowly: at most three, scaled to 1024 px wide
+        small = [(_shrink(b), "image/jpeg") for b, _ in images[:3]]
+        return self._chat([self._img(b, m) for b, m in small] + [{"type": "text", "text": prompt}], max_tokens=min(max_tokens, 12000))
+
+
+def _shrink(b: bytes, width: int = 1024) -> bytes:
+    try:
+        import cv2
+        import numpy as np
+        img = cv2.imdecode(np.frombuffer(b, np.uint8), cv2.IMREAD_COLOR)
+        if img is None:
+            return b
+        h, w = img.shape[:2]
+        if w > width:
+            img = cv2.resize(img, (width, round(h * width / w)), interpolation=cv2.INTER_AREA)
+        ok, out = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 88])
+        return out.tobytes() if ok else b
+    except Exception:
+        return b
 
 
 class FallbackVisionClient:
