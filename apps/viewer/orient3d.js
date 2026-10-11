@@ -19,11 +19,23 @@ export function installAxes(View) {
     if (mode !== "horizontal" && mode !== "vertical") return new THREE.Quaternion();
     const st = this.mainAxis ?? 1, sz = [this.size.x, this.size.y, this.size.z];
     const others = [0, 1, 2].filter((i) => i !== st), lg = sz[others[0]] >= sz[others[1]] ? others[0] : others[1];
-    const e = new THREE.Vector3(), l = new THREE.Vector3(); e.setComponent(st, 1); l.setComponent(lg, 1);
+    const e = new THREE.Vector3(), l = new THREE.Vector3(); e.setComponent(st, 1); l.setComponent(lg, this.upSign(mode, lg));
     const S = mode === "horizontal" ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);   // where the layers stack
     const L = mode === "horizontal" ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);   // where the long side points
     const from = new THREE.Matrix4().makeBasis(e, l, e.clone().cross(l)), to = new THREE.Matrix4().makeBasis(S, L, S.clone().cross(L));
     return new THREE.Quaternion().setFromRotationMatrix(to.multiply(from.transpose()));
+  };
+  // Which end of the long side goes up (vertical) or right (horizontal). An object that already stands
+  // (long side vertical) keeps its own up. A lying object is stood up the way a person would hold it:
+  // the end with its buttons, wheel, screen or lights on top (a mouse stands on its tail, buttons up).
+  P.upSign = function (mode, lg) {
+    if (lg === 1) return 1;
+    const FRONT = new Set(["interface", "actuator", "display", "wheel", "light"]);
+    let sum = 0, n = 0;
+    for (const p of this.parts) if (FRONT.has(p.type) && !p.inferred) { sum += p.base.getComponent(lg); n++; }
+    const span = this.size.getComponent(lg) || 1;
+    if (n && Math.abs(sum / n) > span * 0.04) return Math.sign(sum / n);
+    return -1; // no clear front: the end farther from the camera rises, like tilting the object up toward you
   };
   P.orientedSize = function () {
     const v = this.size.clone().applyQuaternion(this.orientQ || new THREE.Quaternion());
