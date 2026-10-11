@@ -410,6 +410,7 @@ Rebuild the whole site as ONE working single-file HTML app.
   Otherwise switch views. Every screen must look like its screenshot.
 - Structure: each screen is one top-level <section data-screen="name"> directly inside <body> (never nested in another
   screen); close every tag you open. Repeated chrome (a sidebar on several screens) is repeated inside each screen.
+  The visible screen has the class "active" (only screen 1 at load); switch screens by moving that class.
 - Make the visible controls work: accordions open and close, tabs switch, selects change, hover and focus states,
   a live clock if one is shown. Content that is cut off in a screenshot may continue in the same style (mark it
   with an HTML comment "continued").
@@ -455,6 +456,20 @@ def screens_nested(code: str) -> bool:
     return p.bad
 
 
+SCREEN_CSS = "<style>[data-screen]:not(.active){display:none!important}</style>"
+
+
+def one_screen_at_a_time(code: str) -> str:
+    """Only the active screen shows: a screen's own display class (e.g. Tailwind "flex") must not override the hiding.
+    With no active screen at all, the first one becomes active."""
+    if "data-screen" not in code or SCREEN_CSS in code:
+        return code
+    if not re.search(r"<section\b[^>]*data-screen[^>]*class=\"[^\"]*\bactive\b", code):
+        code = re.sub(r"(<section\b[^>]*data-screen[^>]*?)(\sclass=\")", r"\1\2active ", code, count=1) \
+            if re.search(r"<section\b[^>]*data-screen[^>]*\sclass=\"", code) else re.sub(r"(<section\b[^>]*data-screen)", r'\1 class="active"', code, count=1)
+    return re.sub(r"</head>", SCREEN_CSS + "</head>", code, count=1, flags=re.I) if re.search(r"</head>", code, re.I) else SCREEN_CSS + code
+
+
 def app_key(analysis_ids: list[str]) -> str:
     return "app-" + _key(*analysis_ids)
 
@@ -485,7 +500,7 @@ def generate_app(screens: list[tuple[SystemAnalysis, bytes, str]], client: Any |
             notes = ["The answer was cut off at the length limit; the end of the file may be missing."] + notes[:3]
         elif screens_nested(code):
             notes = ["One screen may be nested inside another; if a screen looks squeezed, ask for a fix."] + notes[:3]
-        code = clean_html(code)
+        code = one_screen_at_a_time(clean_html(code))
     except Exception as exc:  # fall back to the first screen on its own
         reason = getattr(exc, "message", None) or f"{type(exc).__name__}: {exc}"
         log.warning("whole-site build failed: %s", reason)

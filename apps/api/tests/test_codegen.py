@@ -270,3 +270,10 @@ def test_nested_screens_are_detected():
     ok = '<body><section data-screen="a"><div>x</div></section><section data-screen="b"><p>y</p></section></body>'
     bad = '<body><section data-screen="a"><div class="sidebar"><a>x</a><section data-screen="b"></section></div></section></body>'
     assert not codegen.screens_nested(ok) and codegen.screens_nested(bad)
+
+
+def test_only_the_active_screen_shows():
+    html = '<html><head></head><body><section data-screen="a" class="screen flex">A</section><section data-screen="b" class="screen flex">B</section></body></html>'
+    out = codegen.one_screen_at_a_time(html)
+    assert '[data-screen]:not(.active){display:none!important}' in out and 'class="active screen flex">A' in out
+    assert out.count("active ") == 1 and codegen.one_screen_at_a_time(out) == out
