@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
-import { installAxes } from "./axes3d.js";
+import { installAxes } from "./orient3d.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
@@ -261,9 +261,8 @@ export class AssemblyView {
     this.addAutoDetails(assembly.details || []);
     this.addDecals(views);
     this.buildWires(relationships);
+    this.orientQ = this.orientTarget(this.orientation);
     this.buildEffects();
-    if (this.layout && this.layout !== "auto") { const q = this.layoutTarget(this.layout); for (const p of this.parts) p._edir = p._edirTo = p.dir.clone().applyQuaternion(q); }
-    this.buildAxes();
     this.buildGizmo();
     this.setExplode(this.explode);
   }
@@ -366,7 +365,7 @@ export class AssemblyView {
   // where it sits, a target-lock reticle around the selected part, and a small lift toward you on hover.
   buildEffects() {
     if (this.fx) for (const o of [this.fx.group, this.fx.guides, this.fx.lock]) { this.root.remove(o); o.traverse((q) => { q.geometry?.dispose(); q.material?.dispose?.(); }); }
-    const g = new THREE.Group(), R = Math.hypot(this.size.x, this.size.z) * 0.55 + 0.35; // just wider than the assembled object
+    const g = new THREE.Group(), os = this.orientedSize?.() || this.size, R = Math.hypot(os.x, os.z) * 0.55 + 0.35; // just wider than the assembled object
     const add = (o) => { g.add(o); return o; };
     // display plinth: a dark machined disc the object stands on, with a lit edge and a slowly turning engraved ring
     const H = 0.34, top = new THREE.Group(); g.add(top);
@@ -732,18 +731,17 @@ export class AssemblyView {
 
   applyPose() {
     this.poke();
-    const t = this.explode, reach = TARGET_SIZE * 0.8, I = new THREE.Quaternion();
+    const t = this.explode, reach = TARGET_SIZE * 0.8, I = new THREE.Quaternion(), Q = this.orientQ || I;
     for (const p of this.parts) {
       if (p.moved && p.dragT < 0.02 && t > p.dragT) p.dragT = t; // moved while assembled: tie it to this explode
       const s = this.pullScale(p);
-      p.group.position.copy(p.base).addScaledVector(this.edir(p), t * p.dist * reach).addScaledVector(p.offset, s).add(p.fx.offset);
+      p.group.position.copy(p.base).addScaledVector(p.dir, t * p.dist * reach).applyQuaternion(Q).addScaledVector(p.offset, s).add(p.fx.offset);
       if (p.lift) p.group.position.add(p.lift);
-      p.group.quaternion.copy(p.fx.quat).multiply(I.clone().slerp(p.userQuat, s)).multiply(p.baseQuat);
+      p.group.quaternion.copy(p.fx.quat).multiply(I.clone().slerp(p.userQuat, s)).multiply(Q).multiply(p.baseQuat);
       p.group.scale.setScalar(p.fx.scale * (p.fit || 1));
     }
     this.poseVersion = (this.poseVersion || 0) + 1;
     this.updateGuides?.();
-    this.updateAxisMarkers?.();
   }
 
   setExplode(t) {
@@ -763,7 +761,7 @@ export class AssemblyView {
     for (const p of this.parts) {
       if (!p.mesh.geometry.boundingSphere) p.mesh.geometry.computeBoundingSphere();
       const r = p.mesh.geometry.boundingSphere.radius;
-      v.copy(p.base).addScaledVector(p._edirTo || this.edir(p), t * p.dist * reach);
+      v.copy(p.base).addScaledVector(p.dir, t * p.dist * reach).applyQuaternion(this.orientQ || new THREE.Quaternion());
       box.expandByPoint(v.clone().addScalar(r)); box.expandByPoint(v.clone().addScalar(-r));
     }
     if (box.isEmpty()) box.set(new THREE.Vector3(-3, -3, -3), new THREE.Vector3(3, 3, 3));
@@ -775,9 +773,9 @@ export class AssemblyView {
     const d = (fit / 2) / Math.tan(Math.min(vfov, hfov) / 2) * 1.25 + fit * 0.15; // fits short and narrow windows
     // look across the main explode axis so the gaps between parts are visible
     const axis = [0, 0, 0];
-    for (const p of this.parts) { const d = p._edirTo || this.edir(p); axis[0] += Math.abs(d.x) * p.dist; axis[1] += Math.abs(d.y) * p.dist; axis[2] += Math.abs(d.z) * p.dist; }
+    for (const p of this.parts) { const d = p.dir.clone().applyQuaternion(this.orientQ || new THREE.Quaternion()); axis[0] += Math.abs(d.x) * p.dist; axis[1] += Math.abs(d.y) * p.dist; axis[2] += Math.abs(d.z) * p.dist; }
     const main = axis.indexOf(Math.max(...axis));
-    const [az, el] = main === 2 ? [0.68, 0.3] : main === 0 ? [0.3, 0.35] : [0.75, 0.3];
+    const [az, el] = main === 2 ? [0.68, 0.3] : main === 0 ? [0.95, 0.28] : this.orientation === "horizontal" ? [0.7, 0.5] : [0.75, 0.3];
     this.camera.position.set(ctr.x + d * Math.sin(az) * Math.cos(el), ctr.y + d * Math.sin(el), ctr.z + d * Math.cos(az) * Math.cos(el));
     this.controls.target.copy(ctr); this.controls.update();
     this.fog.near = d * 1.6; this.fog.far = d * 4.5; // fog only fades the far floor, never the model
@@ -918,7 +916,7 @@ export class AssemblyView {
   busy(now = performance.now()) {
     return !!(this.intro || this.whatif || this.sweep || this.ringT0 || this.xray || this.sparks?.length
       || (this.bloomT0 && now - this.bloomT0 < 1500) || now - (this._active || 0) < 700
-      || (this.fxOn && !this.lowQuality && (!!this.lastPaint?.selected || Math.abs((this.fx?.group.position.y ?? 0) - this.floor.position.y - 0.01) > 1e-3))
+      || (this.fxOn && ((!this.lowQuality && !!this.lastPaint?.selected) || Math.abs((this.fx?.group.position.y ?? 0) - this.floor.position.y - 0.01) > 1e-3))
       || !!this._liftAnim);
   }
 
