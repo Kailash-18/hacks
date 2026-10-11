@@ -347,20 +347,22 @@ document.documentElement.addEventListener("mouseleave",()=>{if(on){mark(null);pa
   async function typeInto(el, text) { el.focus(); el.value = ""; for (const ch of text) { el.value += ch; await sleep(38); } }
   async function demo() {
     const N = 8;
+    const say = (n, text) => (window.tour ? window.tour.cap(n, text) : cap(n, N, text));  // full-site tour shares captions
+    if (window.tour) await window.tour.bridgeOut();
     document.body.classList.add("demo");
     await waitFor(() => document.querySelectorAll(".ex").length > 1, 15000);
-    cap(1, N, "Paste a screenshot of any website or app");
+    say(1, "Paste a screenshot of any website or app");
     await sleep(3200);
     const ex = [...document.querySelectorAll(".ex")].find((b) => /log in/i.test(b.textContent)) || document.querySelectorAll(".ex")[0];
     ex.click();
-    cap(2, N, "It reads the screen, finds every part and tears it down into layers");
+    say(2, "It reads the screen, finds every part and tears it down into layers");
     await waitFor(() => S.versions.html.length && !q(".fx"));
     await sleep(700);
     scrollTo({ top: q(".tabs").getBoundingClientRect().top + scrollY - 70, behavior: "smooth" });
-    cap(3, N, "The rebuilt page runs live next to the original. Drag to compare");
+    say(3, "The rebuilt page runs live next to the original. Drag to compare");
     await sleep(600); await slide(50, 88, 1400); await slide(88, 12, 2000); await slide(12, 50, 1200);
     await sleep(600);
-    cap(4, N, "X-ray: every part of the rebuild is linked to the original and to its code");
+    say(4, "X-ray: every part of the rebuild is linked to the original and to its code");
     setXray(true);
     await sleep(900);
     const tour = (S.analysis?.components || []).filter((c) => c.bbox && /button|input|heading|link|text/.test(c.type) && c.label.length > 2)
@@ -372,7 +374,7 @@ document.documentElement.addEventListener("mouseleave",()=>{if(on){mark(null);pa
       await sleep(1700);
     }
     setXray(false); setView("wipe");
-    cap(5, N, "Ask for changes in plain English");
+    say(5, "Ask for changes in plain English");
     scrollTo({ top: 0, behavior: "smooth" });
     await typeInto(q("#change"), "Switch the whole page to a dark theme");
     await sleep(400);
@@ -380,23 +382,24 @@ document.documentElement.addEventListener("mouseleave",()=>{if(on){mark(null);pa
     q("#changeForm").requestSubmit();
     await waitFor(() => S.versions.html.length > before);
     await sleep(500); await slide(100, 50, 1300); await sleep(2200);
-    cap(6, N, "One click turns it into a mobile app: React Native, or Flutter");
+    say(6, "One click turns it into a mobile app: React Native, or Flutter");
     S.cur.html = 0;  // convert the first version (its React Native result is saved with the example)
     q('#targetSeg button[data-t="react-native"]').click();
     await waitFor(() => S.versions["react-native"].length);
     await sleep(4200);
-    cap(7, N, "And a step-by-step plan to build it for real");
+    say(7, "And a step-by-step plan to build it for real");
     setTab("guide"); scrollTo({ top: 0 });
     await sleep(1200);
     const g = q("#guide"); const end = g.getBoundingClientRect().top + scrollY + g.offsetHeight - innerHeight;
     for (let y = scrollY; y < end; y += 6) { scrollTo(0, y); await sleep(16); }
     await sleep(800);
-    cap(8, N, "Plus an accessibility audit with one-click fixes");
+    say(8, "Plus an accessibility audit with one-click fixes");
     scrollTo({ top: 0 }); setTab("a11y");
     await sleep(4200);
-    cap(0, 0, "Visual Reverse Engineering · screenshot in, working system out");
+    if (window.tour) { await sleep(800); await window.tour.outro(); }
+    else cap(0, 0, "Visual Reverse Engineering · screenshot in, working system out");
   }
-  if (/[?&]demo\b/.test(location.search)) setTimeout(() => demo().catch((e) => cap(0, 0, `Demo stopped: ${e.message}`)), 400);
+  if (/[?&](demo|tour)\b/.test(location.search)) setTimeout(() => demo().catch((e) => cap(0, 0, `Demo stopped: ${e.message}`)), 400);
 
   window.fx = { scan, analysed, done, abort, setXray, matchPart, glow };
   if (document.readyState === "loading") addEventListener("DOMContentLoaded", hero); else hero();

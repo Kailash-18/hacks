@@ -32,6 +32,8 @@ Everything shown is labelled **seen in photo** or **inferred**. The 3D view is a
 
 Open `/digital`. Upload several screens to map the **workflow** (hypothesised transitions labelled with the control that triggers them), two versions to **compare** (added / removed / moved / reworded, plus optional AI style check), or one screen to **rebuild** it as a starter HTML/React draft with measured design tokens and generated docs. Click any component for its tree position, evidence and a **what-if** (same engine shape as the Physical Lab). Details: `docs/DIGITAL_LAB.md`.
 
+**Guided tour (for the demo video):** open `http://localhost:8000/?tour`. A title card, the Physical Lab (Game Boy: 3D model, explode, X-ray wiring, part details, failure cascade, system graph), a bridge, the Digital Lab (teardown, compare, X-ray, a change request, React Native, build plan, accessibility) and a closing card play by themselves with captions, about 2.5 minutes, from saved results only (no live AI call). `/digital?demo` plays only the Digital Lab part. Keep the Chrome window in front while recording.
+
 ## Run locally
 
 ```bash
