@@ -183,6 +183,7 @@
 
   // the compare slider sweeps from "all original" to the middle, revealing the rebuild
   function sweep() {
+    if (window.polishSweep) return window.polishSweep();
     if (reduce || typeof setWipe !== "function" || q("#wipe")?.hidden) return;
     const w = q("#wipe"); w.classList.add("reveal");
     const start = performance.now(), from = 100, to = 50, dur = 1100;
