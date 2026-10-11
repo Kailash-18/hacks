@@ -72,10 +72,14 @@ async def refine(request: Request) -> dict:
     if not img or up is None or not hasattr(up, "read"):
         raise ApiError(400, "missing_input", "Refining needs the screenshot and a render of the current code.")
     render = await up.read()
+    dup = form.get("diff")
+    diff = await dup.read() if dup is not None and hasattr(dup, "read") else None
+    closeups = [await c.read() for c in form.getlist("closeup")[:3] if hasattr(c, "read")]
     if len(render) > 12_000_000:
         raise ApiError(413, "too_large", "The render is too large.")
     out = await rd._call_model(codegen.generate_refine, analysis, img[0], img[1], render, str(form.get("baseCode") or ""),
-                               _client_or_none(), str(form.get("score") or ""), str(form.get("regions") or ""), _flag(form, "force", False))
+                               _client_or_none(), str(form.get("score") or ""), str(form.get("regions") or ""), _flag(form, "force", False),
+                               diff, str(form.get("colors") or ""), closeups, str(form.get("closeupWhere") or ""))
     return {"analysisId": analysis.analysisId, **out}
 
 

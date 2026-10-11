@@ -128,7 +128,7 @@ class SharedClientAdapter:
         finally:
             self.last_call = {"seconds": round(time.perf_counter() - t0, 1), "provider": self.name, "model": self.model}
 
-    def generate_code_text_images(self, images: list[tuple[bytes, str]], prompt: str) -> str:
+    def generate_code_text_images(self, images: list[tuple[bytes, str]], prompt: str, **kw) -> str:
         """Several screenshots -> plain text (a whole multi-screen app). Same error mapping as generate_json."""
         from .vision_client import ProviderError
 
@@ -136,7 +136,7 @@ class SharedClientAdapter:
             raise VisionProviderError("provider_error", "This provider cannot build from several screenshots.", 501)
         t0 = time.perf_counter()
         try:
-            return self.inner.generate_code_text_images(images, prompt)
+            return self.inner.generate_code_text_images(images, prompt, **kw)
         except ProviderError as exc:
             status = int(getattr(exc, "status", 502) or 502)
             raise VisionProviderError(_CODE_BY_STATUS.get(status, "provider_error"), str(exc), status) from None

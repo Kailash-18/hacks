@@ -517,10 +517,24 @@ function captureDoc(doc, w, h) {
   return new Promise((resolve, reject) => {
     const token = Math.random().toString(36).slice(2);
     // capture inside the sandboxed frame itself (html-to-image renders the live DOM through an SVG, no nested frame)
-    const inj = `<script src="${H2I}"><\/script><script>addEventListener("load",()=>setTimeout(async()=>{try{
+    // web fonts: an SVG snapshot cannot use the page's fonts, and html-to-image cannot read Google's cross-origin
+    // CSS, so the Latin font files are fetched and inlined here; without this the text is measured in a fallback font
+    const inj = `<script src="${H2I}"><\/script><script>
+    async function __fontCSS(){let out="";const hrefs=new Set();
+      for(const l of document.querySelectorAll('link[href*="fonts.googleapis.com"]'))hrefs.add(l.href);
+      for(const st of document.querySelectorAll("style"))for(const m of st.textContent.matchAll(/https:\\/\\/fonts\\.googleapis\\.com\\/[^"')\\s]+/g))hrefs.add(m[0]);
+      const data=(b)=>new Promise(ok=>{const r=new FileReader();r.onload=()=>ok(r.result);r.readAsDataURL(b)});
+      for(const href of hrefs){try{const css=await(await fetch(href)).text();
+        for(let b of css.split(/(?=\\/\\*)/)){if(/^\\/\\*/.test(b)&&!/^\\/\\*\\s*latin\\s*\\*\\//.test(b))continue;
+          for(const m of [...b.matchAll(/url\\((https:[^)]+)\\)/g)]){try{b=b.replace(m[1],await data(await(await fetch(m[1])).blob()))}catch(_){}}
+          out+=b}}catch(_){}}
+      return out}
+    addEventListener("load",()=>setTimeout(async()=>{try{
+      try{await document.fonts.ready}catch(_){}
+      const fontEmbedCSS=await __fontCSS();
       const bg=getComputedStyle(document.body).backgroundColor;
       const o={width:${w},height:${h},canvasWidth:${w},canvasHeight:${h},pixelRatio:1,cacheBust:false,
-        backgroundColor:(bg&&bg!=="rgba(0, 0, 0, 0)")?bg:"#ffffff"};
+        backgroundColor:(bg&&bg!=="rgba(0, 0, 0, 0)")?bg:"#ffffff",...(fontEmbedCSS?{fontEmbedCSS}:{})};
       let url; try{url=await htmlToImage.toPng(document.documentElement,o)}catch(_){url=await htmlToImage.toPng(document.documentElement,{...o,skipFonts:true})}
       parent.postMessage({accShot:"${token}",data:url},"*")}catch(e){parent.postMessage({accShot:"${token}",error:String(e&&e.message||e)},"*")}},1500))<\/script>`;
     const f = document.createElement("iframe");
@@ -598,7 +612,18 @@ function showAccuracy(r) {
   c.hidden = !$("#accHeat").checked;
 }
 // ---------- refine: show the AI how its code renders, let it fix the differences, measure again ----------
-const TARGET_MATCH = 95, MAX_ROUNDS = 4;
+const TARGET_MATCH = 95, MAX_ROUNDS = 5;
+// the screenshot with its differences painted red, so the model sees exactly where it is off
+async function diffImage(r) {
+  const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = S.shot.url; });
+  const c = document.createElement("canvas"); c.width = S.shot.w; c.height = Math.min(S.shot.h, 6000);
+  const g = c.getContext("2d"); g.drawImage(img, 0, 0);
+  const h = document.createElement("canvas"); h.width = r.gw; h.height = r.gh;
+  const hg = h.getContext("2d"), d = hg.createImageData(r.gw, r.gh);
+  for (let i = 0; i < r.gw * r.gh; i++) { const v = r.miss[i]; d.data.set([255, 0, 40, v < 0.15 ? 0 : Math.min(190, (v - 0.15) * 300)], i * 4); }
+  hg.putImageData(d, 0, 0); g.imageSmoothingEnabled = true; g.drawImage(h, 0, 0, c.width, c.height);
+  return new Promise((ok) => c.toBlob(ok, "image/png"));
+}
 async function measured(v) {
   const key = `${S.target}:${S.cur[S.target]}`;
   for (let i = 0; i < 200 && (S.acc[key] === "busy" || S.acc[key] === undefined); i++) {
@@ -618,11 +643,105 @@ function worstRegions(r) {  // a 4 x 3 grid of the difference map, worst cells f
   return out.sort((a, b) => b.d - a.d).slice(0, 4).filter((c) => c.d > 0.08)
     .map((c) => `x ${c.gx * 25}-${c.gx * 25 + 25}%, y ${Math.round(c.gy * 33.3)}-${Math.round(c.gy * 33.3 + 33.3)}% (${Math.round(c.d * 100)}% off)`).join("; ");
 }
+// where the main colours of the screenshot come out a different shade in the render (exact hex, so it can be fixed)
+const hexOf = (c) => "#" + c.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("");
+async function colorPairs(render) {
+  const gw = 320, gh = Math.max(20, Math.round(gw * S.shot.h / S.shot.w));
+  const [a, b] = await Promise.all([pixels(S.shot.url, gw, gh), pixels(render, gw, gh)]);
+  const groups = new Map(), n = gw * gh;
+  for (let i = 0; i < n; i++) {
+    const k = ((a[i * 4] >> 3) << 10) | ((a[i * 4 + 1] >> 3) << 5) | (a[i * 4 + 2] >> 3);
+    const g = groups.get(k) || [0, 0, 0, 0, 0, 0, 0]; g[0]++;
+    for (let c = 0; c < 3; c++) { g[1 + c] += a[i * 4 + c]; g[4 + c] += b[i * 4 + c]; }
+    groups.set(k, g);
+  }
+  return [...groups.values()].sort((x, y) => y[0] - x[0]).slice(0, 8).filter((g) => g[0] > n * 0.01).map((g) => {
+    const t = [g[1], g[2], g[3]].map((v) => v / g[0]), r = [g[4], g[5], g[6]].map((v) => v / g[0]);
+    return { t, r, share: g[0] / n, off: Math.hypot(t[0] - r[0], t[1] - r[1], t[2] - r[2]) };
+  }).filter((c) => c.off > 6);
+}
+const colorText = (pairs) => pairs.map((c) => `${hexOf(c.t)} in the target is ${hexOf(c.r)} in your render (${Math.round(c.share * 100)}% of the page)`).join("; ");
+// measured colour correction: a hex colour in the code that renders as the wrong shade is set to the sampled one
+function colorSnap(code, pairs) {
+  const rgb = (h) => h.length === 4 ? [1, 2, 3].map((i) => parseInt(h[i] + h[i], 16)) : [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  let n = 0;
+  const out = code.replace(/#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g, (h) => {
+    const c = rgb(h);
+    const p = pairs.find((q) => q.share > 0.02 && Math.hypot(c[0] - q.r[0], c[1] - q.r[1], c[2] - q.r[2]) < 10);
+    if (!p) return h;
+    n++; return hexOf(p.t);
+  });
+  return { code: out, n };
+}
+// close-ups of the worst regions, target on the left and the render on the right, so small details are visible
+async function closeUps(r, renderUrl) {
+  const load = (src) => new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = src; });
+  const [ti, ri] = await Promise.all([load(S.shot.url), load(renderUrl)]);
+  const cells = [];
+  for (let gy = 0; gy < 3; gy++) for (let gx = 0; gx < 4; gx++) {
+    let s = 0, n = 0;
+    for (let y = Math.floor(gy * r.gh / 3); y < Math.floor((gy + 1) * r.gh / 3); y++)
+      for (let x = Math.floor(gx * r.gw / 4); x < Math.floor((gx + 1) * r.gw / 4); x++) { s += r.miss[y * r.gw + x]; n++; }
+    cells.push({ gx, gy, d: s / Math.max(1, n) });
+  }
+  const W = S.shot.w, H = Math.min(S.shot.h, 6000), out = [];
+  for (const c of cells.sort((a, b) => b.d - a.d).slice(0, 3)) {
+    const x0 = Math.max(0, (c.gx / 4) * W - W * 0.04), y0 = Math.max(0, (c.gy / 3) * H - H * 0.05);
+    const w = Math.min(W - x0, W / 4 + W * 0.08), h = Math.min(H - y0, H / 3 + H * 0.1);
+    const k = Math.min(2, 640 / w), cv = document.createElement("canvas"); cv.width = Math.round(w * k) * 2 + 12; cv.height = Math.round(h * k);
+    const g = cv.getContext("2d"); g.fillStyle = "#ff0040"; g.fillRect(0, 0, cv.width, cv.height);
+    g.drawImage(ti, x0, y0, w, h, 0, 0, w * k, h * k); g.drawImage(ri, x0, y0, w, h, w * k + 12, 0, w * k, h * k);
+    out.push({ blob: await new Promise((ok) => cv.toBlob(ok, "image/png")),
+      where: `x ${Math.round(x0 / W * 100)}-${Math.round((x0 + w) / W * 100)}%, y ${Math.round(y0 / H * 100)}-${Math.round((y0 + h) / H * 100)}%` });
+  }
+  return out;
+}
+// measured text fitting: each visible text of the screenshot is found in the rendered page, its text width compared
+// with the width it has in the screenshot, and its font size scaled to match (only tags whose class is unique in the code)
+function fitText(code) {
+  const comps = (S.analysis?.components || []).filter((c) => c.bbox && c.label && c.label.length >= 6 && /heading|text|button|link|label|badge|title|paragraph/i.test(c.type))
+    .map((c) => ({ t: (c.label.includes(":") ? c.label.split(":").slice(1).join(":") : c.label).replace(/\s+/g, " ").trim().slice(0, 80), w: c.bbox.width * S.shot.w }))
+    .filter((c) => c.t.length >= 6);  // labels like "Main heading: Build something..." carry the visible text after the colon
+  if (!comps.length) return Promise.resolve({ code, n: 0 });
+  const token = Math.random().toString(36).slice(2);
+  const inj = `<script>addEventListener("load",()=>setTimeout(async()=>{try{await document.fonts.ready}catch(_){}
+    const C=${JSON.stringify(comps)},out=[],norm=s=>(s||"").replace(/\\s+/g," ").trim().toLowerCase();
+    for(const c of C){let best=null;const t=norm(c.t);
+      for(const e of document.body.querySelectorAll("*")){const x=norm(e.innerText);if(!x||x.length>t.length*1.3+4)continue;
+        if(x===t||x.startsWith(t.slice(0,24))){if(!best||e.contains(best)===false&&best.contains(e))best=e;else if(!best)best=e}}
+      if(!best)continue;const r=document.createRange();r.selectNodeContents(best);const w=r.getBoundingClientRect().width;
+      if(w<20)continue;out.push({cls:best.getAttribute("class")||"",tag:best.tagName.toLowerCase(),k:c.w/w,fs:parseFloat(getComputedStyle(best).fontSize)})}
+    parent.postMessage({fit:"${token}",out},"*")},1200))<\/script>`;
+  return new Promise((resolve) => {
+    const f = document.createElement("iframe");
+    f.setAttribute("sandbox", "allow-scripts"); f.setAttribute("aria-hidden", "true");
+    Object.assign(f.style, { position: "fixed", left: "-20000px", top: "0", width: `${S.shot.w}px`, height: `${S.shot.h}px`, border: "0" });
+    const done = (v) => { removeEventListener("message", on); clearTimeout(tm); f.remove(); resolve(v); };
+    const on = (e) => {
+      if (e.data?.fit !== token) return;
+      let out = code, n = 0;
+      for (const m of e.data.out) {
+        if (!m.cls || m.k < 0.7 || m.k > 1.45 || Math.abs(m.k - 1) < 0.04) continue;
+        const attr = `class="${m.cls}"`, at = out.indexOf(attr);
+        if (at < 0 || out.indexOf(attr, at + 1) >= 0) continue;  // the class string must point at one tag only
+        const fs = Math.round(m.fs * m.k * 10) / 10;
+        const t0 = out.lastIndexOf("<", at), t1 = out.indexOf(">", at), tag = out.slice(t0, t1);
+        const tag2 = /\sstyle="/.test(tag) ? tag.replace(/\sstyle="/, ` style="font-size:${fs}px;`) : tag.replace(attr, `style="font-size:${fs}px" ${attr}`);
+        out = out.slice(0, t0) + tag2 + out.slice(t1); n++;
+      }
+      done({ code: out, n });
+    };
+    const tm = setTimeout(() => done({ code, n: 0 }), 15000);
+    addEventListener("message", on);
+    f.srcdoc = /<\/body>/i.test(code) ? code.replace(/<\/body>(?![\s\S]*<\/body>)/i, inj + "</body>") : code + inj;
+    document.body.append(f);
+  });
+}
 async function refineLoop() {
   if (S.target !== "html" || !current()) return;
   const run = S.run, btn = $("#refineBtn");
   btn.disabled = true; busy(true);
-  let best = { i: S.cur.html, score: (await measured(current()))?.score ?? 0 };
+  let best = { i: S.cur.html, score: (await measured(current()))?.score ?? 0 }, snaps = 0, fits = 0;
   try {
     for (let round = 1; round <= MAX_ROUNDS && best.score < TARGET_MATCH; round++) {
       if (run !== S.run) return;
@@ -631,9 +750,31 @@ async function refineLoop() {
       if (!res) throw new Error("the match could not be measured");
       wait(`Refining, round ${round}: ${res.score}% match, comparing the render with the screenshot…`);
       status(`Round ${round}: the AI sees its own render next to the screenshot and fixes what differs.`);
-      const png = await (await fetch(await captureDoc(previewDoc(v), S.shot.w, Math.min(S.shot.h, 6000)))).blob();
-      const out = await api("/api/digital/refine", { method: "POST", body: form({ render: new File([png], "render.png", { type: "image/png" }),
-        baseCode: v.code, score: String(res.score), regions: worstRegions(res) }) });
+      const shotUrl = await captureDoc(previewDoc(v), S.shot.w, Math.min(S.shot.h, 6000));
+      if (fits++ < 2) {  // instant, measured fix: text sizes to the widths they have in the screenshot
+        const ft = await fitText(v.code);
+        if (ft.n) {
+          S.versions.html.push({ ...v, code: ft.code, label: `Text sizes matched (${ft.n})`, cached: false });
+          S.cur.html = S.versions.html.length - 1; renderVersions(); renderCode();
+          const now = (await measured(current()))?.score ?? 0;
+          if (now > best.score) { best = { i: S.cur.html, score: now }; if (now >= TARGET_MATCH) break; round--; continue; }
+        }
+      }
+      const pairs = await colorPairs(shotUrl);
+      const snap = colorSnap(v.code, pairs);
+      if (snap.n && snaps++ < 3) {  // instant, measured fix first: wrong shades -> the sampled colours
+        S.versions.html.push({ ...v, code: snap.code, label: `Colours matched (${snap.n})`, cached: false });
+        S.cur.html = S.versions.html.length - 1; renderVersions(); renderCode();
+        const now = (await measured(current()))?.score ?? 0;
+        if (now > best.score) { best = { i: S.cur.html, score: now }; if (now >= TARGET_MATCH) break; round--; continue; }
+      }
+      const png = await (await fetch(shotUrl)).blob(), colors = colorText(pairs), ups = await closeUps(res, shotUrl);
+      const fd = form({ render: new File([png], "render.png", { type: "image/png" }),
+        diff: new File([await diffImage(res)], "diff.png", { type: "image/png" }),
+        baseCode: v.code, score: String(res.score), regions: worstRegions(res), colors, force: "1",
+        closeupWhere: ups.map((u) => u.where).join(" | ") });
+      ups.forEach((u, i) => fd.append("closeup", new File([u.blob], `closeup${i}.png`, { type: "image/png" })));
+      const out = await api("/api/digital/refine", { method: "POST", body: fd });
       if (run !== S.run) return;
       if (out.source !== "ai") { status(out.notes?.[0] || "Refine unavailable.", true); break; }
       S.versions.html.push({ code: out.code, notes: out.notes || [], source: out.source, change: out.change, label: `Refined · round ${round}`,

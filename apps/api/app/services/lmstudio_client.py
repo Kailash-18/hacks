@@ -84,7 +84,7 @@ class LMStudioVisionClient:
     def generate_code_text(self, image_bytes: bytes, mime_type: str, prompt: str) -> str:
         return self._chat([self._img(image_bytes, mime_type), {"type": "text", "text": prompt}], max_tokens=8000)
 
-    def generate_code_text_images(self, images: list[tuple[bytes, str]], prompt: str, max_tokens: int = 12000) -> str:
+    def generate_code_text_images(self, images: list[tuple[bytes, str]], prompt: str, max_tokens: int = 12000, **_) -> str:
         return self._chat([self._img(b, m) for b, m in images] + [{"type": "text", "text": prompt}], max_tokens=max_tokens)
 
 
@@ -107,11 +107,11 @@ class FallbackVisionClient:
     def ready(self) -> bool:
         return any(getattr(p, "ready", True) for p in self.providers)
 
-    def _run(self, method: str, *args):
+    def _run(self, method: str, *args, **kw):
         last = None
         for p in self.providers:
             try:
-                out = getattr(p, method)(*args)
+                out = getattr(p, method)(*args, **kw)
                 self.active = p
                 return out
             except ProviderError as exc:
@@ -134,8 +134,8 @@ class FallbackVisionClient:
     def generate_code_text(self, *a):
         return self._run("generate_code_text", *a)
 
-    def generate_code_text_images(self, *a):
-        return self._run("generate_code_text_images", *a)
+    def generate_code_text_images(self, *a, **k):
+        return self._run("generate_code_text_images", *a, **k)
 
     def generate_grounded(self, *a):  # web search exists only on Gemini
         g = next((p for p in self.providers if hasattr(p, "generate_grounded") and getattr(p, "ready", True)), None)

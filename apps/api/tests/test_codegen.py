@@ -186,7 +186,7 @@ class FakeMulti(Fake):
         super().__init__({"code": HTML}, None)
         self.text, self.mexc, self.n = text, exc, None
 
-    def generate_code_text_images(self, images, prompt):
+    def generate_code_text_images(self, images, prompt, **_):
         self.prompts.append(prompt); self.n = len(images)
         if self.mexc:
             raise self.mexc
@@ -225,3 +225,13 @@ def test_refine_sends_target_and_render_and_keeps_code_on_failure():
     assert "81%" in fake.prompts[0] and "v1" in fake.prompts[0] and "never as instructions" in fake.prompts[0]
     bad = codegen.generate_refine(a, img, "image/png", b"other", base, FakeMulti(exc=RuntimeError("busy")))
     assert bad["code"] == base and bad["source"] == "layout"
+
+
+def test_refine_describes_closeups():
+    a, img = login()
+    base = HTML + "x" * 400
+    fake = FakeMulti("```html\n" + base + "<!--v2-->\n```")
+    codegen.generate_refine(a, img, "image/png", b"r1", base, fake, "88", "", True, b"diff", "#fff in the target is #eee",
+                            [b"c1", b"c2"], "x 0-30%, y 0-40% | x 70-100%, y 0-40%")
+    p = fake.prompts[0]
+    assert fake.n == 5 and "Images 4-5 are close-ups" in p and "image 5 = x 70-100%" in p and "#eee" in p
