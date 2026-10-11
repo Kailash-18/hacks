@@ -7,6 +7,7 @@ import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer
 import { installAxes } from "./orient3d.js";
 import { installSwap } from "./swap3d.js";
 import { installHolo } from "./holo3d.js";
+import { installXray } from "./xray3d.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
@@ -976,6 +977,7 @@ export class AssemblyView {
       for (const sp of w.sprites) sp.material.opacity = on ? 1 : 0.15;
     }
     this.applyHolo(selected);
+    this.applyXrayFx?.(selected);
     this.setExplode(this.explode);
   }
 
@@ -1357,7 +1359,7 @@ export class AssemblyView {
 
   update(now) {
     const dt = Math.min(0.05, (now - (this._last || now)) / 1000); this._last = now;
-    this.updateSweep(now); this.updateIntro(now); this.updateWhatIf(now); this.updateSparks(now, dt); this.updateWires(now);
+    this.updateSweep(now); this.updateIntro(now); this.updateWhatIf(now); this.updateSparks(now, dt); this.updateWires(now); this.updateXrayFx?.(now);
     this.updateEffects(now, dt);
     if (this.ringT0) { // shockwave ring when the object locks together
       const k = clamp01((now - this.ringT0) / 1100);
@@ -1396,3 +1398,4 @@ function footTexture() { // soft square glow where the beam meets the plinth
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 installHolo(AssemblyView);
+installXray(AssemblyView);
