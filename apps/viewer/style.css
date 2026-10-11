@@ -706,3 +706,7 @@ button.alt { appearance: none; width: 100%; text-align: left; font: inherit; col
 .labels3d .lbl small.sw { color: #59d8ff; }
 .labels3d .lbl.swapping { filter: brightness(1.6) drop-shadow(0 0 8px rgba(89, 216, 255, .8)); transition: filter .3s; }
 .alts-note { white-space: nowrap; }
+
+/* parts confirmed by a teardown or spec sheet for the identified product */
+.parts .tag.ok { color: var(--ok); background: rgba(60, 207, 142, .12); }
+.chip.verified { color: var(--ok); border-color: rgba(60, 207, 142, .5); }

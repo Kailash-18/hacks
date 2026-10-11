@@ -74,11 +74,11 @@ Rules:
   Aim for 4-{MAX_PARTS} parts when they exist. Never include the whole object as a part.
   Include small parts like scroll wheels and buttons; skip only specks under about 0.1% of the image.
 - depth_rank: 0 = closest to the camera; larger = further back. Parts can share a rank.
-- "hidden_parts": at most {MAX_HIDDEN} parts that are typically inside this kind of object but are
-  NOT visible in this photo. Never list a visible part here. Use [] if unsure. For dense electronics
-  (phones, tablets, laptops, consoles) list each main internal module separately (aim for at least 8), e.g.
-  battery, logic board, display, loudspeaker, earpiece, haptic motor, camera sensor modules, wireless charging
-  coil, charging port, antennas, SIM tray, shields.
+- "hidden_parts": at most {MAX_HIDDEN} parts that THIS product really has inside but that are NOT visible in
+  this photo. Use what you know about this exact product (or, if you cannot tell the model, only parts every
+  product of this kind must have to work, e.g. a power source and a circuit board for electronics). Do not pad
+  the list with optional modules; fewer correct parts beat many guesses. Never list a visible part here. For dense
+  electronics you can name (a known phone, laptop or console), list each real internal module separately.
 - "product": brand/model only if a logo or printed text supports it; otherwise null. Never guess a
   model number you cannot read.
 - part type must be one of: {", ".join(sorted(PART_TYPES))}.
@@ -111,7 +111,7 @@ LIMITATIONS = [
 
 MAX_VIEWS = 4
 LAST_TIMING: dict = {}  # filled per request; exposed as a Server-Timing header for debugging
-PIPELINE_VERSION = "14"  # bump when building logic changes, so saved results are rebuilt (model answers stay cached)
+PIPELINE_VERSION = "15"  # bump when building logic changes, so saved results are rebuilt (model answers stay cached)
 
 
 class AnalysisError(Exception):
@@ -558,6 +558,12 @@ def analyze_physical_images(files: list[tuple[bytes, str]], vision_client: Visio
     if ident is None and result.scene is not None:
         result.scene.notes.append("Exact-model web lookup was unavailable this time (free quota or busy); "
                                   "identification uses visible logos/text only.")
+    try:  # check the parts list against the real product (teardowns, spec pages) before the 3D model is built
+        from .bom import verify_parts, apply_bom
+        if ident is not None:
+            apply_bom(result, verify_parts(result, id_jpegs, vision_client, cache_dir))
+    except Exception as exc:
+        log.warning("physical: parts check failed (%s: %s)", type(exc).__name__, exc)
     t3 = time.perf_counter()
     try:  # simplified 3D model for the 360-degree exploded view (best-effort; layers still work without it)
         from .assembly import build_assembly

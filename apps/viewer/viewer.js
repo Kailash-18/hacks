@@ -563,6 +563,7 @@ function cutoutOf(id) { // the part's own photo cut-out, when it was seen
   for (const v of viewsOf(A)) { const l = (v.layers || []).find((x) => x.componentId === id); if (l?.cutout) return l.cutout; }
   return null;
 }
+const isVerified = (c) => (c.evidence || []).some((e) => e.startsWith("Confirmed for "));
 function renderParts() {
   const ul = $("parts"); ul.innerHTML = "";
   const seen = A.components.filter((c) => c.status === "observed"), inside = A.components.filter((c) => c.status !== "observed");
@@ -588,6 +589,7 @@ function renderParts() {
       li.append(th, txt);
       if (c.id === removed) li.append(el("span", "tag gone", "removed"));
       else if (swaps.has(c.id)) li.append(el("span", "tag sw", "swapped"));
+      else if (isVerified(c)) li.append(Object.assign(el("span", "tag ok", "✓ verified"), { title: c.evidence[0] }));
       else if (affected.has(c.id)) li.append(el("span", "tag hit", "affected"));
       else li.append(el("span", "chev", "›"));
       li.onclick = () => select(c.id);
@@ -620,7 +622,8 @@ function renderDetail() {
   if (!selected) { d.hidden = true; return; }
   const c = compById(selected); d.hidden = false;
   $("dLabel").textContent = c.label;
-  const st = $("dStatus"); st.className = `chip ${c.status}`; st.textContent = c.status === "observed" ? "seen in photo" : c.status;
+  const st = $("dStatus"); st.className = `chip ${c.status}${isVerified(c) ? " verified" : ""}`;
+  st.textContent = c.status === "observed" ? "seen in photo" : isVerified(c) ? "verified inside" : c.status;
   $("dType").textContent = c.type.replace(/_/g, " "); $("dThumb").replaceChildren(thumbOf(c, "thumb lg")); d.className = "detail " + (FAMILY[c.type] || "other");
   $("dFunction").hidden = !c.function; $("dFunction").textContent = c.function ? "Does: " + c.function : "";
   $("dIfRemoved").hidden = !c.ifRemoved; $("dIfRemoved").textContent = c.ifRemoved ? "Without it: " + c.ifRemoved : "";
