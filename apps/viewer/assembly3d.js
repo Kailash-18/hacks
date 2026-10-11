@@ -8,7 +8,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { pcbTexture, brushedTexture, grainTexture, knurlTexture, screenTexture, weaveTexture, glowSprite, tiled } from "./textures.js";
+import { pcbTexture, brushedTexture, grainTexture, knurlTexture, screenTexture, phoneScreenTexture, weaveTexture, glowSprite, tiled } from "./textures.js";
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const easeOut = (k) => 1 - Math.pow(1 - k, 3);
@@ -45,13 +45,60 @@ const MATERIALS = {
   screen: { roughness: 0.12, metalness: 0.2, clearcoat: 1.0 },
 };
 
-function geometryFor(shape, s) {
+// camera lens: deep black glass with the purple-green shimmer of anti-reflection coating
+function lensify(mat) {
+  Object.assign(mat, { transmission: 0, opacity: 1, transparent: false, roughness: 0.02, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.02,
+    iridescence: 0.55, iridescenceIOR: 1.6, iridescenceThicknessRange: [120, 380], envMapIntensity: 1.4 });
+  mat.color.lerp(new THREE.Color(0x05060a), 0.75);
+}
+// frosted glass back: opaque, satin, with a crisp clear coat on top
+function frost(mat) {
+  Object.assign(mat, { transmission: 0, opacity: 1, transparent: false, roughness: 0.42, metalness: 0.05, clearcoat: 1, clearcoatRoughness: 0.12,
+    sheen: 0.25, sheenRoughness: 0.6, envMapIntensity: 1.1 });
+}
+
+// Rounded rectangle in plan (corner radius r), extruded along the part's thin axis with softly rounded edges:
+// how phones, tablets, cards, keycaps and camera plateaus really look. With wall > 0 it is a closed band
+// (a phone's metal side frame). UVs run 0..1 across the large faces, so screens and prints map once.
+function rrect(path, w, h, r) {
+  const x = -w / 2, y = -h / 2;
+  path.moveTo(x + r, y); path.lineTo(x + w - r, y); path.quadraticCurveTo(x + w, y, x + w, y + r);
+  path.lineTo(x + w, y + h - r); path.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  path.lineTo(x + r, y + h); path.quadraticCurveTo(x, y + h, x, y + h - r);
+  path.lineTo(x, y + r); path.quadraticCurveTo(x, y, x + r, y);
+  return path;
+}
+function slabGeometry(size, r, wall = 0) {
+  const t = size.indexOf(Math.min(...size)), [a, b] = t === 0 ? [size[2], size[1]] : t === 1 ? [size[0], size[2]] : [size[0], size[1]];
+  const d = size[t];
+  r = Math.max(0.0005, Math.min(r, a / 2 - 1e-4, b / 2 - 1e-4));
+  const shape = rrect(new THREE.Shape(), a, b, r);
+  if (wall > 0 && wall < Math.min(a, b) / 2) {
+    const ir = Math.max(0.0005, r - wall);
+    shape.holes.push(rrect(new THREE.Path(), a - 2 * wall, b - 2 * wall, ir));
+  }
+  const bevel = Math.min(d * 0.36, r * 0.6, wall > 0 ? wall * 0.4 : Infinity);
+  const g = new THREE.ExtrudeGeometry(shape, { depth: Math.max(1e-4, d - 2 * bevel), bevelEnabled: bevel > 1e-4, bevelThickness: bevel,
+    bevelSize: bevel * 0.9, bevelOffset: -bevel * 0.9, bevelSegments: 4, curveSegments: 18 });
+  g.translate(0, 0, -(d - 2 * bevel) / 2);
+  const P = g.attributes.position, U = g.attributes.uv;
+  for (let i = 0; i < P.count; i++) U.setXY(i, P.getX(i) / a + 0.5, P.getY(i) / b + 0.5);
+  if (t === 0) g.rotateY(Math.PI / 2); else if (t === 1) g.rotateX(-Math.PI / 2);
+  return g;
+}
+
+function geometryFor(shape, s, o = {}) {
   const [x, y, z] = s, m = Math.min(x, y, z);
+  const mid = [...s].sort((p, q) => p - q)[1];
+  const slab = m < 0.35 * mid;  // one thin side: a panel, screen, card, plateau
   let g;
-  switch (shape) {
+  if (shape === "frame") g = slabGeometry(s, o.r ?? mid * 0.16, o.wall || mid * 0.04);
+  else if (["box", "rounded_box", "plate"].includes(shape) && (o.r > 0 || (slab && shape !== "box")))
+    g = slabGeometry(s, o.r > 0 ? o.r : mid * (shape === "plate" ? 0.08 : 0.12));
+  else switch (shape) {
     case "box": g = new THREE.BoxGeometry(x, y, z); break;
     case "plate": g = new RoundedBoxGeometry(x, y, z, 3, Math.min(m * 0.45, Math.max(x, z) * 0.06)); break;
-    case "cylinder": case "disc": g = new THREE.CylinderGeometry(0.5, 0.5, 1, 48, 1); g.scale(x, y, z); break;
+    case "cylinder": case "disc": g = new THREE.CylinderGeometry(0.5, 0.5, 1, 64, 1); g.scale(x, y, z); break;
     case "cone": g = new THREE.ConeGeometry(0.5, 1, 48); g.scale(x, y, z); break;
     case "sphere": case "ellipsoid": g = new THREE.SphereGeometry(0.5, 56, 36); g.scale(x, y, z); break;
     case "dome": // upper half ellipsoid, open at the bottom, centred on its bounding box
@@ -208,7 +255,7 @@ export class AssemblyView {
         }
       }
       const inverted = a.shape === "dome" && !upright(a);
-      geom = geom || geometryFor(a.shape, size);
+      geom = geom || geometryFor(a.shape, size, { r: a.cornerRadius ? a.cornerRadius * k : 0, wall: a.wall ? a.wall * k : 0 });
       const mp = MATERIALS[a.material] || MATERIALS.plastic;
       const mat = new THREE.MeshPhysicalMaterial({ color: new THREE.Color(a.color), envMapIntensity: 1.0, ...mp,
         side: a.shape === "dome" || conformed ? THREE.DoubleSide : THREE.FrontSide });
@@ -240,7 +287,8 @@ export class AssemblyView {
         base: new THREE.Vector3(...pos), thinAxis: size.indexOf(Math.min(...size)),
         // only surface parts (labels, badges, buttons, switches) wrap onto the shell; boards and base plates stay flat
         sheetCandidate: !conformed && !inferred && !["controller", "structure", "power_source", "storage", "mechanism", "connector", "sensor"].includes(c.type)
-          && ["plate", "box", "rounded_box"].includes(a.shape) && Math.min(...size) < 0.28 * [...size].sort((x, y) => x - y)[1],
+          && ["plate", "box", "rounded_box"].includes(a.shape) && Math.min(...size) < 0.28 * [...size].sort((x, y) => x - y)[1]
+          && !a.cornerRadius && a.material !== "glass" && c.type !== "display" && Math.max(...size) < TARGET_SIZE * 0.4, // big panels keep their shape
         dir: new THREE.Vector3(...a.explodeDir).normalize(), dist: a.explodeDist ?? 1, halfH: size[1] / 2 });
     }
     this.wrapStickers();
@@ -368,8 +416,20 @@ export class AssemblyView {
       const b = rep(brushedTexture(), 2.5); mat.roughnessMap = b; mat.bumpMap = b; mat.bumpScale = 0.4;
     } else if (a.material === "rubber") {
       mat.bumpMap = rep(grainTexture(2), 0.8); mat.bumpScale = 1.2;
-    } else if (a.material === "screen") {
-      mat.map = screenTexture(); mat.color.set(0xffffff); mat.emissive.set(0x0b1422); mat.emissiveIntensity = 0.6;
+    } else if (a.material === "screen" || (c.type === "display" && flat)) {
+      const [lo, mid, hi] = [...size].sort((p, q) => p - q);
+      if (hi / mid > 1.6 && lo < 0.2 * mid) { // a phone-shaped screen: show it switched on
+        mat.map = phoneScreenTexture();
+        const t = size.indexOf(lo), [pa, pb] = t === 0 ? [size[2], size[1]] : t === 1 ? [size[0], size[2]] : [size[0], size[1]];
+        if (pa > pb) { mat.map = mat.map.clone(); mat.map.needsUpdate = true; mat.map.rotation = Math.PI / 2; mat.map.center.set(0.5, 0.5); }
+        mat.emissiveMap = mat.map; mat.emissive.set(0xffffff); mat.emissiveIntensity = 0.55;
+      } else { mat.map = screenTexture(); mat.emissive.set(0x0b1422); mat.emissiveIntensity = 0.6; }
+      mat.color.set(0xffffff); mat.roughness = 0.08; mat.clearcoat = 1; mat.clearcoatRoughness = 0.04;
+      Object.assign(mat, { transmission: 0, opacity: 1, transparent: false, metalness: 0.1 });
+    } else if (a.material === "glass") {
+      const [, mid, hi] = [...size].sort((p, q) => p - q);
+      if (["cylinder", "disc"].includes(a.shape) && hi < TARGET_SIZE * 0.2) lensify(mat);
+      else if (hi > TARGET_SIZE * 0.35 || ["cover", "structure"].includes(c.type)) frost(mat); // a back panel: satin glass
     } else if (a.material === "fabric") {
       mat.bumpMap = rep(weaveTexture(), 0.6); mat.bumpScale = 1.5;
     } else if (a.material !== "glass") {
@@ -407,6 +467,17 @@ export class AssemblyView {
         }
         const cr = Math.min(x, z) * 0.05; // crystal / electrolytic cap
         add(new THREE.CylinderGeometry(cr, cr, cr * 2.2, 24), metal, -x * 0.28, top + cr * 1.1, z * 0.22);
+      }
+      if (p.mat.iridescence > 0 && ["disc", "cylinder"].includes(p.shape)) { // camera lens: inner element and its ring
+        const R = Math.min(x, z) / 2, h = Math.max(0.004, y * 0.08);
+        const inner = new THREE.MeshPhysicalMaterial({ color: 0x020203, roughness: 0, metalness: 0.2, clearcoat: 1, iridescence: 1, iridescenceIOR: 2.0,
+          iridescenceThicknessRange: [200, 500], envMapIntensity: 2 });
+        const ring = new THREE.MeshPhysicalMaterial({ color: 0x2a2d33, roughness: 0.3, metalness: 0.9 });
+        for (const s of [1, -1]) {
+          add(new THREE.CylinderGeometry(R * 0.36, R * 0.42, h, 48), inner, 0, s * (y / 2 + h / 2), 0);
+          const t = new THREE.TorusGeometry(R * 0.62, R * 0.035, 12, 64); t.rotateX(Math.PI / 2);
+          add(t, ring, 0, s * (y / 2 + h * 0.3), 0);
+        }
       }
       if (p.type === "power_source" && (p.shape === "cylinder" || p.shape === "capsule")) {
         const rad = Math.min(x, z) / 2;
@@ -451,7 +522,7 @@ export class AssemblyView {
       if (ok < P.count * 0.6) continue; // mostly off the host: keep the original shape
       g.computeVertexNormals();
       p.mesh.geometry.dispose(); p.mesh.geometry = g; p.mat.side = THREE.DoubleSide;
-      p.edges.geometry.dispose(); p.edges.geometry = new THREE.EdgesGeometry(g, 40);
+      p.edges.geometry.dispose(); p.edges.geometry = new THREE.EdgesGeometry(g, 40); p.edges.visible = false; // a sticker has no hard outline
       p.group.quaternion.identity(); p.baseQuat = new THREE.Quaternion(); p.conformed = true; p.sheet = true;
       g.computeBoundingBox(); p.localCenter = g.boundingBox.getCenter(new THREE.Vector3());
       p.label.position.set(p.localCenter.x, g.boundingBox.max.y + 0.12, p.localCenter.z);
@@ -498,12 +569,13 @@ export class AssemblyView {
     for (const d of details) {
       const p = byId[d.parentId]; if (!p) continue;
       const size = d.size.map((v) => Math.max(0.008, v * k));
+      if (size.every((v, i) => v >= 0.8 * this.size.getComponent(i))) continue; // a whole-body "detail" would hide the parts
       // flat details are built thin along y and then laid on the surface: move their thinnest side to y
       if (["box", "rounded_box", "plate", "cross", "slots"].includes(d.shape)) {
         const t = size.indexOf(Math.min(...size));
         if (t !== 1) [size[1], size[t]] = [size[t], size[1]];
       }
-      const obj = this.detailObject(d, size);
+      const obj = this.detailObject(d, size, k);
       const want = new THREE.Vector3(...d.position.map((v) => v * k)).sub(ctr);
       const centre = new THREE.Box3().setFromObject(p.mesh).getCenter(new THREE.Vector3());
       const out = want.clone().sub(centre);
@@ -527,9 +599,11 @@ export class AssemblyView {
     }
   }
 
-  detailObject(d, size) {
+  detailObject(d, size, k = 1) {
     const mp = MATERIALS[d.material] || MATERIALS.plastic;
     const mat = new THREE.MeshPhysicalMaterial({ color: new THREE.Color(d.color), ...mp });
+    if (d.material === "glass" && ["cylinder", "disc"].includes(d.shape)) lensify(mat);
+    else if (d.material === "glass") frost(mat);
     const g = new THREE.Group();
     const add = (geom, x = 0, z = 0) => { const m = new THREE.Mesh(geom, mat); m.position.set(x, 0, z); m.castShadow = true; g.add(m); };
     const [x, y, z] = size;
@@ -541,7 +615,7 @@ export class AssemblyView {
       mat.color.multiplyScalar(0.55);
       for (let i = 0; i < n; i++) add(new RoundedBoxGeometry(w, y, z, 2, Math.min(w, y) * 0.45), -x / 2 + pitch * (i + 0.5));
     } else {
-      add(geometryFor(d.shape, size));
+      add(geometryFor(d.shape, size, { r: d.cornerRadius ? d.cornerRadius * k : 0 }));
     }
     return g;
   }
@@ -557,6 +631,7 @@ export class AssemblyView {
         const p = byId[l.componentId];
         if (!p || p.decal || !l.cutout) continue;
         if (p.sheet && !p.printable) continue; // switches/panels keep a clean solid colour
+        if (p.material === "glass" || p.lens) continue; // a photo printed on glass looks like a sticker
         if (p.sheet) { // label-like stickers print the photo of the part directly (plane UVs map onto the cut-out)
           let im; try { im = await load(l.cutout); } catch { continue; }
           if (!this.parts.includes(p)) return;

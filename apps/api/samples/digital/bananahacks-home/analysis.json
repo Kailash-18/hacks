@@ -1,0 +1,382 @@
+{
+  "analysisId": "digital-e1d491038f19856c",
+  "domain": "digital",
+  "title": "Banana Hacks Landing Page",
+  "source": {
+    "kind": "image",
+    "filename": "bananahacks-home.png"
+  },
+  "assetId": null,
+  "components": [
+    {
+      "id": "header-navbar",
+      "label": "Top Navigation Bar",
+      "type": "navbar",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Top bar containing logo, help link, and event status tags"
+      ],
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1.0,
+        "height": 0.052
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "brand-logo",
+      "label": "Banana Hacks Logo",
+      "type": "logo",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text 'Banana Hacks' with banana icon"
+      ],
+      "bbox": {
+        "x": 0.012,
+        "y": 0.014,
+        "width": 0.08,
+        "height": 0.025
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "help-link",
+      "label": "Help Link",
+      "type": "link",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text 'HELP'"
+      ],
+      "bbox": {
+        "x": 0.108,
+        "y": 0.018,
+        "width": 0.021,
+        "height": 0.015
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "top-status-badge",
+      "label": "Worldwide Status Badge",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text 'WORLDWIDE \u2022 OCT 9-12 11:52 AM'"
+      ],
+      "bbox": {
+        "x": 0.848,
+        "y": 0.01,
+        "width": 0.146,
+        "height": 0.031
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "event-metadata-tags",
+      "label": "Event Metadata Badges",
+      "type": "container",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Enclosing tags for date, international, free, and registered count"
+      ],
+      "bbox": {
+        "x": 0.031,
+        "y": 0.1,
+        "width": 0.272,
+        "height": 0.042
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "main-heading",
+      "label": "Main Heading: Build something worth showing off.",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Large typography 'Build something worth showing off.'"
+      ],
+      "bbox": {
+        "x": 0.031,
+        "y": 0.17,
+        "width": 0.424,
+        "height": 0.198
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "hero-description",
+      "label": "Event Description",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Paragraph text starting with 'Spend a long weekend building with generative AI...'"
+      ],
+      "bbox": {
+        "x": 0.031,
+        "y": 0.421,
+        "width": 0.286,
+        "height": 0.105
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "live-status-pill",
+      "label": "Hacking is live right now Indicator",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Green pill button reading 'Hacking is live right now'"
+      ],
+      "bbox": {
+        "x": 0.031,
+        "y": 0.558,
+        "width": 0.156,
+        "height": 0.08
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "btn-register",
+      "label": "Register Button",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Yellow CTA button 'Register now, it's free'"
+      ],
+      "bbox": {
+        "x": 0.031,
+        "y": 0.662,
+        "width": 0.141,
+        "height": 0.075
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "btn-ai-studio",
+      "label": "Try AI Studio Button",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Outline button 'Try the AI Studio'"
+      ],
+      "bbox": {
+        "x": 0.179,
+        "y": 0.662,
+        "width": 0.113,
+        "height": 0.075
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "sponsors-section",
+      "label": "Backed By Sponsors List",
+      "type": "container",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "'BACKED BY' label followed by sponsor logos/names"
+      ],
+      "bbox": {
+        "x": 0.03,
+        "y": 0.763,
+        "width": 0.266,
+        "height": 0.068
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "mascot-card",
+      "label": "Illustration Panel",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Right-hand retro card showing animated yellow banana slice character"
+      ],
+      "bbox": {
+        "x": 0.632,
+        "y": 0.098,
+        "width": 0.359,
+        "height": 0.799
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prizes-pill",
+      "label": "Prizes Banner",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Orange pill reading '$500 IN PRIZES, LICENSES & DOMAINS'"
+      ],
+      "bbox": {
+        "x": 0.646,
+        "y": 0.753,
+        "width": 0.19,
+        "height": 0.042
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "countries-count-badge",
+      "label": "60+ Countries Badge",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Tag reading '60+ COUNTRIES' at bottom right"
+      ],
+      "bbox": {
+        "x": 0.885,
+        "y": 0.821,
+        "width": 0.089,
+        "height": 0.04
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "dock-toolbar",
+      "label": "Bottom Navigation Dock",
+      "type": "toolbar",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Floating pill menu container with icon buttons at bottom center"
+      ],
+      "bbox": {
+        "x": 0.324,
+        "y": 0.883,
+        "width": 0.354,
+        "height": 0.106
+      },
+      "modelNodeId": null,
+      "transform": null
+    }
+  ],
+  "relationships": [
+    {
+      "id": "header-navbar--contains--brand-logo",
+      "from": "header-navbar",
+      "to": "brand-logo",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "header-navbar--contains--help-link",
+      "from": "header-navbar",
+      "to": "help-link",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "header-navbar--contains--top-status-badge",
+      "from": "header-navbar",
+      "to": "top-status-badge",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "mascot-card--contains--prizes-pill",
+      "from": "mascot-card",
+      "to": "prizes-pill",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "mascot-card--contains--countries-count-badge",
+      "from": "mascot-card",
+      "to": "countries-count-badge",
+      "type": "contains",
+      "status": "estimated",
+      "confidence": null,
+      "evidence": [
+        "Derived from bounding-box geometry (smallest enclosing box)"
+      ]
+    },
+    {
+      "id": "btn-register--adjacent_to--btn-ai-studio",
+      "from": "btn-register",
+      "to": "btn-ai-studio",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Buttons are side by side in the primary CTA area"
+      ]
+    },
+    {
+      "id": "main-heading--adjacent_to--hero-description",
+      "from": "main-heading",
+      "to": "hero-description",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Description sits directly underneath the main heading"
+      ]
+    },
+    {
+      "id": "mascot-card--appears_related_to--prizes-pill",
+      "from": "mascot-card",
+      "to": "prizes-pill",
+      "type": "appears_related_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Prizes tag is pinned to the bottom of the mascot frame"
+      ]
+    }
+  ],
+  "summary": "This is the landing hero section of the Banana Hacks hackathon website. It features an event banner, primary headline, event details, call-to-action buttons, sponsor logos, an interactive mascot illustration card on the right, and a floating toolbar navigation dock at the bottom.",
+  "limitations": [
+    "A single screenshot shows layout and visible text only; it does not reveal event handlers, API calls, data sources or where any control navigates.",
+    "Bounding boxes are model estimates and may be offset slightly from the true element edges.",
+    "confidence is null because the model does not produce calibrated probabilities."
+  ],
+  "provider": {
+    "name": "google-gemini",
+    "model": "gemini-3.7-flash"
+  }
+}

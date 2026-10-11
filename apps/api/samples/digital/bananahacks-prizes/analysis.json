@@ -1,0 +1,932 @@
+{
+  "analysisId": "digital-1e0d277e29bd8928",
+  "domain": "digital",
+  "title": "Prizes & Awards screen",
+  "source": {
+    "kind": "image",
+    "filename": "bananahacks-prizes.png"
+  },
+  "assetId": null,
+  "components": [
+    {
+      "id": "window-container",
+      "label": "Window Frame Container",
+      "type": "container",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Outer retro desktop-style window frame with border"
+      ],
+      "bbox": {
+        "x": 0.001,
+        "y": 0.004,
+        "width": 0.995,
+        "height": 0.992
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "window-titlebar",
+      "label": "Window Titlebar",
+      "type": "header",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Titlebar containing window controls and PRIZES label"
+      ],
+      "bbox": {
+        "x": 0.005,
+        "y": 0.007,
+        "width": 0.99,
+        "height": 0.064
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "titlebar-title",
+      "label": "PRIZES",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text 'PRIZES' with trophy icon"
+      ],
+      "bbox": {
+        "x": 0.092,
+        "y": 0.028,
+        "width": 0.077,
+        "height": 0.021
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "header-section",
+      "label": "Page Header Section",
+      "type": "section",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Yellow header area under titlebar"
+      ],
+      "bbox": {
+        "x": 0.007,
+        "y": 0.071,
+        "width": 0.986,
+        "height": 0.192
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "judging-tag",
+      "label": "JUDGING",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text 'JUDGING'"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.116,
+        "width": 0.06,
+        "height": 0.017
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "page-title",
+      "label": "Prizes & awards",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text 'Prizes & awards'"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.156,
+        "width": 0.176,
+        "height": 0.034
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "page-subtitle",
+      "label": "Free to enter \u00b7 Every submission is judged",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text 'Free to enter \u00b7 Every submission is judged'"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.206,
+        "width": 0.259,
+        "height": 0.023
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "main-content",
+      "label": "Main Content Area",
+      "type": "container",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Beige content area holding prize details"
+      ],
+      "bbox": {
+        "x": 0.007,
+        "y": 0.263,
+        "width": 0.986,
+        "height": 0.733
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "summary-card",
+      "label": "Prize Summary Card",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Card with shadow containing total prizes overview"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.303,
+        "width": 0.936,
+        "height": 0.21
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "summary-icon",
+      "label": "Trophy Icon",
+      "type": "icon",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Trophy icon graphic in summary card"
+      ],
+      "bbox": {
+        "x": 0.485,
+        "y": 0.339,
+        "width": 0.028,
+        "height": 0.057
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "summary-headline",
+      "label": "$500 in prizes, licenses & domains",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text '$500 in prizes, licenses & domains'"
+      ],
+      "bbox": {
+        "x": 0.368,
+        "y": 0.408,
+        "width": 0.261,
+        "height": 0.026
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "summary-subtext",
+      "label": "Cash for the top project, plus licenses and domains from our sponsors.",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text 'Cash for the top project, plus licenses and domains from our sponsors.'"
+      ],
+      "bbox": {
+        "x": 0.278,
+        "y": 0.448,
+        "width": 0.441,
+        "height": 0.022
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prizes-list-heading",
+      "label": "What you can win",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text 'What you can win'"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.556,
+        "width": 0.136,
+        "height": 0.025
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prize-card-1",
+      "label": "Prize Item: $500 cash",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Rounded rectangle border card for $500 cash"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.597,
+        "width": 0.936,
+        "height": 0.102
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prize-1-title",
+      "label": "$500 cash",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text '$500 cash'"
+      ],
+      "bbox": {
+        "x": 0.046,
+        "y": 0.619,
+        "width": 0.07,
+        "height": 0.019
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prize-1-sponsor",
+      "label": "Banana Hacks",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible sponsor label 'Banana Hacks'"
+      ],
+      "bbox": {
+        "x": 0.864,
+        "y": 0.621,
+        "width": 0.087,
+        "height": 0.016
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prize-1-desc",
+      "label": "Cash prize for the top project of the weekend.",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text 'Cash prize for the top project of the weekend.'"
+      ],
+      "bbox": {
+        "x": 0.046,
+        "y": 0.654,
+        "width": 0.263,
+        "height": 0.02
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prize-card-2",
+      "label": "Prize Item: CodeCrafters VIP memberships",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Rounded rectangle border card for CodeCrafters"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.706,
+        "width": 0.936,
+        "height": 0.101
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prize-2-title",
+      "label": "CodeCrafters VIP memberships",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text 'CodeCrafters VIP memberships'"
+      ],
+      "bbox": {
+        "x": 0.046,
+        "y": 0.727,
+        "width": 0.203,
+        "height": 0.019
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prize-2-sponsor",
+      "label": "CodeCrafters",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible sponsor label 'CodeCrafters'"
+      ],
+      "bbox": {
+        "x": 0.864,
+        "y": 0.729,
+        "width": 0.086,
+        "height": 0.017
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prize-2-desc",
+      "label": "Every member of the winning teams gets VIP access...",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible description text for CodeCrafters VIP access"
+      ],
+      "bbox": {
+        "x": 0.046,
+        "y": 0.763,
+        "width": 0.631,
+        "height": 0.02
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prize-card-3",
+      "label": "Prize Item: 50 Interview Cake licenses",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Rounded rectangle border card for Interview Cake"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.814,
+        "width": 0.936,
+        "height": 0.101
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prize-3-title",
+      "label": "50 Interview Cake licenses",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text '50 Interview Cake licenses'"
+      ],
+      "bbox": {
+        "x": 0.046,
+        "y": 0.836,
+        "width": 0.172,
+        "height": 0.018
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prize-3-sponsor",
+      "label": "Interview Cake",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible sponsor label 'Interview Cake'"
+      ],
+      "bbox": {
+        "x": 0.851,
+        "y": 0.838,
+        "width": 0.1,
+        "height": 0.016
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prize-3-desc",
+      "label": "Full-access licenses to Interview Cake's coding interview course.",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text 'Full-access licenses to Interview Cake's coding interview course.'"
+      ],
+      "bbox": {
+        "x": 0.046,
+        "y": 0.871,
+        "width": 0.369,
+        "height": 0.02
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prize-card-4",
+      "label": "Prize Item: Free .xyz domains",
+      "type": "card",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Rounded rectangle border card for .xyz domains"
+      ],
+      "bbox": {
+        "x": 0.033,
+        "y": 0.92,
+        "width": 0.936,
+        "height": 0.079
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prize-4-title",
+      "label": "Free .xyz domains",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text 'Free .xyz domains'"
+      ],
+      "bbox": {
+        "x": 0.046,
+        "y": 0.942,
+        "width": 0.117,
+        "height": 0.021
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prize-4-sponsor",
+      "label": "XYZ",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible sponsor label 'XYZ'"
+      ],
+      "bbox": {
+        "x": 0.928,
+        "y": 0.944,
+        "width": 0.023,
+        "height": 0.017
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "prize-4-desc",
+      "label": "A .xyz domain, free for the first year, to put your project on the web.",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Visible text 'A .xyz domain, free for the first year...'"
+      ],
+      "bbox": {
+        "x": 0.046,
+        "y": 0.978,
+        "width": 0.385,
+        "height": 0.021
+      },
+      "modelNodeId": null,
+      "transform": null
+    }
+  ],
+  "relationships": [
+    {
+      "id": "window-container--contains--window-titlebar",
+      "from": "window-container",
+      "to": "window-titlebar",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "window-titlebar--contains--titlebar-title",
+      "from": "window-titlebar",
+      "to": "titlebar-title",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "window-container--contains--header-section",
+      "from": "window-container",
+      "to": "header-section",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "header-section--contains--judging-tag",
+      "from": "header-section",
+      "to": "judging-tag",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "header-section--contains--page-title",
+      "from": "header-section",
+      "to": "page-title",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "header-section--contains--page-subtitle",
+      "from": "header-section",
+      "to": "page-subtitle",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "window-container--contains--main-content",
+      "from": "window-container",
+      "to": "main-content",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "main-content--contains--summary-card",
+      "from": "main-content",
+      "to": "summary-card",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "summary-card--contains--summary-icon",
+      "from": "summary-card",
+      "to": "summary-icon",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "summary-card--contains--summary-headline",
+      "from": "summary-card",
+      "to": "summary-headline",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "summary-card--contains--summary-subtext",
+      "from": "summary-card",
+      "to": "summary-subtext",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "main-content--contains--prizes-list-heading",
+      "from": "main-content",
+      "to": "prizes-list-heading",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "main-content--contains--prize-card-1",
+      "from": "main-content",
+      "to": "prize-card-1",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "prize-card-1--contains--prize-1-title",
+      "from": "prize-card-1",
+      "to": "prize-1-title",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "prize-card-1--contains--prize-1-sponsor",
+      "from": "prize-card-1",
+      "to": "prize-1-sponsor",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "prize-card-1--contains--prize-1-desc",
+      "from": "prize-card-1",
+      "to": "prize-1-desc",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "main-content--contains--prize-card-2",
+      "from": "main-content",
+      "to": "prize-card-2",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "prize-card-2--contains--prize-2-title",
+      "from": "prize-card-2",
+      "to": "prize-2-title",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "prize-card-2--contains--prize-2-sponsor",
+      "from": "prize-card-2",
+      "to": "prize-2-sponsor",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "prize-card-2--contains--prize-2-desc",
+      "from": "prize-card-2",
+      "to": "prize-2-desc",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "main-content--contains--prize-card-3",
+      "from": "main-content",
+      "to": "prize-card-3",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "prize-card-3--contains--prize-3-title",
+      "from": "prize-card-3",
+      "to": "prize-3-title",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "prize-card-3--contains--prize-3-sponsor",
+      "from": "prize-card-3",
+      "to": "prize-3-sponsor",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "prize-card-3--contains--prize-3-desc",
+      "from": "prize-card-3",
+      "to": "prize-3-desc",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "main-content--contains--prize-card-4",
+      "from": "main-content",
+      "to": "prize-card-4",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "prize-card-4--contains--prize-4-title",
+      "from": "prize-card-4",
+      "to": "prize-4-title",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "prize-card-4--contains--prize-4-sponsor",
+      "from": "prize-card-4",
+      "to": "prize-4-sponsor",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "prize-card-4--contains--prize-4-desc",
+      "from": "prize-card-4",
+      "to": "prize-4-desc",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "prize-1-title--adjacent_to--prize-1-desc",
+      "from": "prize-1-title",
+      "to": "prize-1-desc",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Title sits directly above description in prize card 1"
+      ]
+    },
+    {
+      "id": "prize-2-title--adjacent_to--prize-2-desc",
+      "from": "prize-2-title",
+      "to": "prize-2-desc",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Title sits directly above description in prize card 2"
+      ]
+    },
+    {
+      "id": "prize-3-title--adjacent_to--prize-3-desc",
+      "from": "prize-3-title",
+      "to": "prize-3-desc",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Title sits directly above description in prize card 3"
+      ]
+    },
+    {
+      "id": "prize-4-title--adjacent_to--prize-4-desc",
+      "from": "prize-4-title",
+      "to": "prize-4-desc",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Title sits directly above description in prize card 4"
+      ]
+    },
+    {
+      "id": "prize-card-1--adjacent_to--prize-card-2",
+      "from": "prize-card-1",
+      "to": "prize-card-2",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Cards are vertically stacked"
+      ]
+    },
+    {
+      "id": "prize-card-2--adjacent_to--prize-card-3",
+      "from": "prize-card-2",
+      "to": "prize-card-3",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Cards are vertically stacked"
+      ]
+    },
+    {
+      "id": "prize-card-3--adjacent_to--prize-card-4",
+      "from": "prize-card-3",
+      "to": "prize-card-4",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Cards are vertically stacked"
+      ]
+    }
+  ],
+  "summary": "The screen displays the prizes and awards section of a hackathon or competition platform. It features a retro-styled window frame with a yellow header, a summary card highlighting total prize value, and a list of specific prize tiers and sponsor rewards.",
+  "limitations": [
+    "Bottom of the window and the final prize card are cropped vertically.",
+    "A single screenshot shows layout and visible text only; it does not reveal event handlers, API calls, data sources or where any control navigates.",
+    "Bounding boxes are model estimates and may be offset slightly from the true element edges.",
+    "confidence is null because the model does not produce calibrated probabilities."
+  ],
+  "provider": {
+    "name": "google-gemini",
+    "model": "gemini-3.7-flash"
+  }
+}
