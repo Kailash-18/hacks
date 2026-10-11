@@ -227,6 +227,9 @@ export class AssemblyView {
       div.textContent = c.label;
       if (inferred) { const tag = document.createElement("small"); tag.textContent = "inferred"; div.append(tag); }
       geom.computeBoundingBox();
+      div.addEventListener("pointerenter", () => this.setHover(a.componentId, "label"));
+      div.addEventListener("pointerleave", () => this.setHover(null, "label"));
+      div.addEventListener("click", (e) => { e.stopPropagation(); this.onPick?.(a.componentId); });
       const label = new CSS2DObject(div); label.position.set(0, geom.boundingBox.max.y + 0.12, 0); label.center.set(0.5, 1);
       group.add(label);
       this.root.add(group);
@@ -700,6 +703,15 @@ export class AssemblyView {
 
   anyMoved() { return this.parts.some((p) => p.moved); }
 
+  // Pointing at a part, its callout or its row in the list lights up all three.
+  setHover(id, source = "") {
+    if (this.hoverId === id) return;
+    this.hoverId = id;
+    this._leaders?.classList.toggle("focus", !!id);
+    if (this.lastPaint) this.paint(this.lastPaint); else this.poke();
+    this.onHover?.(id, source);
+  }
+
   // "Bring forward" / "Send back": slide the part towards or away from the viewer, animated.
   nudge(id, dir, ms = 260) {
     const p = this.parts.find((q) => q.id === id); if (!p) return false;
@@ -756,8 +768,10 @@ export class AssemblyView {
     for (const p of this.parts) {
       if (!this.whatif) p.group.visible = p.id !== removed;
       const dim = (isolate && selected && p.id !== selected && !related.has(p.id)) || (xr && p.id !== selected);
-      const glow = p.id === selected ? 0x2a6df4 : affected.has(p.id) ? 0xff5040 : 0x000000;
-      p.mat.emissive.setHex(glow); p.mat.emissiveIntensity = glow ? 0.55 : 0;
+      const hov = p.id === this.hoverId && p.id !== selected;
+      const glow = p.id === selected ? 0x2a6df4 : affected.has(p.id) ? 0xff5040 : hov ? 0x1b8fd0 : 0x000000;
+      p.mat.emissive.setHex(glow); p.mat.emissiveIntensity = glow ? (hov ? 0.4 : 0.55) : 0;
+      p.label.element.classList.toggle("hov", p.id === this.hoverId);
       const baseOpacity = p.mat.userData.baseOpacity ??= p.mat.opacity;
       const dimOp = xr ? 0.16 : 0.1;
       p.mat.transparent = dim || baseOpacity < 1; p.mat.opacity = dim ? dimOp : baseOpacity; p.mat.depthWrite = !dim;
@@ -889,7 +903,9 @@ export class AssemblyView {
             g.lastChild.setAttribute("r", "3");
             svg.append(g); this._leaderEls.set(i.p.id, g);
           }
-          g.setAttribute("class", "leader" + (i.p.inferred ? " inf" : "") + (i.e.classList.contains("sel") ? " sel" : "") + (i.e.classList.contains("hit") ? " hit" : ""));
+          const cls = "leader" + (i.p.inferred ? " inf" : "") + (i.e.classList.contains("sel") ? " sel" : "") + (i.e.classList.contains("hit") ? " hit" : "")
+            + (i.p.id === this.hoverId ? " hov" : "");
+          if (g.getAttribute("class") !== cls) g.setAttribute("class", cls); // unchanged class keeps the draw-in animation from restarting
           g.firstChild.setAttribute("d", `M${sx.toFixed(1)},${sy.toFixed(1)} L${ex.toFixed(1)},${sy.toFixed(1)} L${i.ax.toFixed(1)},${i.ay.toFixed(1)}`);
           g.lastChild.setAttribute("cx", i.ax.toFixed(1)); g.lastChild.setAttribute("cy", i.ay.toFixed(1));
           g.style.display = ""; live.add(i.p.id);

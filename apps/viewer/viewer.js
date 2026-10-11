@@ -338,12 +338,19 @@ function introExplode(target = 0.65, ms = 1600) { // animate apart once a result
   const e = $("explode"), from = parseFloat(e.value), t0 = performance.now();
   const tick = (now) => {
     const k = Math.min(1, (now - t0) / ms), ease = 1 - Math.pow(1 - k, 3);
-    e.value = from + (target - from) * ease; applyExplode();
+    e.value = from + (target - from) * ease; applyExplode(); paintSlider();
     if (k < 1) requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
 }
 $("explode").addEventListener("input", applyExplode);
+// the slider track fills up to the grip
+const paintSlider = () => { const e = $("explode"); e.style.setProperty("--fill", e.value * 100 + "%"); };
+$("explode").addEventListener("input", paintSlider);
+// callouts and the 3D model share the hover: the matching row in the parts list lights up too
+asm.onPick = (id) => select(id);
+canvas.addEventListener("pointerleave", () => { $("hover").hidden = true; if (mode === "3d") asm.setHover(null, "canvas"); });
+asm.onHover = (id) => { for (const li of $("parts").children) li.classList.toggle("hov", li.dataset.id === id); };
 
 // ---------------------------------------------------------------- depth (browser)
 let depthPipe = null;
@@ -432,8 +439,12 @@ canvas.addEventListener("pointerup", (e) => {
 canvas.addEventListener("pointermove", (e) => {
   if (!A) return;
   const id = pick(e), h = $("hover");
-  if (id) { const r = canvas.getBoundingClientRect(); h.textContent = compById(id).label; h.style.left = e.clientX - r.left + "px"; h.style.top = e.clientY - r.top + "px"; h.hidden = false; canvas.style.cursor = "pointer"; }
-  else { h.hidden = true; canvas.style.cursor = ""; }
+  if (id) {
+    const r = canvas.getBoundingClientRect(), c = compById(id);
+    h.textContent = c.label; h.append(el("em", "", c.type.replace(/_/g, " ")));
+    h.style.left = e.clientX - r.left + "px"; h.style.top = e.clientY - r.top + "px"; h.hidden = false; canvas.style.cursor = "pointer";
+  } else { h.hidden = true; canvas.style.cursor = ""; }
+  if (mode === "3d" && !drag) asm.setHover(id, "canvas");
 });
 
 // ---------------------------------------------------------------- highlight
@@ -534,6 +545,9 @@ function renderParts() {
     const li = el("li", [c.id === selected && "sel", affected.has(c.id) && "affected", c.id === removed && "removed"].filter(Boolean).join(" "));
     li.append(el("i", `st ${c.status}`), el("span", "", c.label), el("span", "type", c.type));
     li.onclick = () => select(c.id);
+    li.dataset.id = c.id;
+    li.onmouseenter = () => { if (mode === "3d") asm.setHover(c.id, "list"); };
+    li.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "list"); };
     ul.append(li);
   }
 }
