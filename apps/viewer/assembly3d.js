@@ -558,7 +558,7 @@ export class AssemblyView {
           let im; try { im = await load(l.cutout); } catch { continue; }
           if (!this.parts.includes(p)) return;
           const tex = new THREE.Texture(im); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; tex.needsUpdate = true;
-          p.mat.map = tex; p.mat.alphaTest = 0.35; p.mat.color.set(0xffffff); p.mat.bumpMap = null; p.mat.needsUpdate = true; p.decal = true; continue;
+          p.mat.map = tex; p.mat.alphaTest = 0.35; p.mat.color.set(0xffffff); p.mat.bumpMap = null; p.mat.needsUpdate = true; p.decal = true; this.poke(); continue;
         }
         // photos only print well on flat faces: curved/conformed shells get their sampled colour instead
         if (p.conformed || !["box", "rounded_box", "plate"].includes(p.shape)) continue;
@@ -571,7 +571,7 @@ export class AssemblyView {
           metalness: p.mat.metalness, clearcoat: p.mat.clearcoat, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
           side: THREE.DoubleSide, envMapIntensity: p.mat.envMapIntensity });
         const m = new THREE.Mesh(geom, mat); m.userData.partId = p.id; m.renderOrder = 1;
-        p.mesh.add(m); p.decal = m; p.extras.push(mat); p.pickables.push(m);
+        p.mesh.add(m); p.decal = m; p.extras.push(mat); p.pickables.push(m); this.poke();
       }
     }
   }
@@ -623,6 +623,7 @@ export class AssemblyView {
   pullScale(p) { return p.dragT > 1e-4 ? Math.min(1, this.explode / p.dragT) : 1; }
 
   applyPose() {
+    this.poke();
     const t = this.explode, reach = TARGET_SIZE * 0.8, I = new THREE.Quaternion();
     for (const p of this.parts) {
       if (p.moved && p.dragT < 0.02 && t > p.dragT) p.dragT = t; // moved while assembled: tie it to this explode
@@ -779,11 +780,36 @@ export class AssemblyView {
   // draws the frame through the bloom composer; returns false when the 3D model view is not active
   renderScene() {
     if (!this.root.visible) return false;
-    this.update(performance.now());
+    const now = performance.now();
+    this.update(now);
     const c = this.renderer.domElement, w = c.clientWidth, h = c.clientHeight, key = w + "x" + h;
     if (key !== this._size && w && h) { this._size = key; this.composer.setPixelRatio(this.renderer.getPixelRatio()); this.composer.setSize(w, h); }
-    this.composer.render();
+    if (this.lowQuality) this.renderer.render(this.scene, this.camera); else this.composer.render();
+    this.watchSpeed(now);
     return true;
+  }
+
+  // Something is moving: keep drawing. When nothing changes the view stops redrawing, so an idle page costs nothing.
+  poke() { this._active = performance.now(); }
+  busy(now = performance.now()) {
+    return !!(this.intro || this.whatif || this.sweep || this.ringT0 || this.xray || this.sparks?.length
+      || (this.bloomT0 && now - this.bloomT0 < 1500) || now - (this._active || 0) < 700);
+  }
+
+  // Slow computer (integrated graphics): drop the glow pass, soft shadows and extra pixels so the page stays responsive.
+  watchSpeed(now) {
+    if (this.lowQuality) return;
+    const dt = now - (this._lastFrame || now); this._lastFrame = now;
+    if (dt <= 0 || dt > 1000) return; // first frame or the tab was in the background
+    this._slow = (this._slow || 0) * 0.9 + (dt > 45 ? 1 : 0) * 0.1;
+    if ((this._frames = (this._frames || 0) + 1) > 30 && this._slow > 0.6) this.setLowQuality();
+  }
+  setLowQuality() {
+    this.lowQuality = true;
+    this.renderer.setPixelRatio(1);
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    const keyL = this.lights.children[0]; if (keyL.shadow) { keyL.shadow.mapSize.set(1024, 1024); keyL.shadow.map?.dispose(); keyL.shadow.map = null; }
+    console.info("3D view: lighter rendering for this computer");
   }
 
   render() {

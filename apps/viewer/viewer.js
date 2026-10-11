@@ -973,5 +973,14 @@ loadSamples();
 // ---------------------------------------------------------------- loop
 $("spin").addEventListener("change", (e) => { controls.autoRotate = e.target.checked; });
 controls.addEventListener("start", () => { if (controls.autoRotate) { controls.autoRotate = false; $("spin").checked = false; } });
-renderer.setAnimationLoop(() => { controls.update(); if (!asm.renderScene()) renderer.render(scene3, camera); asm.render(); });
+// The 3D model view redraws only while something moves (orbiting, animations, dragging, hovering);
+// a still page does no work, which keeps slower laptops responsive.
+for (const ev of ["pointermove", "pointerdown", "pointerup", "wheel", "keydown", "input", "change", "click", "resize"]) addEventListener(ev, () => asm.poke(), { passive: true });
+controls.addEventListener("change", () => asm.poke());
+renderer.setAnimationLoop(() => {
+  controls.update();
+  if (mode === "3d" && asm.root.visible && !controls.autoRotate && !drag && !asm.busy()) return;
+  if (!asm.renderScene()) renderer.render(scene3, camera);
+  asm.render();
+});
 window.__vre = { build, asm, get state() { return { mode, parts: mode === "3d" ? asm.parts.length : parts.length, ghosts: ghosts.length, selected, removed, affected: [...affected] }; }, select };
