@@ -31,15 +31,33 @@
   <section class="stage">
     <canvas id="c"></canvas>
     <div id="empty" class="empty">
-      <h1>Photo in. Exploded diagram out.</h1>
-      <p>Upload 1–4 photos of any object. The AI finds its parts, cuts them out, estimates depth and pulls them apart so you can inspect each one. More angles = more real parts.</p>
-      <ul class="tips">
-        <li>One object, filling most of the frame</li>
-        <li>Plain background, good light</li>
-        <li>Objects with visible parts work best: a bike, a keyboard, an open PC, a drone</li>
-        <li>Add a bottom or opened-up shot to reveal parts hidden from the top</li>
-      </ul>
-      <label class="btn primary big" for="file">Choose photos</label>
+      <div class="hero">
+        <div class="hero-copy">
+          <p class="hero-kicker">Physical Lab</p>
+          <h1>Photo in.<br />Exploded diagram out.</h1>
+          <p class="hero-lede">Show it one to four photos of any object. The AI names its parts, works out what sits inside, builds a 3D model and pulls it apart so you can inspect, remove and ask about every piece.</p>
+          <label class="dropzone" id="dropzone" for="file" tabindex="0">
+            <span class="dz-main">Drop photos here or <u>choose files</u></span>
+            <span class="dz-sub">JPEG, PNG or WebP · one object, plain background · add a bottom or opened-up shot for hidden parts</span>
+          </label>
+          <div class="try" id="tryRow" hidden><span>Or open a saved scan</span><div id="tryBtns"></div></div>
+        </div>
+        <div class="reticle" aria-hidden="true">
+          <svg viewBox="0 0 400 400">
+            <circle cx="200" cy="200" r="190" class="r1" /><circle cx="200" cy="200" r="150" class="r2" />
+            <circle cx="200" cy="200" r="106" class="r3" /><circle cx="200" cy="200" r="58" class="r4" />
+            <path d="M200 0v60M200 340v60M0 200h60M340 200h60" class="cross" />
+            <g class="spin"><path d="M200 10a190 190 0 0 1 134 56" class="arc" /><path d="M200 390a190 190 0 0 1-134-56" class="arc" /></g>
+            <g class="spin2"><path d="M350 200a150 150 0 0 1-44 106" class="arc2" /><path d="M50 200a150 150 0 0 1 44-106" class="arc2" /></g>
+            <rect x="170" y="170" width="60" height="60" class="core" />
+          </svg>
+          <ol class="flow">
+            <li><b>Scan</b><span>AI finds every visible part and traces it</span></li>
+            <li><b>Infer</b><span>Boards, batteries and wiring inside, marked as inferred</span></li>
+            <li><b>Explore</b><span>Explode it, remove a part, ask what it does</span></li>
+          </ol>
+        </div>
+      </div>
     </div>
     <div id="loading" class="loading" hidden>
       <div class="scan">

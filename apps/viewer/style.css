@@ -499,3 +499,49 @@ h4 { font: 700 13px var(--hud); letter-spacing: .12em; text-transform: uppercase
   .dot, .panel.boot .block, #detail:not([hidden]), .leaders3d .leader.hov path, .leaders3d .leader.sel path { animation: none; }
   .parts li::before { transition: none; }
 }
+
+/* ---------------------------------------------------------------- landing: the scanner waiting for an object */
+.layout:has(> .panel[hidden]) { grid-template-columns: 1fr; } /* no empty side column before a result */
+.empty { padding: 32px clamp(16px, 5vw, 72px); }
+.hero { width: min(1180px, 100%); display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: clamp(24px, 4vw, 64px); align-items: center; text-align: left; }
+.empty .hero-kicker { margin: 0 0 10px; font: 14px var(--mono); letter-spacing: .3em; text-transform: uppercase; color: var(--cyan); }
+.hero h1 { margin: 0; font: 700 clamp(40px, 5.6vw, 76px)/.95 var(--hud); letter-spacing: .02em; text-transform: uppercase; color: #fff;
+  text-shadow: 0 0 40px rgba(63, 224, 255, .28); }
+.empty .hero-lede { margin: 18px 0 26px; max-width: 54ch; font: 500 18px/1.55 var(--hud); color: #9fc0d2; }
+.dropzone { position: relative; display: grid; gap: 4px; padding: 22px 24px; cursor: pointer; border: 1px dashed rgba(63, 224, 255, .45);
+  background: rgba(63, 224, 255, .05); transition: background .15s, border-color .15s, box-shadow .15s; }
+.dropzone::before, .dropzone::after { content: ""; position: absolute; width: 16px; height: 16px; border: 0 solid var(--cyan); }
+.dropzone::before { left: -1px; top: -1px; border-left-width: 2px; border-top-width: 2px; }
+.dropzone::after { right: -1px; bottom: -1px; border-right-width: 2px; border-bottom-width: 2px; }
+.dropzone:hover, .dropzone:focus-visible, .dropzone.over { background: rgba(63, 224, 255, .12); border-color: var(--cyan); box-shadow: 0 0 30px rgba(63, 224, 255, .18); outline: none; }
+.dz-main { font: 700 20px var(--hud); letter-spacing: .04em; color: #fff; }
+.dz-main u { color: var(--cyan); text-underline-offset: 3px; }
+.dz-sub { font: 500 14px var(--hud); color: var(--muted); }
+.try { margin-top: 18px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.try > span { font: 13px var(--mono); color: var(--muted); }
+#tryBtns { display: flex; gap: 8px; flex-wrap: wrap; }
+.try-btn { font-size: 15px; padding: 8px 14px; }
+
+/* reticle: the one moving thing on the page, slow enough to read as idle scanning */
+.reticle { position: relative; display: grid; justify-items: center; gap: 18px; }
+.reticle svg { width: min(400px, 36vw); height: auto; overflow: visible; filter: drop-shadow(0 0 14px rgba(63, 224, 255, .25)); }
+.reticle circle { fill: none; stroke: rgba(63, 224, 255, .22); stroke-width: 1; }
+.reticle .r2 { stroke-dasharray: 2 6; } .reticle .r3 { stroke: rgba(63, 224, 255, .35); } .reticle .r4 { stroke-dasharray: 10 6; }
+.reticle .cross { stroke: rgba(63, 224, 255, .45); stroke-width: 1; }
+.reticle .arc { fill: none; stroke: var(--cyan); stroke-width: 3; stroke-linecap: square; }
+.reticle .arc2 { fill: none; stroke: #b49cff; stroke-width: 2; }
+.reticle .core { fill: rgba(63, 224, 255, .08); stroke: var(--cyan); stroke-width: 1.5; transform-origin: 200px 200px; transform: rotate(45deg); }
+.reticle .spin { transform-origin: 200px 200px; animation: rspin 14s linear infinite; }
+.reticle .spin2 { transform-origin: 200px 200px; animation: rspin 22s linear infinite reverse; }
+@keyframes rspin { to { transform: rotate(360deg); } }
+.flow { list-style: none; counter-reset: f; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
+.flow li { counter-increment: f; padding: 10px 12px; border-top: 2px solid rgba(63, 224, 255, .35); background: rgba(63, 224, 255, .04); }
+.flow b { display: block; font: 700 15px var(--hud); letter-spacing: .12em; text-transform: uppercase; color: #fff; }
+.flow b::before { content: counter(f) "  "; font: 13px var(--mono); color: var(--cyan); }
+.flow span { display: block; margin-top: 2px; font: 500 13.5px/1.4 var(--hud); color: var(--muted); }
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; text-align: left; }
+  .reticle svg { width: min(260px, 70vw); }
+  .flow { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .reticle .spin, .reticle .spin2 { animation: none; } }
