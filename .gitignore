@@ -20,3 +20,4 @@ apps/viewer/testdata/
 apps/api/out/
 node_modules/
 *.bundle
+**/.cache*/

@@ -171,3 +171,13 @@ def test_eval_chat_flag_asks_one_grounded_question(tmp_path, monkeypatch):
     row = json.loads((tmp_path / "eval_summary.json").read_text(encoding="utf-8"))["screens"][0]
     assert row["chat"]["referencedComponentIds"] == ["hero-cta"]  # invented id filtered out
     assert any("runtime behaviour" in x for x in row["chat"]["limitations"])  # "clicked" -> caveat added
+
+
+def test_empty_gemini_model_env_means_auto_pick(monkeypatch):
+    """GEMINI_MODEL= (empty, as in .env.example) must not be sent as the model name ("model is required")."""
+    from app.services.vision_client import GeminiVisionClient
+
+    monkeypatch.setenv("GEMINI_MODEL", "")
+    assert GeminiVisionClient(api_key="x").model == ""          # resolved on the first call
+    monkeypatch.setenv("GEMINI_MODEL", "  gemini-x-flash ")
+    assert GeminiVisionClient(api_key="x").model == "gemini-x-flash"

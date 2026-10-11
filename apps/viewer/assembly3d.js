@@ -115,6 +115,7 @@ export class AssemblyView {
 
   build(assembly, components, views = [], relationships = []) {
     for (const p of this.parts) { this.root.remove(p.group); p.label.element.remove(); }
+    if (this._leaderEls) { for (const g of this._leaderEls.values()) g.remove(); this._leaderEls.clear(); }
     this.parts = []; this.whatif = null; this.intro = null;
     for (const sp of this.sparks || []) this.root.remove(sp.s);
     this.sparks = [];
@@ -124,12 +125,13 @@ export class AssemblyView {
     const k = this.scale;
     // curved shells ("dome") that thin parts and base plates should conform to
     // only upright domes (open side down) act as shells that other parts conform to / fit inside
-    const upright = (a) => a.rotation.every((r) => Math.abs(((r % 360) + 540) % 360 - 180) > 175);
+    const upright = (a) => a.rotation.every((r) => Math.abs(((r % 360) + 540) % 360 - 180) < 5); // rotation ~0: open side down
     const domes = assembly.parts.filter((a) => a.shape === "dome" && upright(a)).map((a) => ({
       cx: a.position[0] * k, cz: a.position[2] * k, ax: (a.size[0] * k) / 2, az: (a.size[2] * k) / 2,
       h: a.size[1] * k, baseY: a.position[1] * k - (a.size[1] * k) / 2 }));
     const domeTop = (d, x, z) => { const q = 1 - ((x - d.cx) / d.ax) ** 2 - ((z - d.cz) / d.az) ** 2; return q > 0 ? d.baseY + d.h * Math.sqrt(q) : null; };
     const main = [...domes].sort((a, b) => b.ax * b.az - a.ax * a.az)[0];
+    this.mainDome = main ? { ...main } : null; // used after centring to keep every part inside the shell's outline
     // 1) Housing parts (side shell, lower shell, chassis) with the dome's footprint become curved bands that
     //    follow the dome, and the dome is trimmed to sit on them: one seamless body, no box corners sticking out.
     const bands = {};
@@ -151,6 +153,8 @@ export class AssemblyView {
     if (main) for (const a of assembly.parts) {
       const c = comp[a.componentId];
       if (!c || a.shape === "dome" || bands[a.componentId] || !inner.has(c.type)) continue;
+      // a flat base plate under the shell is not squeezed inside it: it gets the shell's oval footprint below
+      if (["structure", "cover"].includes(c.type) && a.size[1] < 0.3 * Math.min(a.size[0], a.size[2])) continue;
       const size = a.size.map((v) => v * k), pos = a.position.map((v) => v * k);
       if (domeTop(main, pos[0], pos[2]) === null || pos[1] > (domeTop(main, pos[0], pos[2]) ?? 0)) continue; // not inside the shell
       const R = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(...a.rotation.map((d) => THREE.MathUtils.degToRad(d)))).elements;
@@ -211,7 +215,7 @@ export class AssemblyView {
       const isBoard = this.dressMaterial(mat, a, c, size);
       const mesh = new THREE.Mesh(geom, mat); mesh.castShadow = true; mesh.receiveShadow = true;
       const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geom, 28),
-        new THREE.LineBasicMaterial({ color: inferred ? 0xf2b84b : 0x0b0d12, transparent: true, opacity: inferred ? 0.85 : 0.28 }));
+        new THREE.LineBasicMaterial({ color: 0x0b0d12, transparent: true, opacity: 0.28 }));
       const group = new THREE.Group(); group.add(mesh, edges);
       if (inverted) { // a flipped dome would be an open bowl: close it with a lid
         const lid = new THREE.Mesh(new THREE.CircleGeometry(0.5, 64).rotateX(Math.PI / 2).scale(size[0], 1, size[2]).translate(0, -size[1] / 2, 0), mat);
@@ -220,7 +224,8 @@ export class AssemblyView {
       if (!conformed) group.rotation.set(...a.rotation.map((d) => THREE.MathUtils.degToRad(d)));
       group.traverse((o) => (o.userData.partId = a.componentId));
       const div = document.createElement("div"); div.className = "lbl" + (inferred ? " inferred" : "");
-      div.textContent = (inferred ? "? " : "") + c.label;
+      div.textContent = c.label;
+      if (inferred) { const tag = document.createElement("small"); tag.textContent = "inferred"; div.append(tag); }
       geom.computeBoundingBox();
       const label = new CSS2DObject(div); label.position.set(0, geom.boundingBox.max.y + 0.12, 0); label.center.set(0.5, 1);
       group.add(label);
@@ -233,7 +238,9 @@ export class AssemblyView {
         baseEdgeOpacity: edges.material.opacity,
         offset: new THREE.Vector3(), baseQuat: group.quaternion.clone(), userQuat: new THREE.Quaternion(),
         base: new THREE.Vector3(...pos), thinAxis: size.indexOf(Math.min(...size)),
-        sheetCandidate: !conformed && ["plate", "box", "rounded_box"].includes(a.shape) && Math.min(...size) < 0.28 * [...size].sort((x, y) => x - y)[1],
+        // only surface parts (labels, badges, buttons, switches) wrap onto the shell; boards and base plates stay flat
+        sheetCandidate: !conformed && !inferred && !["controller", "structure", "power_source", "storage", "mechanism", "connector", "sensor"].includes(c.type)
+          && ["plate", "box", "rounded_box"].includes(a.shape) && Math.min(...size) < 0.28 * [...size].sort((x, y) => x - y)[1],
         dir: new THREE.Vector3(...a.explodeDir).normalize(), dist: a.explodeDist ?? 1, halfH: size[1] / 2 });
     }
     this.wrapStickers();
@@ -242,12 +249,107 @@ export class AssemblyView {
     for (const p of this.parts) { p.group.position.copy(p.base); p.group.updateMatrixWorld(true); box.expandByObject(p.mesh); }
     const ctr = box.getCenter(new THREE.Vector3());
     for (const p of this.parts) p.base.sub(ctr);
+    this._ctr = ctr;
     this.size = box.getSize(new THREE.Vector3());
+    this.containInternals();
+    this.orderExplode();
     this.addDetails(assembly.details || [], k, ctr);
     this.addAutoDetails(assembly.details || []);
     this.addDecals(views);
     this.buildWires(relationships);
     this.setExplode(this.explode);
+  }
+
+  // The AI sometimes places an internal part (board, battery, connector, speaker) so that it pokes out of the
+  // housing. Shrink it a little if it is too big and slide it back inside the housing's box.
+  containInternals() {
+    const boxOf = (p) => { p.group.position.copy(p.base); p.group.quaternion.copy(p.baseQuat); p.group.scale.setScalar(1);
+      p.group.updateMatrixWorld(true); return new THREE.Box3().setFromObject(p.mesh); };
+    const all = new THREE.Box3(); const boxes = new Map();
+    for (const p of this.parts) { const b = boxOf(p); boxes.set(p, b); all.union(b); }
+    const S = all.getSize(new THREE.Vector3()), big = (b) => { const z = b.getSize(new THREE.Vector3());
+      return [z.x / S.x, z.y / S.y, z.z / S.z].filter((r) => r > 0.6).length >= 2; };
+    this.housing = new Set(this.parts.filter((p) => ["cover", "structure"].includes(p.type) && big(boxes.get(p))));
+    if (!this.housing.size) return;
+    const env = new THREE.Box3(); for (const p of this.housing) env.union(boxes.get(p));
+    const inset = env.getSize(new THREE.Vector3()).multiplyScalar(0.03); env.min.add(inset); env.max.sub(inset);
+    const E = env.getSize(new THREE.Vector3());
+    // buttons, screens and wheels may sit proud of the surface a little; nothing may hang outside the body
+    const outside = new Set(["actuator", "display", "wheel", "interface"]);
+    const loose = env.clone().expandByVector(env.getSize(new THREE.Vector3()).multiplyScalar(0.06));
+    for (const p of this.parts) {
+      if (this.housing.has(p) || p.sheet) continue;
+      const box = outside.has(p.type) && !p.inferred ? loose : env, E2 = box.getSize(new THREE.Vector3());
+      const b = boxes.get(p), z = b.getSize(new THREE.Vector3());
+      if (box.containsBox(b)) continue;
+      const k = Math.min(1, 0.96 * E2.x / Math.max(1e-6, z.x), 0.96 * E2.y / Math.max(1e-6, z.y), 0.96 * E2.z / Math.max(1e-6, z.z));
+      p.fit = k;
+      const c = b.getCenter(new THREE.Vector3()), h = z.multiplyScalar(k / 2), want = c.clone();
+      for (const ax of ["x", "y", "z"]) want[ax] = Math.min(box.max[ax] - h[ax], Math.max(box.min[ax] + h[ax], c[ax]));
+      // scaling happens around the group's pivot, which is not always the box centre
+      const off = c.clone().sub(p.base).multiplyScalar(k);
+      p.base.copy(want).sub(off);
+    }
+    // a rounded shell (mouse, helmet, bottle cap) has an oval outline: box corners can still poke out of it
+    const d = this.mainDome;
+    if (!d) return;
+    const ctr = this._ctr || new THREE.Vector3(), cx = d.cx - ctr.x, cz = d.cz - ctr.z;
+    for (const p of this.parts) {
+      if (this.housing.has(p) || p.sheet || p.conformed) continue;
+      for (let it = 0; it < 16; it++) {
+        p.group.position.copy(p.base); p.group.quaternion.copy(p.baseQuat); p.group.scale.setScalar(p.fit || 1); p.group.updateMatrixWorld(true);
+        const b = new THREE.Box3().setFromObject(p.mesh);
+        const lim = outside.has(p.type) && !p.inferred ? 1.06 : 0.97;
+        const worst = Math.max(...[[b.min.x, b.min.z], [b.max.x, b.min.z], [b.min.x, b.max.z], [b.max.x, b.max.z]]
+          .map(([x, z]) => Math.hypot((x - cx) / d.ax, (z - cz) / d.az)));
+        if (worst <= lim) break;
+        p.fit = (p.fit || 1) * 0.93;
+        p.base.x += (cx - p.base.x) * 0.12; p.base.z += (cz - p.base.z) * 0.12;
+      }
+    }
+    for (const p of this.parts) { p.group.scale.setScalar(1); }
+  }
+
+  // Inside the body = not a housing part and not something you can see or touch from outside.
+  isInside(p) {
+    if (!this.housing?.size || this.housing.has(p) || p.sheet) return false;
+    return p.inferred || ["controller", "power_source", "storage", "cable", "connector", "mechanism", "sensor"].includes(p.type);
+  }
+
+  // Parts must leave the assembly in the order they are stacked: the screen in front of the housing it sits
+  // in, the board behind it. The AI's distances often break that order (the screen ends up hidden behind the
+  // housing). Internal parts that fly off sideways are put back on the main axis so they stay in the stack.
+  orderExplode() {
+    const sum = [0, 0, 0];
+    for (const p of this.parts) { sum[0] += Math.abs(p.dir.x) * p.dist; sum[1] += Math.abs(p.dir.y) * p.dist; sum[2] += Math.abs(p.dir.z) * p.dist; }
+    const e = new THREE.Vector3(); e.setComponent(sum.indexOf(Math.max(...sum)), 1);
+    const span = this.size.getComponent(sum.indexOf(Math.max(...sum))) || 1;
+    for (const p of this.parts) {
+      const along = p.dir.dot(e);
+      const internal = p.inferred || ["controller", "power_source", "storage", "connector", "cable"].includes(p.type);
+      if (Math.abs(along) < 0.5 && internal && !this.housing?.has(p)) {
+        const side = Math.sign(p.base.dot(e)) || Math.sign(along) || 1;
+        p.dir.copy(e).multiplyScalar(side);
+      }
+    }
+    const GAP = 0.14, EPS = span * 0.04;
+    for (const side of [1, -1]) {
+      const members = this.parts.filter((p) => p.dir.dot(e) * side >= 0.5).map((p) => ({
+        p, along: p.dir.dot(e) * side, key: p.base.dot(e) * side + (this.housing?.has(p) ? EPS * 0.5 : 0) }));
+      members.sort((a, b) => a.key - b.key);
+      let prev = null, i = 0;
+      while (i < members.length) { // parts at about the same depth form one level; each level clears the one inside it
+        const lvl = [members[i]];
+        while (i + lvl.length < members.length && members[i + lvl.length].key - members[i].key <= EPS) lvl.push(members[i + lvl.length]);
+        i += lvl.length;
+        const req = prev === null ? 0 : prev + GAP;
+        let top = 0;
+        for (const m of lvl) { const ev = Math.max(m.p.dist * m.along, req); m.p.dist = ev / m.along; top = Math.max(top, ev); }
+        prev = Math.max(prev ?? 0, top);
+      }
+      const top = Math.max(0, ...members.map((m) => m.p.dist * m.along));
+      if (top > 2.2) for (const m of members) m.p.dist *= 2.2 / top; // keep the whole diagram on screen
+    }
   }
 
   // Realistic surface: procedural PCB print, brushed metal, rubber grain, knurled wheels, screen glass.
@@ -456,7 +558,7 @@ export class AssemblyView {
           let im; try { im = await load(l.cutout); } catch { continue; }
           if (!this.parts.includes(p)) return;
           const tex = new THREE.Texture(im); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; tex.needsUpdate = true;
-          p.mat.map = tex; p.mat.alphaTest = 0.35; p.mat.color.set(0xffffff); p.mat.bumpMap = null; p.mat.needsUpdate = true; p.decal = true; continue;
+          p.mat.map = tex; p.mat.alphaTest = 0.35; p.mat.color.set(0xffffff); p.mat.bumpMap = null; p.mat.needsUpdate = true; p.decal = true; this.poke(); continue;
         }
         // photos only print well on flat faces: curved/conformed shells get their sampled colour instead
         if (p.conformed || !["box", "rounded_box", "plate"].includes(p.shape)) continue;
@@ -469,7 +571,7 @@ export class AssemblyView {
           metalness: p.mat.metalness, clearcoat: p.mat.clearcoat, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
           side: THREE.DoubleSide, envMapIntensity: p.mat.envMapIntensity });
         const m = new THREE.Mesh(geom, mat); m.userData.partId = p.id; m.renderOrder = 1;
-        p.mesh.add(m); p.decal = m; p.extras.push(mat); p.pickables.push(m);
+        p.mesh.add(m); p.decal = m; p.extras.push(mat); p.pickables.push(m); this.poke();
       }
     }
   }
@@ -521,13 +623,14 @@ export class AssemblyView {
   pullScale(p) { return p.dragT > 1e-4 ? Math.min(1, this.explode / p.dragT) : 1; }
 
   applyPose() {
+    this.poke();
     const t = this.explode, reach = TARGET_SIZE * 0.8, I = new THREE.Quaternion();
     for (const p of this.parts) {
       if (p.moved && p.dragT < 0.02 && t > p.dragT) p.dragT = t; // moved while assembled: tie it to this explode
       const s = this.pullScale(p);
       p.group.position.copy(p.base).addScaledVector(p.dir, t * p.dist * reach).addScaledVector(p.offset, s).add(p.fx.offset);
       p.group.quaternion.copy(p.fx.quat).multiply(I.clone().slerp(p.userQuat, s)).multiply(p.baseQuat);
-      p.group.scale.setScalar(p.fx.scale);
+      p.group.scale.setScalar(p.fx.scale * (p.fit || 1));
     }
     this.poseVersion = (this.poseVersion || 0) + 1;
   }
@@ -597,6 +700,21 @@ export class AssemblyView {
 
   anyMoved() { return this.parts.some((p) => p.moved); }
 
+  // "Bring forward" / "Send back": slide the part towards or away from the viewer, animated.
+  nudge(id, dir, ms = 260) {
+    const p = this.parts.find((q) => q.id === id); if (!p) return false;
+    const s = this.pullScale(p); p.offset.multiplyScalar(s); p.userQuat.copy(new THREE.Quaternion().slerp(p.userQuat, s)); p.dragT = this.explode;
+    const toCam = this.camera.position.clone().sub(this.centerOf(p)).normalize();
+    const step = Math.max(0.35, TARGET_SIZE * 0.09) * dir, from = p.offset.clone(), to = from.clone().addScaledVector(toCam, step), t0 = performance.now();
+    const tick = (now) => {
+      const k = Math.min(1, (now - t0) / ms); p.offset.lerpVectors(from, to, easeOut(k));
+      p.moved = true; this.setExplode(this.explode);
+      if (k < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    return true;
+  }
+
   resetParts(ms = 500) { // glide every part back into place
     const from = this.parts.map((p) => ({ p, o: p.offset.clone(), q: p.userQuat.clone() })), t0 = performance.now(), I = new THREE.Quaternion();
     const tick = (now) => {
@@ -662,11 +780,36 @@ export class AssemblyView {
   // draws the frame through the bloom composer; returns false when the 3D model view is not active
   renderScene() {
     if (!this.root.visible) return false;
-    this.update(performance.now());
+    const now = performance.now();
+    this.update(now);
     const c = this.renderer.domElement, w = c.clientWidth, h = c.clientHeight, key = w + "x" + h;
     if (key !== this._size && w && h) { this._size = key; this.composer.setPixelRatio(this.renderer.getPixelRatio()); this.composer.setSize(w, h); }
-    this.composer.render();
+    if (this.lowQuality) this.renderer.render(this.scene, this.camera); else this.composer.render();
+    this.watchSpeed(now);
     return true;
+  }
+
+  // Something is moving: keep drawing. When nothing changes the view stops redrawing, so an idle page costs nothing.
+  poke() { this._active = performance.now(); }
+  busy(now = performance.now()) {
+    return !!(this.intro || this.whatif || this.sweep || this.ringT0 || this.xray || this.sparks?.length
+      || (this.bloomT0 && now - this.bloomT0 < 1500) || now - (this._active || 0) < 700);
+  }
+
+  // Slow computer (integrated graphics): drop the glow pass, soft shadows and extra pixels so the page stays responsive.
+  watchSpeed(now) {
+    if (this.lowQuality) return;
+    const dt = now - (this._lastFrame || now); this._lastFrame = now;
+    if (dt <= 0 || dt > 1000) return; // first frame or the tab was in the background
+    this._slow = (this._slow || 0) * 0.9 + (dt > 45 ? 1 : 0) * 0.1;
+    if ((this._frames = (this._frames || 0) + 1) > 30 && this._slow > 0.6) this.setLowQuality();
+  }
+  setLowQuality() {
+    this.lowQuality = true;
+    this.renderer.setPixelRatio(1);
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    const keyL = this.lights.children[0]; if (keyL.shadow) { keyL.shadow.mapSize.set(1024, 1024); keyL.shadow.map?.dispose(); keyL.shadow.map = null; }
+    console.info("3D view: lighter rendering for this computer");
   }
 
   render() {
@@ -674,18 +817,86 @@ export class AssemblyView {
     const r = this.renderer.domElement.getBoundingClientRect();
     this.labels.setSize(r.width, r.height);
     this.labels.render(this.scene, this.camera);
-    // declutter: keep the most important labels, hide ones that overlap them
     // CSS2D labels ignore parent visibility: hide labels of parts that are hidden (removed, intro)
     for (const p of this.parts) p.label.element.style.visibility = p.group.visible && p.fx.scale > 0.3 ? "" : "hidden";
-    const cand = this.parts.filter((p) => p.label.visible && p.group.visible);
-    cand.sort((a, b) => (b.highlight - a.highlight) || (a.inferred - b.inferred) || (b.halfH - a.halfH));
-    const kept = [];
-    for (const p of cand) {
-      const e = p.label.element, b = e.getBoundingClientRect();
-      const hit = kept.some((k) => b.left < k.right + 4 && b.right > k.left - 4 && b.top < k.bottom + 2 && b.bottom > k.top - 2);
-      e.classList.toggle("collide", hit && !p.highlight);
-      if (!hit || p.highlight) kept.push(b);
+    this.layoutCallouts(r.width, r.height);
+  }
+
+  // Exploded-diagram callouts: labels sit in two clean columns at the left/right edges of the view,
+  // ordered by the height of their part, and a leader line runs from each label to its part.
+  // Labels never overlap each other or the part they name.
+  layoutCallouts(w, h) {
+    const NS = "http://www.w3.org/2000/svg";
+    if (!this._leaders) {
+      this._leaders = document.createElementNS(NS, "svg");
+      this._leaders.setAttribute("class", "leaders3d");
+      this.labels.domElement.prepend(this._leaders);
+      this._leaderEls = new Map();
     }
+    const svg = this._leaders;
+    if (this._svgSize !== w + "x" + h) {
+      this._svgSize = w + "x" + h;
+      svg.setAttribute("width", w); svg.setAttribute("height", h); svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+      this._frameN = 0; // re-measure the overlays after a resize
+    }
+    // keep the columns clear of the overlays on the stage (view tabs at the top, controls panel at the bottom);
+    // measured every 30 frames, not every frame, to keep rendering cheap
+    if (!this._clear || (this._frameN = (this._frameN || 0) + 1) % 30 === 1) {
+      const stageBox = this.stage.getBoundingClientRect();
+      const tabs = this.stage.querySelector(".tabs")?.getBoundingClientRect();
+      const ctrl = this.stage.querySelector(".controls")?.getBoundingClientRect();
+      this._clear = {
+        top: Math.max(16, tabs && tabs.height ? tabs.bottom - stageBox.top + 10 : 60),
+        bottom: Math.max(16, ctrl && ctrl.height ? stageBox.bottom - ctrl.top + 10 : 76),
+      };
+    }
+    const TOP = this._clear.top, BOTTOM = this._clear.bottom, SIDE = 16, GAP = 6, ELBOW = 18;
+    const v = new THREE.Vector3(), items = [], live = new Set();
+    for (const p of this.parts) {
+      const e = p.label.element;
+      if (!p.label.visible || !p.group.visible || p.fx.scale <= 0.3 || e.style.display === "none") continue;
+      v.copy(this.centerOf(p)).project(this.camera);
+      if (v.z > 1) { e.style.visibility = "hidden"; continue; } // behind the camera
+      if (!p._lw) { p._lw = e.offsetWidth; p._lh = e.offsetHeight; } // label size is measured once
+      items.push({ p, e, ax: (v.x + 1) / 2 * w, ay: (1 - v.y) / 2 * h, lw: p._lw, lh: p._lh });
+    }
+    if (items.length) {
+      // split around the model's on-screen centre, then balance so neither column is overloaded
+      const cx = items.reduce((sum, i) => sum + i.ax, 0) / items.length;
+      const left = items.filter((i) => i.ax < cx), right = items.filter((i) => i.ax >= cx);
+      const move = (from, to, pick) => { from.sort(pick); to.push(from.shift()); };
+      while (left.length - right.length > 1) move(left, right, (a, b) => b.ax - a.ax);
+      while (right.length - left.length > 1) move(right, left, (a, b) => a.ax - b.ax);
+      // columns hug the model (a short gap from its outermost anchor) instead of the screen edges, so leader lines stay short
+      const GUTTER = 56, minAx = Math.min(...items.map((i) => i.ax)), maxAx = Math.max(...items.map((i) => i.ax));
+      const maxLwL = Math.max(0, ...left.map((i) => i.lw)), maxLwR = Math.max(0, ...right.map((i) => i.lw));
+      const colRightL = Math.max(SIDE + maxLwL, minAx - GUTTER), colLeftR = Math.min(w - SIDE - maxLwR, maxAx + GUTTER);
+      for (const [col, side] of [[left, "L"], [right, "R"]]) {
+        const row = (i) => Math.round(i.ay / 14); // same row: the lower label goes to the part farther away, so lines never cross
+        col.sort((a, b) => row(a) - row(b) || (side === "L" ? a.ax - b.ax : b.ax - a.ax));
+        let y = TOP; // top-down: as close to the part's height as possible, no overlap
+        for (const i of col) { i.y = Math.max(i.ay - i.lh / 2, y); y = i.y + i.lh + GAP; }
+        let limit = h - BOTTOM; // bottom-up: pull back inside the free area if the column overflows
+        for (let k = col.length - 1; k >= 0; k--) { col[k].y = Math.max(TOP, Math.min(col[k].y, limit - col[k].lh)); limit = col[k].y - GAP; }
+        for (const i of col) {
+          i.x = side === "L" ? colRightL - i.lw : colLeftR;
+          i.e.style.transform = `translate(${Math.round(i.x)}px, ${Math.round(i.y)}px)`;
+          const sx = side === "L" ? i.x + i.lw : i.x, sy = i.y + i.lh / 2, ex = sx + (side === "L" ? ELBOW : -ELBOW);
+          let g = this._leaderEls.get(i.p.id);
+          if (!g) {
+            g = document.createElementNS(NS, "g");
+            g.append(document.createElementNS(NS, "path"), document.createElementNS(NS, "circle"));
+            g.lastChild.setAttribute("r", "3");
+            svg.append(g); this._leaderEls.set(i.p.id, g);
+          }
+          g.setAttribute("class", "leader" + (i.p.inferred ? " inf" : "") + (i.e.classList.contains("sel") ? " sel" : "") + (i.e.classList.contains("hit") ? " hit" : ""));
+          g.firstChild.setAttribute("d", `M${sx.toFixed(1)},${sy.toFixed(1)} L${ex.toFixed(1)},${sy.toFixed(1)} L${i.ax.toFixed(1)},${i.ay.toFixed(1)}`);
+          g.lastChild.setAttribute("cx", i.ax.toFixed(1)); g.lastChild.setAttribute("cy", i.ay.toFixed(1));
+          g.style.display = ""; live.add(i.p.id);
+        }
+      }
+    }
+    for (const [id, g] of this._leaderEls) if (!live.has(id)) g.style.display = "none";
   }
 
   // ---------------------------------------------------------------- wiring x-ray: the relationship graph, in 3D
@@ -844,7 +1055,10 @@ export class AssemblyView {
     this.intro = { t0: now, ms, onDone, total: ms + step * n, items: this.parts.map((p, i) => ({
       p, delay: i * step, axis: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(),
       ang: (Math.random() - 0.5) * 4, from: p.dir.clone().multiplyScalar(TARGET_SIZE * (0.9 + Math.random() * 0.6))
-        .add(new THREE.Vector3((Math.random() - 0.5) * 3, Math.random() * 2.5, (Math.random() - 0.5) * 3)) })) };
+        .add(new THREE.Vector3((Math.random() - 0.5) * 3, Math.random() * 2.5, (Math.random() - 0.5) * 3)),
+      // parts that live inside the body stay hidden until the shell is solid: no board or battery showing
+      // through a half-built hologram or flying in from outside the object
+      inside: this.isInside(p) })) };
     for (const p of this.parts) {
       p.mat.transparent = true; p.mat.opacity = 0; p.mat.depthWrite = false; p.mat.needsUpdate = true;
       for (const m of p.extras) { m.transparent = true; m.opacity = 0; m.needsUpdate = true; }
@@ -866,7 +1080,9 @@ export class AssemblyView {
     const I = this.intro; if (!I) return;
     for (const it of I.items) {
       const local = (now - I.t0 - it.delay) / (I.ms * 0.6), k = clamp01(local), e = easeOut(k);
-      const p = it.p; p.group.visible = local > 0;
+      const p = it.p;
+      if (it.inside) { p.group.visible = false; p.fx.offset.set(0, 0, 0); p.fx.quat.identity(); continue; }
+      p.group.visible = local > 0;
       p.fx.offset.copy(it.from).multiplyScalar(1 - e); p.fx.quat.setFromAxisAngle(it.axis, it.ang * (1 - e));
       const solid = clamp01((k - 0.45) / 0.55);
       p.mat.opacity = solid * (p.mat.userData.baseOpacity ?? 1); for (const m of p.extras) m.opacity = solid;
@@ -877,7 +1093,7 @@ export class AssemblyView {
     this.applyPose();
     if (now - I.t0 >= I.total + 150) {
       this.intro = null; this.scanPlane.visible = false;
-      for (const p of this.parts) { p.edges.material.toneMapped = true; p.edges.material.color.copy(p.edgeColor); p.mat.depthWrite = true; p.fx.offset.set(0, 0, 0); p.fx.quat.identity(); }
+      for (const p of this.parts) { p.edges.material.toneMapped = true; p.edges.material.color.copy(p.edgeColor); p.mat.depthWrite = true; p.fx.offset.set(0, 0, 0); p.fx.quat.identity(); p.group.visible = true; }
       this.ring.visible = true; this.ring.position.y = this.floor.position.y + 0.01; this.ringT0 = now; this.bloomT0 = now;
       if (this.lastPaint) this.paint(this.lastPaint); else this.applyPose();
       I.onDone?.();

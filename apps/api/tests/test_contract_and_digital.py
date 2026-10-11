@@ -236,3 +236,12 @@ def test_chat_no_behaviour_caveat_for_layout_questions():
     resp = answer_question(_digital(), ChatRequest(question="How many feature cards are there?"),
                            FakeClient(json.dumps(dict(CHAT_FIXTURE, limitations=[]))))
     assert DIGITAL_BEHAVIOUR_LIMITATION not in resp.limitations
+
+
+def test_chat_drops_repeated_analysis_limitations_and_names_the_source():
+    a = _digital()
+    reply = dict(CHAT_FIXTURE, limitations=[a.limitations[0], "Answer-specific caveat", "Answer-specific caveat"])
+    client = FakeClient(json.dumps(reply))
+    resp = answer_question(a, ChatRequest(question="How many cards?"), client)
+    assert resp.limitations == ["Answer-specific caveat"]
+    assert "The source is a screenshot" in client.calls[0][2]

@@ -104,21 +104,25 @@
       <div id="whatifOut" class="whatif" hidden></div>
     </div>
 
+    <div class="block chat" id="chatBlock">
+      <div class="block-head"><h3>Ask about this object</h3><span class="legend" id="chatCtx"></span></div>
+      <div id="chatLog" class="chat-log" aria-live="polite"></div>
+      <div id="chatChips" class="chat-chips"></div>
+      <form id="chatForm" class="chat-form">
+        <input id="chatInput" autocomplete="off" maxlength="500" placeholder="e.g. What does the main board do?" />
+        <button class="btn small primary" id="chatSend">Ask</button>
+      </form>
+    </div>
     <div class="block">
       <div class="block-head"><h3>System graph</h3><span id="graphStats" class="legend"></span></div>
       <svg id="graph" viewBox="0 0 340 300" role="img" aria-label="Component relationship graph"></svg>
       <div class="glegend">
-        <span><i style="background:#ffb020"></i>power</span><span><i style="background:#36d6ff"></i>control</span>
+        <span><i style="background:#ffb020"></i>power</span><span><i style="background:#36d6ff"></i>control / signal</span>
         <span><i style="background:#ff5fd2"></i>motion</span><span><i style="background:#8fa3bf"></i>structure</span>
       </div>
       <p class="tiny muted">Arrow points to the part that depends on the other · dashed = inferred · bigger node = more important. Click a node to inspect it.</p>
     </div>
 
-    <details class="block">
-      <summary>Limitations &amp; method</summary>
-      <ul id="limits" class="tiny"></ul>
-      <p class="tiny muted" id="providerLine"></p>
-    </details>
   </aside>
 </main>
 <script type="module" src="/viewer/viewer.js"></script>

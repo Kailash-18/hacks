@@ -226,7 +226,62 @@ function renderPanelHead() {
 
 // ---------- explore ----------
 $("#showBoxes").onchange = () => $("#boxes").classList.toggle("quiet", !$("#showBoxes").checked);
-$("#showLabels").onchange = () => $("#boxes").classList.toggle("labels", $("#showLabels").checked);
+$("#showLabels").onchange = () => { layoutCallouts(); paintSelection(); };
+
+// ---------- exploded-diagram callouts: component names in two side columns, a leader line to each box ----------
+function layoutCallouts() {
+  const wrap = $("#exploreWrap"), host = $("#callouts"), img = $("#shotImg");
+  const a = cur()?.analysis, on = $("#showLabels").checked && !!a;
+  wrap.classList.toggle("callout-mode", on);
+  if (!on) { host.innerHTML = ""; return; }
+  const W = img.clientWidth, H = img.clientHeight;
+  if (!W || !H) { host.innerHTML = ""; return; }
+  const GAP_X = 16, GAP_Y = 4, ELBOW = 10;
+  const items = a.components.filter((c) => c.bbox).map((c) => {
+    const b = c.bbox, x = b.x * W, y = b.y * H, w = b.width * W, h = b.height * H;
+    return { c, x, y, w, h, cx: x + w / 2, cy: y + h / 2 };
+  });
+  host.innerHTML = `<svg class="leaders" width="${W}" height="${H}"></svg>` + items.map((i) =>
+    `<div class="co" data-id="${esc(i.c.id)}" data-status="${i.c.status}" title="${esc(i.c.label)} (${esc(i.c.type)})">${esc(i.c.label)}</div>`).join("");
+  const els = $$(".co", host);
+  items.forEach((i, k) => { i.el = els[k]; i.lw = i.el.offsetWidth; i.lh = i.el.offsetHeight; });
+  // split by which half of the screenshot the box is in, then balance the two columns
+  let left = items.filter((i) => i.cx < W / 2), right = items.filter((i) => i.cx >= W / 2);
+  const move = (from, to, pick) => { from.sort(pick); to.push(from.shift()); };
+  while (left.length - right.length > 1) move(left, right, (p, q) => q.cx - p.cx);
+  while (right.length - left.length > 1) move(right, left, (p, q) => p.cx - q.cx);
+  let svg = "";
+  for (const [col, side] of [[left, "L"], [right, "R"]]) {
+    // same row (within ~14px): order so leader lines do not cross — the label lower down goes to the box farther from its column
+    const row = (i) => Math.round(i.cy / 14);
+    col.sort((p, q) => row(p) - row(q) || (side === "L" ? p.cx - q.cx : q.cx - p.cx));
+    let y = 0; // top-down: as close to the box's height as possible, never overlapping
+    for (const i of col) { i.ly = Math.max(i.cy - i.lh / 2, y); y = i.ly + i.lh + GAP_Y; }
+    if (y - GAP_Y <= H) { // fits: bottom-up pass keeps the column inside the screenshot's height
+      let limit = H;
+      for (let k = col.length - 1; k >= 0; k--) { col[k].ly = Math.max(0, Math.min(col[k].ly, limit - col[k].lh)); limit = col[k].ly - GAP_Y; }
+    }
+    for (const i of col) {
+      i.lx = side === "L" ? -GAP_X - i.lw : W + GAP_X;
+      i.el.style.left = `${i.lx}px`; i.el.style.top = `${i.ly}px`;
+      const sx = side === "L" ? i.lx + i.lw : i.lx, sy = i.ly + i.lh / 2;
+      const ex = side === "L" ? sx + ELBOW : sx - ELBOW;
+      const tx = side === "L" ? i.x : i.x + i.w, ty = Math.min(Math.max(sy, i.y + 2), i.y + i.h - 2); // nearest point on the box's outer edge
+      svg += `<g data-id="${esc(i.c.id)}" data-status="${i.c.status}"><path d="M${sx.toFixed(1)},${sy.toFixed(1)} L${ex.toFixed(1)},${sy.toFixed(1)} L${tx.toFixed(1)},${ty.toFixed(1)}"/><circle cx="${tx.toFixed(1)}" cy="${ty.toFixed(1)}" r="2.6"/></g>`;
+    }
+  }
+  $("svg.leaders", host).innerHTML = svg;
+  els.forEach((el) => {
+    el.onclick = (e) => { e.stopPropagation(); select(el.dataset.id); };
+    el.onmouseenter = () => $$(`[data-id="${CSS.escape(el.dataset.id)}"]`, $("#shot")).forEach((x) => x.classList.add("hov"));
+    el.onmouseleave = () => $$(".hov", $("#shot")).forEach((x) => x.classList.remove("hov"));
+  });
+}
+let calloutSize = "";
+new ResizeObserver(() => { // re-layout only when the screenshot's size really changed (avoids resize feedback loops)
+  const img = $("#shotImg"), key = `${img.clientWidth}x${img.clientHeight}`;
+  if (S.tab === "explore" && key !== calloutSize) { calloutSize = key; layoutCallouts(); paintSelection(); }
+}).observe($("#shotImg"));
 
 function boxesHTML(components, cls = () => "") {
   const withBox = components.filter((c) => c.bbox).sort((p, q) => q.bbox.width * q.bbox.height - p.bbox.width * p.bbox.height);
@@ -243,9 +298,10 @@ function renderExplore() {
   const boxes = $("#boxes");
   boxes.innerHTML = a ? boxesHTML(a.components) : "";
   boxes.classList.toggle("quiet", !$("#showBoxes").checked);
-  boxes.classList.toggle("labels", $("#showLabels").checked);
   $$(".bx", boxes).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); select(b.dataset.id); }));
   $("#shot").onclick = () => select(null);
+  $("#shotImg").onload = () => { layoutCallouts(); paintSelection(); };
+  layoutCallouts();
   renderSide();
   paintSelection();
 }
@@ -266,6 +322,13 @@ function paintSelection() {
     el.classList.toggle("sel", id === S.sel && !S.impact);
     el.classList.toggle("gone", el.classList.contains("bx") && removed.has(id));
     el.classList.toggle("hit", hit.has(id) || (el.classList.contains("tn") && removed.has(id)));
+    el.classList.toggle("ref", refs.has(id));
+  });
+  $$("#callouts [data-id]").forEach((el) => { // callouts and their leader lines follow their box
+    const id = el.dataset.id;
+    el.classList.toggle("sel", id === S.sel && !S.impact);
+    el.classList.toggle("gone", removed.has(id));
+    el.classList.toggle("hit", hit.has(id));
     el.classList.toggle("ref", refs.has(id));
   });
 }

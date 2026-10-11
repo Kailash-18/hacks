@@ -175,5 +175,13 @@ These are 3 synthetic screens, so treat the numbers as a sanity check, not a ben
 
 First live run (10 Oct, gemini-3.8-flash, default thinking, before the prompt and ground-truth fixes), re-scored against the corrected ground truth: recall@0.5 = 1.0 on all 3 screens; mean IoU 0.95 / 0.92 / 0.90 (dashboard / landing / mobile). Latency was 15–54 s per screen. A second run with `GEMINI_THINKING_LEVEL=low` kept recall at 1.0 on all screens (type agreement 1.0 / 0.9 / 1.0) but did not reduce latency (54 / 37 / 44 s), and the eval now prints which provider/model served each call and how long it took. `python scripts/list_models.py` lists the models the key can use, to try a faster one via `GEMINI_MODEL`. Regenerate screens with `python scripts/render_mock_screens.py` (needs Playwright).
 
+## Live check in Chrome (10 Oct, 11:45 IST, merged app on the team laptop)
+- Health, samples, error shapes for both labs, upload validation, unknown-selection and missing-analysis errors: all as specified.
+- Bug found and fixed: an empty `GEMINI_MODEL` made every call fail with "model is required"; empty now means auto-pick (picked `gemini-3.8-flash`).
+- Chat on a digital sample: 9.5 s, named the correct call to action, cited real ids, and declined to state click behaviour.
+- Chat on a physical sample: 10.4 s, read the edge direction correctly and cited the relationship id.
+- New screenshot (1440×900 dashboard): 68.8 s, 22 components all boxed, 17 relationships; the same image again: instant from cache.
+- Open issue: about 69 s for a new screenshot is too slow for a live demo. Show samples first and keep a progress state in the UI.
+
 ## Tests
 `cd apps/api && pytest -q`: Physical Lab tests (Samvit) plus contract validation, box normalisation, containment geometry, edge-type guards, upload validation, bad/empty model output, provider errors, chat ID filtering, API error shapes, box metrics, the eval script (with a fake model), the shared-client adapter, disk cache, samples, and the merged app (both labs, one error shape, chat on a physical sample). All use recorded/fake model replies. Live inference is covered only by `scripts/eval_digital.py`.

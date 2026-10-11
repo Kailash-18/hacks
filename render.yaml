@@ -1,0 +1,19 @@
+# Render Blueprint: New > Blueprint > pick this repo. See docs/DEPLOY.md.
+services:
+  - type: web
+    name: visual-reverse-engineering
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false          # entered in the Render dashboard, never committed
+      - key: GEMINI_MODEL
+        sync: false          # pin the model used for the demo
+      - key: VISION_PROVIDER
+        value: gemini        # no LM Studio on a server
+      - key: CORS_ORIGINS
+        sync: false          # the deployed frontend URL(s), comma-separated

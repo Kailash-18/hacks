@@ -140,7 +140,7 @@ function makeSolid(geom, tex) {
   return { group, frontMesh, mats };
 }
 
-function textSprite(text, color = "#f2b84b") {
+function textSprite(text, color = "#c9c0ff") {
   const c = document.createElement("canvas"), ctx = c.getContext("2d"); const f = 28;
   ctx.font = `600 ${f}px Inter, sans-serif`; c.width = Math.ceil(ctx.measureText(text).width) + 24; c.height = f + 16;
   ctx.font = `600 ${f}px Inter, sans-serif`; ctx.fillStyle = "rgba(13,15,18,.85)"; ctx.fillRect(0, 0, c.width, c.height);
@@ -190,7 +190,6 @@ function show3D({ intro = false } = {}) {
   }
   $("depthBadge").textContent = "3D model: AI-estimated shapes (approximate)";
   $("handsHint").hidden = false; $("resetParts").hidden = !asm.anyMoved();
-  $("forward").disabled = $("backward").disabled = true;
   $("loading").hidden = true;
 }
 
@@ -270,11 +269,11 @@ async function showView(vi, { fromTab = false } = {}) {
   const ghostIds = S.ghostComponentIds || [];
   ghostIds.forEach((id, i) => {
     const comp = compById(id); if (!comp) return;
-    const mat = new THREE.MeshStandardMaterial({ color: 0xf2b84b, transparent: true, opacity: 0.18, depthWrite: false });
+    const mat = new THREE.MeshStandardMaterial({ color: 0x9b8cff, transparent: true, opacity: 0.18, depthWrite: false });
     const box = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.9, 0.5), mat);
-    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(box.geometry), new THREE.LineDashedMaterial({ color: 0xf2b84b, dashSize: 0.12, gapSize: 0.08 }));
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(box.geometry), new THREE.LineDashedMaterial({ color: 0x9b8cff, dashSize: 0.12, gapSize: 0.08 }));
     edges.computeLineDistances();
-    const label = textSprite("? " + comp.label); label.position.y = 0.75;
+    const label = textSprite(comp.label + " · inferred"); label.position.y = 0.75;
     const g = new THREE.Group(); g.add(box, edges, label);
     g.traverse((o) => (o.userData.partId = id));
     // Column to the right of the object, so labels never overlap each other or the controls.
@@ -453,7 +452,7 @@ function paint() {
   }
   if (plate) plate.mats.forEach((m) => { m.transparent = !!iso; m.opacity = iso ? 0.1 : 1; m.depthWrite = !iso; m.needsUpdate = true; });
   for (const g of ghosts) {
-    g.mat.color.setHex(g.id === selected ? 0x4f8cff : affected.has(g.id) ? 0xff5040 : 0xf2b84b);
+    g.mat.color.setHex(g.id === selected ? 0x4f8cff : affected.has(g.id) ? 0xff5040 : 0x9b8cff);
     g.mat.opacity = iso && g.id !== selected && !related.has(g.id) ? 0.05 : g.id === selected ? 0.45 : 0.18;
   }
 }
@@ -470,8 +469,6 @@ function renderPanel() {
   const mb = $("modeBadge");
   mb.textContent = isSample ? "Sample mode · saved real result" : "Live analysis";
   mb.className = "eyebrow" + (isSample ? " sample" : "");
-  $("limits").innerHTML = "";
-  A.limitations.concat(A.scene?.notes || []).forEach((t) => $("limits").append(el("li", "", t)));
   const pr = A.scene?.product, pe = $("product");
   if (pr && (pr.searchQuery || pr.brand)) {
     pe.innerHTML = "";
@@ -528,8 +525,7 @@ function renderPanel() {
     pe.append(tb, Object.assign(el("div", "teardown"), { id: "teardown" }));
     pe.hidden = false;
   } else pe.hidden = true;
-  $("providerLine").textContent = `Vision: ${A.provider.name} · ${A.provider.model}. What-if = graph traversal, not physics.`;
-  renderParts(); renderGraph(); renderDetail();
+  renderParts(); renderGraph(); renderDetail(); resetChat();
 }
 
 function renderParts() {
@@ -561,8 +557,10 @@ function renderDetail() {
     const li = el("li", r.status === "observed" ? "" : "dashed", txt + (r.status === "observed" ? "" : " (inferred)"));
     li.title = r.evidence.join(" · "); li.onclick = () => select(other.id); rl.append(li);
   }
-  const isLayer = mode === "layers" && parts.some((p) => p.id === c.id);
-  $("forward").disabled = $("backward").disabled = !isLayer;
+  const movable = mode === "3d" ? asm.parts.some((p) => p.id === c.id) : parts.some((p) => p.id === c.id);
+  $("forward").disabled = $("backward").disabled = !movable;
+  $("forward").title = mode === "3d" ? "Move this part towards you" : "Draw this layer in front of the others";
+  $("backward").title = mode === "3d" ? "Move this part away from you" : "Draw this layer behind the others";
   $("whatif").textContent = removed === c.id ? "Put it back" : "What if I remove it?";
 }
 
@@ -572,10 +570,11 @@ async function select(id) {
     const vi = viewsOf(A).findIndex((v) => v.layers.some((l) => l.componentId === id));
     if (vi >= 0 && vi !== currentView) await showView(vi);
   }
-  selected = id; renderParts(); renderDetail(); renderGraph(); paint();
+  selected = id; renderParts(); renderDetail(); renderGraph(); paint(); renderChips();
 }
 
 function nudge(dir) {
+  if (mode === "3d") { if (selected && asm.nudge(selected, dir)) $("resetParts").hidden = false; return; }
   const p = parts.find((q) => q.id === selected); if (!p) return;
   const sorted = [...parts].sort((a, b) => a.score - b.score);
   const i = sorted.indexOf(p), j = i + dir;
@@ -679,23 +678,41 @@ function showReveal() {
 }
 $("reveal").addEventListener("click", () => { $("reveal").classList.add("out"); setTimeout(() => ($("reveal").hidden = true), 700); });
 
-const EDGE_COL = { powers: "#ffb020", feeds: "#ffb020", controls: "#36d6ff", depends_on: "#9b8cff", drives: "#ff5fd2", transmits: "#ff5fd2",
-  supports: "#8fa3bf", mounts: "#8fa3bf" };
+const EDGE_COL = { powers: "#ffb020", feeds: "#ffb020", controls: "#36d6ff", connected_to: "#36d6ff", depends_on: "#9b8cff", drives: "#ff5fd2",
+  transmits: "#ff5fd2", supports: "#8fa3bf", mounts: "#8fa3bf", contains: "#8fa3bf", attached_to: "#8fa3bf", covers: "#8fa3bf", adjacent_to: "#8fa3bf" };
+// where each kind of part sits around the hub (degrees, 0 = right): power above, outputs right, inputs left, structure below
+const ROLE_ANGLE = { power_source: -90, controller: -50, display: -15, interface: 15, mechanism: 35, actuator: 200, sensor: 160, wheel: 180,
+  connector: -130, cable: -140, structure: 90, cover: 110, fastener: 70 };
 const GW = 340; let GH = 300;
 let graphLayout = { id: null, pos: {} };
+const hashTxt = (t) => { let h = 7; for (const ch of t) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
 function layoutGraph() { // small deterministic force layout: linked parts cluster, everything stays readable
   const cs = A.components, n = cs.length, pos = {};
-  GH = Math.round(260 + Math.max(0, n - 8) * 16); // taller canvas for bigger systems
+  GH = Math.round(290 + Math.max(0, n - 6) * 22); // taller canvas for bigger systems
   $("graph").setAttribute("viewBox", `0 0 ${GW} ${GH}`);
-  cs.forEach((c, i) => { const a = (i / n) * Math.PI * 2; pos[c.id] = { x: GW / 2 + 110 * Math.cos(a), y: GH / 2 + 100 * Math.sin(a) }; });
+  // seed: the most connected part (usually the main board) in the middle, its neighbours on a ring grouped by role
+  const deg = {}; for (const r of A.relationships) { deg[r.from] = (deg[r.from] || 0) + 1; deg[r.to] = (deg[r.to] || 0) + 1; }
+  const hub = [...cs].sort((a, b) => (deg[b.id] || 0) - (deg[a.id] || 0) || (b.type === "controller") - (a.type === "controller"))[0];
+  const nb = new Set(A.relationships.flatMap((r) => (r.from === hub.id ? [r.to] : r.to === hub.id ? [r.from] : [])));
+  const ring = (list, R) => {
+    const ang = (c) => (ROLE_ANGLE[c.type] ?? 45 + (hashTxt(c.id) % 90)) * Math.PI / 180;
+    const sorted = [...list].sort((a, b) => ang(a) - ang(b));
+    sorted.forEach((c, i) => { // keep the role direction but spread evenly so nodes never start on top of each other
+      const a = 0.5 * ang(c) + 0.5 * (-Math.PI / 2 + (i / Math.max(1, sorted.length)) * Math.PI * 2);
+      pos[c.id] = { x: GW / 2 + R * 1.15 * Math.cos(a), y: GH / 2 + R * Math.sin(a) };
+    });
+  };
+  pos[hub.id] = { x: GW / 2, y: GH / 2 };
+  ring(cs.filter((c) => nb.has(c.id)), Math.min(GW, GH) * 0.3);
+  ring(cs.filter((c) => c.id !== hub.id && !nb.has(c.id)), Math.min(GW, GH) * 0.44);
   const edges = A.relationships.filter((r) => pos[r.from] && pos[r.to]);
-  const k = Math.sqrt((GW * GH) / Math.max(1, n)) * 0.78;
-  for (let it = 0; it < 320; it++) {
-    const temp = 14 * (1 - it / 320) + 0.6, disp = {};
+  const k = Math.sqrt((GW * GH) / Math.max(1, n)) * 0.95;
+  for (let it = 0; it < 260; it++) {
+    const temp = 7 * (1 - it / 260) + 0.4, disp = {};
     for (const c of cs) disp[c.id] = { x: 0, y: 0 };
     for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
       const a = pos[cs[i].id], b = pos[cs[j].id]; let dx = a.x - b.x, dy = a.y - b.y; const d = Math.max(1, Math.hypot(dx, dy));
-      const f = (k * k) / d; dx /= d; dy /= d;
+      const f = (k * k) / d * (1 + 0.08 * Math.min(deg[cs[i].id] || 0, deg[cs[j].id] || 0)); dx /= d; dy /= d; // hubs push each other apart
       disp[cs[i].id].x += dx * f; disp[cs[i].id].y += dy * f; disp[cs[j].id].x -= dx * f; disp[cs[j].id].y -= dy * f;
     }
     for (const e of edges) {
@@ -760,7 +777,7 @@ function renderGraph() {
     if (r.status !== "observed" && !hot(r)) path.setAttribute("stroke-dasharray", "4 3");
     mk("title", {}, path).textContent = `${ca.label} ${r.type.replace(/_/g, " ")} ${cb.label}${r.evidence[0] ? " — " + r.evidence[0] : ""}`;
   }
-  const colorsN = { observed: "#3ccf8e", inferred: "#f2b84b", estimated: "#4f8cff", unknown: "#8b93a1" };
+  const colorsN = { observed: "#3ccf8e", inferred: "#9b8cff", estimated: "#4f8cff", unknown: "#8b93a1" };
   for (const c of cs) {
     const p = pos[c.id]; if (!p) continue;
     const g = mk("g", { class: "node" + (affected.has(c.id) ? " hit" : "") + (c.id === removed ? " gone" : "") });
@@ -780,6 +797,50 @@ function renderGraph() {
     mk("title", {}, g).textContent = `${c.label} (${c.type}, ${c.status})${c.function ? " — " + c.function : ""}`;
   }
 }
+
+// ---------------------------------------------------------------- chat: ask about the object and its parts
+// Answers come from the server's grounded chat over this analysis (parts, links, functions); the photo is not resent.
+let chatBusy = false;
+function resetChat() {
+  $("chatLog").innerHTML = "";
+  chatMsg("bot", `Ask me anything about this ${A.title || "object"}: what a part does, how it is powered, or what breaks without it.`);
+  renderChips();
+}
+function chatMsg(who, text, refs = []) {
+  const m = el("div", "msg " + who);
+  m.append(el("div", "bubble", text));
+  if (refs.length) {
+    const row = el("div", "refs");
+    for (const id of refs) { const c = compById(id); if (!c) continue; const b = el("button", "ref", c.label); b.type = "button"; b.onclick = () => select(id); row.append(b); }
+    m.append(row);
+  }
+  $("chatLog").append(m); $("chatLog").scrollTop = $("chatLog").scrollHeight;
+  return m;
+}
+function renderChips() {
+  if (!A) return;
+  const c = selected && compById(selected), box = $("chatChips"); box.innerHTML = "";
+  $("chatCtx").textContent = c ? `about: ${c.label}` : "";
+  const qs = c ? [`What does the ${c.label} do?`, `What stops working without the ${c.label}?`, `What is the ${c.label} connected to?`]
+    : ["How does it work?", "What powers it?", "Which part is the most important?"];
+  for (const q of qs) { const b = el("button", "chip-q", q); b.type = "button"; b.onclick = () => ask(q); box.append(b); }
+}
+async function ask(q) {
+  if (!A || chatBusy || !q.trim()) return;
+  chatBusy = true; $("chatSend").disabled = true;
+  chatMsg("me", q);
+  const wait = chatMsg("bot pending", "Thinking…");
+  try {
+    const r = await fetch(API + `/api/analysis/${encodeURIComponent(A.analysisId)}/chat`, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: q.slice(0, 1000), selectedComponentIds: selected ? [selected] : [] }) });
+    const d = await r.json().catch(() => ({}));
+    if (r.status === 404) throw new Error("The server was restarted and forgot this object. Load the sample or the photos again.");
+    if (!r.ok) throw new Error(errText(d, r.status));
+    wait.remove(); chatMsg("bot", d.answer, (d.referencedComponentIds || []).filter((id) => id !== selected).slice(0, 6));
+  } catch (e) { wait.remove(); chatMsg("bot err", e.message || "Could not get an answer."); }
+  finally { chatBusy = false; $("chatSend").disabled = false; }
+}
+$("chatForm").addEventListener("submit", (e) => { e.preventDefault(); const q = $("chatInput").value.trim(); if (q) { $("chatInput").value = ""; ask(q); } });
 
 // ---------------------------------------------------------------- upload & samples
 async function shrink(file, max = 1600) { // client-side downscale keeps uploads fast
@@ -912,5 +973,14 @@ loadSamples();
 // ---------------------------------------------------------------- loop
 $("spin").addEventListener("change", (e) => { controls.autoRotate = e.target.checked; });
 controls.addEventListener("start", () => { if (controls.autoRotate) { controls.autoRotate = false; $("spin").checked = false; } });
-renderer.setAnimationLoop(() => { controls.update(); if (!asm.renderScene()) renderer.render(scene3, camera); asm.render(); });
+// The 3D model view redraws only while something moves (orbiting, animations, dragging, hovering);
+// a still page does no work, which keeps slower laptops responsive.
+for (const ev of ["pointermove", "pointerdown", "pointerup", "wheel", "keydown", "input", "change", "click", "resize"]) addEventListener(ev, () => asm.poke(), { passive: true });
+controls.addEventListener("change", () => asm.poke());
+renderer.setAnimationLoop(() => {
+  controls.update();
+  if (mode === "3d" && asm.root.visible && !controls.autoRotate && !drag && !asm.busy()) return;
+  if (!asm.renderScene()) renderer.render(scene3, camera);
+  asm.render();
+});
 window.__vre = { build, asm, get state() { return { mode, parts: mode === "3d" ? asm.parts.length : parts.length, ghosts: ghosts.length, selected, removed, affected: [...affected] }; }, select };
