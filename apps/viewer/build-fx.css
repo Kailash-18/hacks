@@ -248,3 +248,7 @@
 .g-cta p { margin: 4px 0 0; color: var(--ink-2); font-size: 14px; }
 @media (max-width: 900px) { .g-be, .g-three { grid-template-columns: 1fr; } .g-cta { flex-direction: column; align-items: flex-start; } }
 .g-be + .g-note { margin-top: 14px; }
+/* long lines wrap inside the card instead of running past it */
+.g-step { min-width: 0; }
+.g-code { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; max-width: 100%; }
+.g-code code { white-space: inherit; }

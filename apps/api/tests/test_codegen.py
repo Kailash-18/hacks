@@ -210,10 +210,10 @@ def test_whole_site_is_built_from_every_screen_and_cached():
     assert codegen.generate_app(screens, FakeMulti(exc=RuntimeError("no")))["cached"] is True
 
 
-def test_whole_site_falls_back_to_the_first_screen():
+def test_whole_site_failure_says_so_instead_of_one_screen():
     screens = bh_screens()
     out = codegen.generate_app(screens, FakeMulti(exc=VisionProviderError("quota", "Out of quota", 429)))
-    assert out["notes"][0].startswith("Whole-site build unavailable") and out["code"]
+    assert out["fallback"] and out["code"] == "" and out["notes"][0].startswith("The whole app could not be built")
 
 
 def test_refine_sends_target_and_render_and_keeps_code_on_failure():
@@ -348,3 +348,13 @@ def test_change_request_prompt_says_the_change_wins():
     img = (sid / "image.png").read_bytes()
     out = codegen.generate_code(a, img, "image/png", C(), "html", "convert it into dark mode", "<html><body>old</body></html>" + " " * 200, force=True)
     assert out["source"] == "ai" and "WINS" in seen["p"] and "dark mode" in seen["p"]
+
+
+def test_whole_app_screen_css_keeps_each_screens_layout():
+    code = ('<html><head><style>section[data-screen]{display:none;width:100vw}section[data-screen].active{display:block}'
+            '.card{display:flex}</style></head><body><section data-screen="a" class="active flex">A</section>'
+            '<section data-screen="b" class="flex">B</section></body></html>')
+    out = codegen.one_screen_at_a_time(code)
+    assert "display:block" not in out and "display:none;" not in out.split("</style>")[0]
+    assert ".card{display:flex}" in out and codegen.SCREEN_CSS in out and "width:100vw" in out
+    assert codegen.one_screen_at_a_time(out) == out

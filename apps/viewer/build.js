@@ -89,7 +89,7 @@ async function start(blob, name, title = "", set = null, sampleId = null) {
     .map((x) => ({ name: `${x.id}.png`, url: x.imageUrl, title: x.title.replace(/^.*·\s*/, ""), blob: null }));
   Object.assign(S, { extra, shot: { blob, url, w, h, name }, analysis: null, guide: null, tree: null, sel: null,
     versions: { html: [], react: [], "react-native": [], flutter: [] }, cur: { html: -1, react: -1, "react-native": -1, flutter: -1 }, target: "html", backend: null, a11y: null, acc: {} });
-  $("#acc").hidden = true; $("#heat").hidden = true; $("#accHeat").checked = false;
+  $("#acc").hidden = true; showHeat(false); $("#accHeat").checked = false; $("#screenBar").hidden = true;
   renderScreens();
   for (const id of ["#beImg", "#axImg"]) $(id).src = url;
   $("#beSummary").textContent = "Inferring the data model and API from what the screen shows…"; $("#beEr").innerHTML = "";
@@ -207,10 +207,20 @@ const FLUTTER_DOC = `<!doctype html><html><head><meta charset="utf-8"><style>bod
 font:16px system-ui,sans-serif;background:#0b1220;color:#cbd5e1;text-align:center;padding:32px;box-sizing:border-box}b{color:#fff;font-size:20px}</style></head>
 <body><div><b>Flutter runs outside the browser preview</b><p>Press <b>Run in DartPad</b>: the code is copied, DartPad opens, paste it and press Run.<br>Or put it in <code>lib/main.dart</code> of a Flutter project.</p></div></body></html>`;
 
+// whole-app pages: tell the viewer which screens exist and which one shows, and switch screens on request
+const SCREEN_JS = `<script>(()=>{const all=()=>[...document.querySelectorAll("[data-screen]")].filter(s=>!s.parentElement.closest("[data-screen]"));
+const send=()=>{const a=all();parent.postMessage({appScreens:a.map(s=>s.dataset.screen),active:a.findIndex(s=>s.classList.contains("active"))},"*")};
+addEventListener("message",e=>{const n=e.data&&e.data.goScreen;if(n==null)return;const a=all();if(!a.some(s=>s.dataset.screen===n))return;
+a.forEach(s=>s.classList.toggle("active",s.dataset.screen===n));scrollTo(0,0)});
+new MutationObserver(send).observe(document.body,{subtree:true,attributes:true,attributeFilter:["class"]});addEventListener("load",send);send()})();<\/script>`;
 function previewDoc(v) {
   if (S.target === "react-native") return nativeDoc(v.code);
   if (S.target === "flutter") return FLUTTER_DOC;
-  if (S.target === "html") return /<\/head>/i.test(v.code) ? v.code.replace(/<\/head>/i, NO_BAR + "</head>") : NO_BAR + v.code;
+  if (S.target === "html") {
+    const doc = /<\/head>/i.test(v.code) ? v.code.replace(/<\/head>/i, NO_BAR + "</head>") : NO_BAR + v.code;
+    if (!/data-screen=/.test(v.code)) return doc;
+    return /<\/body>/i.test(doc) ? doc.replace(/<\/body>(?![\s\S]*<\/body>)/i, SCREEN_JS + "</body>") : doc + SCREEN_JS;
+  }
   // React preview: same Tailwind, React + Babel in the sandboxed frame
   let src = v.code.replace(/^\s*import[^;\n]*;?\s*$/gm, "");
   const m = src.match(/export\s+default\s+function\s+([A-Z]\w*)/) || src.match(/export\s+default\s+([A-Z]\w*)\s*;?/);
@@ -249,6 +259,10 @@ function renderCode() {
   const v = current();
   if (!v) return;
   renderDevices();
+  if (!(S.target === "html" && /data-screen=/.test(v.code))) {  // not a whole app: no screen bar, the first screenshot
+    $("#screenBar").hidden = true; S.appScreens = null; S.appActive = 0; $("#acc").classList.remove("off");
+    if (S.shot?.url) for (const id of ["#origImg", "#sideImg"]) if ($(id).getAttribute("src") !== S.shot.url) $(id).src = S.shot.url;
+  }
   const doc = previewDoc(v);
   for (const id of ["#frame", "#sideFrame"]) if ($(id).dataset.doc !== doc.length + ":" + S.target + S.cur[S.target]) {
     $(id).srcdoc = doc; $(id).dataset.doc = doc.length + ":" + S.target + S.cur[S.target];
@@ -391,11 +405,16 @@ $("#wholeBtn").onclick = async () => {
     for (const x of S.extra) fd.append("image", x.blob || (x.blob = await (await fetch(x.url)).blob()), x.name);
     const out = await api("/api/digital/app", { method: "POST", body: fd });
     if (run !== S.run) return;
+    if (out.fallback || !/data-screen=/.test(out.code || "")) {  // never pass one screen off as the whole app
+      const m = out.notes?.[0] || "The whole app could not be built. Try again.";
+      status(m, true); toast(m); return;
+    }
     S.versions.html.push({ code: out.code, notes: out.notes || [], source: out.source, change: out.change, label: `Whole app · ${n} screens`,
       model: out.provider?.model, cached: out.cached, app: true });
     S.cur.html = S.versions.html.length - 1;
     S.target = "html"; renderTarget(); renderVersions(); renderNotes(); renderCode(); setView("side");
-    status(out.source === "ai" ? "Whole app built: click its navigation in the rebuilt page to open the other screens." : (out.notes?.[0] || ""), out.source !== "ai");
+    status(`Whole app built: ${n} screens in one page. Use the screen buttons above the preview, or click the app's own menus and buttons. Open or Download gives you the full working app.`);
+    toast("Whole app ready: try its menus and buttons");
   } catch (e) {
     if (run === S.run) status(`Could not build the whole app: ${e.message}`, true);
   } finally {
@@ -556,6 +575,30 @@ function renderGuide() {
 }
 // one orchestrated entrance each time the plan is shown
 function replayGuide() { const el = $("#guide"); el.classList.remove("reveal"); void el.offsetWidth; el.classList.add("reveal"); }
+
+// ---------- whole app: jump between its screens; the original follows when the screenshots are known ----------
+addEventListener("message", (e) => {
+  const d = e.data;
+  if (!d || !Array.isArray(d.appScreens) || e.source !== $("#sideFrame").contentWindow && e.source !== $("#frame").contentWindow) return;
+  const v = current(); if (!v || S.target !== "html" || !d.appScreens.length) { $("#screenBar").hidden = true; return; }
+  S.appScreens = d.appScreens; S.appActive = Math.max(0, d.active);
+  $("#screenBar").hidden = false;
+  $("#screenChips").innerHTML = d.appScreens.map((n, i) => `<button type="button" data-i="${i}" class="${i === S.appActive ? "on" : ""}">${i + 1}. ${esc(n.replace(/[-_]+/g, " "))}</button>`).join("");
+  $$("#screenChips button").forEach((b) => (b.onclick = () => goScreen(+b.dataset.i)));
+  syncOriginal();
+});
+function goScreen(i) {
+  const n = S.appScreens?.[i]; if (n == null) return;
+  for (const f of [$("#frame"), $("#sideFrame"), ...$$("#devices iframe")]) f.contentWindow?.postMessage({ goScreen: n }, "*");
+}
+function syncOriginal() {
+  // the n-th screen of the app is the n-th screenshot added, when there are as many
+  const shots = [{ url: S.shot?.url }, ...(S.extra || [])], i = S.appActive || 0;
+  const url = shots.length === S.appScreens?.length ? shots[i]?.url : i === 0 ? S.shot?.url : null;
+  for (const id of ["#origImg", "#sideImg"]) if (url && $(id).getAttribute("src") !== url) $(id).src = url;
+  if (!url) $("#sideImg").src = S.shot?.url || "";
+  $("#acc").classList.toggle("off", i !== 0);  // the match is measured against the first screen
+}
 
 // ---------- prompt for the developer's own coding agent (no model call: built from what was measured) ----------
 const AP = { agent: "claude-code", stack: "react" };
@@ -725,7 +768,7 @@ function setRing(p) {
   bar.style.stroke = p >= 85 ? "var(--ok)" : p >= 70 ? "var(--amber)" : "#c2410c";
 }
 function showAccuracy(r) {
-  const v = current(), changed = v?.change && !Object.values(CONVERT).includes(v.change);
+  const v = current(), changed = v?.change && !v.app && !/^(Whole site|Refine)/.test(v.change) && !Object.values(CONVERT).includes(v.change);
   $("#acc").hidden = false; $("#accLbl").textContent = changed ? "match · lower is expected after your change" : "visual match";
   const t0 = performance.now(), tick = () => { const k = Math.min(1, (performance.now() - t0) / 700), p = Math.round(r.score * (1 - Math.pow(1 - k, 3)));
     $("#accPct").textContent = p + "%"; setRing(p); if (k < 1) requestAnimationFrame(tick); };
@@ -734,7 +777,8 @@ function showAccuracy(r) {
   const g = c.getContext("2d"), img = g.createImageData(r.gw, r.gh);
   for (let i = 0; i < r.gw * r.gh; i++) { const d = r.miss[i]; const a = d < 0.18 ? 0 : Math.min(200, (d - 0.18) * 320); img.data.set([255, 40, 60, a], i * 4); }
   g.putImageData(img, 0, 0);
-  c.hidden = !$("#accHeat").checked;
+  for (const id of ["#sideHeat", "#sideHeat2"]) { const o = $(id); o.width = r.gw; o.height = r.gh; o.getContext("2d").putImageData(img, 0, 0); }
+  showHeat($("#accHeat").checked);
 }
 // ---------- refine: show the AI how its code renders, let it fix the differences, measure again ----------
 const TARGET_MATCH = 95, MAX_ROUNDS = 5;
@@ -997,8 +1041,8 @@ async function refineLoop() {
     if (run === S.run) { wait(null); busy(false); btn.disabled = false; }
   }
 }
-$("#refineBtn").onclick = refineLoop;
-$("#accHeat").onchange = (e) => { $("#heat").hidden = !e.target.checked; if (e.target.checked) setWipe(100); };
+const showHeat = (on) => { for (const id of ["#heat", "#sideHeat", "#sideHeat2"]) $(id).hidden = !on; };
+$("#accHeat").onchange = (e) => { showHeat(e.target.checked); if (e.target.checked && S.view === "wipe") setWipe(100); };
 
 // ---------- back end, reverse-engineered ----------
 async function loadBackend(force = false) {

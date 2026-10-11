@@ -69,12 +69,12 @@
             <span class="acc-ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" class="trk"/><circle cx="18" cy="18" r="15" class="bar" id="accBar"/></svg></span>
             <span class="acc-txt"><b id="accPct">–</b><small id="accLbl">visual match</small></span>
             <label class="acc-heat"><input type="checkbox" id="accHeat" /> Show differences</label>
-            <button type="button" class="refine-btn" id="refineBtn" title="The AI looks at how its code renders next to the screenshot and fixes what differs, round after round">Refine to 95%</button>
           </div>
         </div>
+        <div class="screenbar" id="screenBar" hidden><span>Screens in this app</span><div id="screenChips"></div><small>or click the app's own menus and buttons</small></div>
         <div id="stage" class="stage">
           <div class="wipe" id="wipe">
-            <div class="layer rebuilt"><iframe id="frame" title="Rebuilt page" sandbox="allow-scripts"></iframe></div>
+            <div class="layer rebuilt"><iframe id="frame" title="Rebuilt page" sandbox="allow-scripts allow-forms"></iframe></div>
             <div class="layer original" id="origLayer"><img id="origImg" alt="Original screenshot" /></div>
             <canvas id="heat" class="heat" hidden></canvas>
             <div class="catch" aria-hidden="true"></div>
@@ -82,13 +82,13 @@
             <span class="tag left">Original</span><span class="tag right">Rebuilt</span>
           </div>
           <div class="side" id="side" hidden>
-            <figure><img id="sideImg" alt="Original screenshot" /><figcaption>Original</figcaption></figure>
-            <figure><div class="sideframe" id="sideFrameWrap"><iframe id="sideFrame" title="Rebuilt page" sandbox="allow-scripts"></iframe></div><figcaption>Rebuilt</figcaption></figure>
+            <figure><div class="side-orig"><img id="sideImg" alt="Original screenshot" /><canvas id="sideHeat" class="heat" hidden></canvas></div><figcaption>Original</figcaption></figure>
+            <figure><div class="sideframe" id="sideFrameWrap"><iframe id="sideFrame" title="Rebuilt page" sandbox="allow-scripts allow-forms"></iframe><canvas id="sideHeat2" class="heat" hidden></canvas></div><figcaption>Rebuilt</figcaption></figure>
           </div>
           <div class="devices" id="devices" hidden>
-            <figure class="dev" data-w="390" data-h="844"><div class="devwrap phone"><iframe title="Rebuilt page on a phone" sandbox="allow-scripts"></iframe></div><figcaption>Phone · 390 px</figcaption></figure>
-            <figure class="dev" data-w="820" data-h="1180"><div class="devwrap tablet"><iframe title="Rebuilt page on a tablet" sandbox="allow-scripts"></iframe></div><figcaption>Tablet · 820 px</figcaption></figure>
-            <figure class="dev" data-w="1440" data-h="900"><div class="devwrap laptop"><iframe title="Rebuilt page on a laptop" sandbox="allow-scripts"></iframe></div><figcaption>Laptop · 1440 px</figcaption></figure>
+            <figure class="dev" data-w="390" data-h="844"><div class="devwrap phone"><iframe title="Rebuilt page on a phone" sandbox="allow-scripts allow-forms"></iframe></div><figcaption>Phone · 390 px</figcaption></figure>
+            <figure class="dev" data-w="820" data-h="1180"><div class="devwrap tablet"><iframe title="Rebuilt page on a tablet" sandbox="allow-scripts allow-forms"></iframe></div><figcaption>Tablet · 820 px</figcaption></figure>
+            <figure class="dev" data-w="1440" data-h="900"><div class="devwrap laptop"><iframe title="Rebuilt page on a laptop" sandbox="allow-scripts allow-forms"></iframe></div><figcaption>Laptop · 1440 px</figcaption></figure>
           </div>
           <pre id="codeView" class="codeview" hidden><code id="codeText"></code></pre>
           <div id="stageWait" class="stage-wait" hidden><div class="spinner"></div><span id="stageWaitText">Writing the code…</span></div>

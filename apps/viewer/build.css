@@ -396,3 +396,22 @@ kbd { font: 500 15px "IBM Plex Mono", monospace; background: var(--paper); borde
 .ap-bar small { color: var(--ink-2); font: 12px "IBM Plex Mono", monospace; text-align: right; }
 #apText { width: 100%; min-height: 70vh; border: 0; resize: vertical; background: transparent; color: #dfe4ea; padding: 16px; font: 13px/1.6 "IBM Plex Mono", monospace; outline: none; white-space: pre-wrap; }
 @media (max-width: 900px) { .ap { grid-template-columns: 1fr; } .ap-opts { position: static; } }
+
+/* toast: dark card with light text, readable on any background */
+.toast { background: #1f2530; color: #f1f4f8; border: 1px solid #3a4250; box-shadow: 0 10px 30px rgba(0,0,0,.55); font-weight: 500; }
+
+/* side by side: the differences sit over both pictures */
+.side-orig { position: relative; }
+.side-orig img { display: block; }
+.sideframe .heat { z-index: 2; }
+
+/* whole app: the screens it contains */
+.screenbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 0 10px; padding: 8px 12px; background: var(--sheet);
+  border: 1px solid rgba(94,242,255,.35); border-radius: var(--radius); }
+.screenbar > span { font-size: 13px; font-weight: 600; }
+.screenbar small { color: var(--ink-2); font-size: 12px; margin-left: auto; }
+#screenChips { display: flex; flex-wrap: wrap; gap: 6px; }
+#screenChips button { border: 1px solid var(--rule); background: var(--field); color: var(--ink-2); border-radius: 99px; padding: 3px 11px; font-size: 13px; cursor: pointer; text-transform: capitalize; }
+#screenChips button:hover { color: var(--ink); }
+#screenChips button.on { background: var(--blue-soft); border-color: var(--blue); color: var(--blue-ink); }
+#acc.off { display: none !important; }

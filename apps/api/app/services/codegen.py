@@ -436,7 +436,11 @@ Rebuild the whole site as ONE working single-file HTML app.
   Otherwise switch views. Every screen must look like its screenshot.
 - Structure: each screen is one top-level <section data-screen="name"> directly inside <body> (never nested in another
   screen); close every tag you open. Repeated chrome (a sidebar on several screens) is repeated inside each screen.
-  The visible screen has the class "active" (only screen 1 at load); switch screens by moving that class.
+  The visible screen has the class "active" (only screen 1 at load); switch screens by moving that class. Give each
+  screen its own layout classes (e.g. "flex") and NEVER set display on [data-screen] or .active in CSS or JS (hiding
+  the other screens is handled for you).
+- Flows work in one click for a demo: fill inputs with the example values visible in the screenshots (e.g. a demo
+  email), and a form that leads to another screen (log in, sign up, save) switches screen on submit.
 - Make the visible controls work: accordions open and close, tabs switch, selects change, hover and focus states,
   a live clock if one is shown. Content that is cut off in a screenshot may continue in the same style (mark it
   with an HTML comment "continued").
@@ -485,10 +489,27 @@ def screens_nested(code: str) -> bool:
 SCREEN_CSS = "<style>[data-screen]:not(.active){display:none!important}</style>"
 
 
+_SCREEN_RULE = re.compile(r"([^{}]*\[data-screen[^{}]*|[^{}]*\.screen\b[^{}]*)\{([^{}]*)\}")
+
+
+def _screen_css_keeps_own_layout(code: str) -> str:
+    """The model often writes `section[data-screen].active{display:block}`: that beats a screen's own layout class
+    (Tailwind "flex"), so a side-by-side login page collapses into a column. Hiding is done by SCREEN_CSS, so drop
+    display declarations from screen rules."""
+    def fix_style(m: re.Match) -> str:
+        css = _SCREEN_RULE.sub(lambda r: r.group(0) if "!important" in r.group(2) and ":not(.active)" in r.group(1)
+                               else r.group(1) + "{" + re.sub(r"display\s*:\s*[^;}]+;?", "", r.group(2)) + "}", m.group(2))
+        return m.group(1) + css + m.group(3)
+    return re.sub(r"(<style[^>]*>)([\s\S]*?)(</style>)", fix_style, code, flags=re.I)
+
+
 def one_screen_at_a_time(code: str) -> str:
     """Only the active screen shows: a screen's own display class (e.g. Tailwind "flex") must not override the hiding.
     With no active screen at all, the first one becomes active."""
-    if "data-screen" not in code or SCREEN_CSS in code:
+    if "data-screen" not in code:
+        return code
+    code = _screen_css_keeps_own_layout(code)
+    if SCREEN_CSS in code:
         return code
     if not re.search(r"<section\b[^>]*data-screen[^>]*class=\"[^\"]*\bactive\b", code):
         code = re.sub(r"(<section\b[^>]*data-screen[^>]*?)(\sclass=\")", r"\1\2active ", code, count=1) \
@@ -506,11 +527,12 @@ def generate_app(screens: list[tuple[SystemAnalysis, bytes, str]], client: Any |
         raise ValueError("no screens")
     name = app_key([a.analysisId for a, _, _ in screens])
     if not force and (hit := _cache_get(name)):
-        return {**hit, "cached": True}
+        return {**hit, "code": one_screen_at_a_time(hit["code"]), "cached": True}
     w, h = _image_size(screens[0][1])
     if client is None or not hasattr(client, "generate_code_text_images"):
-        out = generate_code(screens[0][0], screens[0][1], screens[0][2], client)
-        return {**out, "notes": ["This model cannot read several screenshots at once; built the first screen only."] + out["notes"][:3]}
+        return {"target": "html", "code": "", "notes": ["The whole app needs an AI model that reads several screenshots at once (Gemini). Check the API key."],
+                "source": "layout", "fallback": True, "provider": {"name": "deterministic", "model": "none"}, "change": None,
+                "size": {"width": w, "height": h}, "cached": False}
     listing = "\n".join(f"{i}. {a.title}" for i, (a, _, _) in enumerate(screens, 1))
     comps = "\n".join(f"Screen {i} ({a.title}, {_image_size(b)[0]}x{_image_size(b)[1]} px):\n{_components_text(a, 40, _image_size(b))}"
                       for i, (a, b, _) in enumerate(screens, 1))
@@ -530,8 +552,9 @@ def generate_app(screens: list[tuple[SystemAnalysis, bytes, str]], client: Any |
     except Exception as exc:  # fall back to the first screen on its own
         reason = getattr(exc, "message", None) or f"{type(exc).__name__}: {exc}"
         log.warning("whole-site build failed: %s", reason)
-        out = generate_code(screens[0][0], screens[0][1], screens[0][2], client)
-        return {**out, "notes": [f"Whole-site build unavailable ({reason[:100]}); showing the first screen only."] + out["notes"][:3]}
+        return {"target": "html", "code": "", "notes": [f"The whole app could not be built ({reason[:140]}). Try again."],
+                "source": "layout", "fallback": True, "provider": {"name": "deterministic", "model": "none"}, "change": None,
+                "size": {"width": w, "height": h}, "cached": False}
     out = {"target": "html", "code": code, "notes": notes, "source": "ai", "screens": [a.analysisId for a, _, _ in screens],
            "provider": {"name": getattr(client, "name", "?"), "model": getattr(client, "model", "?")},
            "change": f"Whole site from {len(screens)} screens", "size": {"width": w, "height": h}}
