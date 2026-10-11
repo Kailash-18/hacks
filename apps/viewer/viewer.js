@@ -4,7 +4,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { AssemblyView } from "./assembly3d.js";
-import { alternativesFor } from "./alternatives.js";
+import { alternativesFor, lookFor } from "./alternatives.js";
 
 const API = new URLSearchParams(location.search).get("api") || "";
 const TRANSFORMERS_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.1.2";
@@ -162,7 +162,7 @@ function viewsOf(a) {
 const VIEW_NAMES = { top: "Top", bottom: "Bottom", front: "Front", back: "Back", left: "Left side", right: "Right side", "three-quarter": "Angle", inside: "Inside", unknown: "Photo", photo: "Photo" };
 
 async function build(analysis, { sample = false } = {}) {
-  A = analysis; isSample = sample; selected = removed = null; affected = new Set();
+  A = analysis; isSample = sample; selected = removed = null; affected = new Set(); swaps.clear();
   for (const k in depthCache) delete depthCache[k];
   if (!A.scene) { showError("This analysis has no physical scene data."); return; }
   renderPanel();
@@ -587,6 +587,7 @@ function renderParts() {
       const txt = el("span", "pname"); txt.append(el("b", "", c.label), el("small", "", c.type.replace(/_/g, " ")));
       li.append(th, txt);
       if (c.id === removed) li.append(el("span", "tag gone", "removed"));
+      else if (swaps.has(c.id)) li.append(el("span", "tag sw", "swapped"));
       else if (affected.has(c.id)) li.append(el("span", "tag hit", "affected"));
       else li.append(el("span", "chev", "›"));
       li.onclick = () => select(c.id);
@@ -643,18 +644,38 @@ function renderDetail() {
 
 // "Could be replaced with": three swaps, each with one advantage and one drawback, built once per selected part
 function renderAlts(c) {
-  const box = $("dAlts"); if (box.dataset.id === c.id) return;
+  const box = $("dAlts");
+  if (box.dataset.id === c.id) { syncAlts(c); return; }
   box.dataset.id = c.id; box.innerHTML = "";
   const alts = alternativesFor(c); box.hidden = !alts.length; if (!alts.length) return;
-  const head = el("div", "alts-head"); head.append(el("span", "", "Could be replaced with"), el("span", "alts-note", "rules of thumb"));
+  const head = el("div", "alts-head"); head.append(el("span", "", "Could be replaced with"), el("span", "alts-note", mode === "3d" ? "tap to try in 3D" : "rules of thumb"));
   const list = el("div", "alts-list");
   alts.forEach((a, i) => {
-    const card = el("div", "alt"); card.style.setProperty("--i", i);
+    const card = el("button", "alt"); card.type = "button"; card.style.setProperty("--i", i); card.dataset.name = a.name;
     const pro = el("div", "pro"), con = el("div", "con");
     pro.append(el("i", "", "+"), el("span", "", a.pro)); con.append(el("i", "", "−"), el("span", "", a.con));
-    card.append(el("b", "", a.name), pro, con); list.append(card);
+    const top = el("div", "alt-top"); top.append(el("i", "alt-sw"), el("b", "", a.name), el("span", "alt-state", "in 3D"));
+    top.querySelector(".alt-sw").style.background = lookFor(a.name).color;
+    card.append(top, pro, con);
+    card.onclick = () => trySwap(c.id, a.name);
+    list.append(card);
   });
-  box.append(head, list);
+  const reset = el("button", "alt-reset", "↺ Back to the original"); reset.type = "button"; reset.onclick = () => trySwap(c.id, null);
+  box.append(head, list, reset);
+  syncAlts(c);
+}
+// which replacement (if any) is on the model right now
+const swaps = new Map();
+function syncAlts(c) {
+  const on = swaps.get(c.id) || null, box = $("dAlts");
+  box.querySelectorAll(".alt").forEach((b) => b.classList.toggle("on", b.dataset.name === on));
+  box.querySelector(".alt-reset")?.toggleAttribute("hidden", !on);
+}
+function trySwap(id, name) {
+  if (mode !== "3d") return;
+  if (!name || swaps.get(id) === name) { swaps.delete(id); asm.restorePart(id); }
+  else { swaps.set(id, name); asm.swapPart(id, lookFor(name), name); }
+  const c = compById(id); syncAlts(c); renderParts();
 }
 
 async function select(id) {

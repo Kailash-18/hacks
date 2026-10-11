@@ -682,3 +682,27 @@ details summary { cursor: pointer; font-weight: 600; color: var(--muted); }
 .layout-seg i::before, .layout-seg i::after { content: ""; position: absolute; background: currentColor; border-radius: 1px; }
 .ic-v::before { left: 3px; width: 4px; top: 0; bottom: 0; } .ic-v::after { display: none; }
 .ic-h::before { top: 3px; height: 4px; left: 0; right: 0; } .ic-h::after { display: none; }
+
+/* ---------- try a replacement on the 3D model */
+button.alt { appearance: none; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.alt-top { display: flex; align-items: center; gap: 8px; }
+.alt-sw { flex: none; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(255, 255, 255, .25) inset, 0 0 10px rgba(0, 0, 0, .4); }
+.alt-state { margin-left: auto; font: 600 10px "JetBrains Mono", monospace; letter-spacing: .06em; text-transform: uppercase; color: #59d8ff;
+  padding: 2px 7px; border-radius: 999px; background: rgba(89, 216, 255, .12); border: 1px solid rgba(89, 216, 255, .4); opacity: 0; transform: scale(.85);
+  transition: opacity .25s, transform .25s var(--ease); }
+.alt.on { border-color: rgba(89, 216, 255, .6); background: linear-gradient(120deg, rgba(89, 216, 255, .14), rgba(8, 11, 15, .6) 70%);
+  box-shadow: 0 0 0 1px rgba(89, 216, 255, .25), 0 12px 28px -14px rgba(89, 216, 255, .7); }
+.alt.on::after { transform: scaleY(1); background: #59d8ff; box-shadow: 0 0 12px #59d8ff; }
+.alt.on .alt-state { opacity: 1; transform: none; }
+.alt:active { transform: translateX(3px) scale(.99); }
+.alt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.alt-reset { appearance: none; margin-top: 8px; width: 100%; padding: 7px 10px; border-radius: 10px; border: 1px dashed rgba(255, 255, 255, .14); background: none;
+  color: #aab3bf; font: 500 12.5px Inter, sans-serif; cursor: pointer; transition: color .15s, border-color .15s, background .15s; animation: focusIn .3s var(--ease) both; }
+.alt-reset:hover { color: #fff; border-color: rgba(89, 216, 255, .5); background: rgba(89, 216, 255, .06); }
+.parts .tag.sw { color: #59d8ff; background: rgba(89, 216, 255, .12); }
+/* the callout of a swapped part names the replacement */
+.labels3d .lbl.swapped { border-color: rgba(89, 216, 255, .75); background: linear-gradient(120deg, rgba(89, 216, 255, .22), rgba(10, 14, 20, .88));
+  box-shadow: 0 0 18px rgba(89, 216, 255, .35); }
+.labels3d .lbl small.sw { color: #59d8ff; }
+.labels3d .lbl.swapping { filter: brightness(1.6) drop-shadow(0 0 8px rgba(89, 216, 255, .8)); transition: filter .3s; }
+.alts-note { white-space: nowrap; }

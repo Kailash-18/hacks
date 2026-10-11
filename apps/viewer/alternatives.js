@@ -131,3 +131,59 @@ export function alternativesFor(c) {
   const rule = RULES.find((r) => r.re.test(text)) || BY_TYPE[c.type];
   return rule ? rule.alts : [];
 }
+
+// How a replacement looks on the 3D model: material colour, finish and rough proportions.
+const LOOKS = [
+  [/alumin|metal wheel|free-spin|torx|brushless|stepper|metal gear|laser-etched/, { color: "#c3c9d2", metalness: 0.95, roughness: 0.28 }],
+  [/gorilla/, { color: "#d8ecff", metalness: 0, roughness: 0.04, opacity: 0.5 }],
+  [/acrylic|pmma/, { color: "#e9f4ff", metalness: 0, roughness: 0.08, opacity: 0.6 }],
+  [/polycarbonate/, { color: "#a9c6e8", metalness: 0, roughness: 0.12, opacity: 0.72 }],
+  [/recycled abs/, { color: "#6e7a68", roughness: 0.9 }],
+  [/oled/, { color: "#030406", metalness: 0.2, roughness: 0.08 }],
+  [/e-ink/, { color: "#dcd8cc", roughness: 0.95 }],
+  [/ips lcd|lcd/, { color: "#5b8fd9", roughness: 0.25 }],
+  [/li-polymer|pouch/, { color: "#b9c0ca", metalness: 0.75, roughness: 0.32, scale: [1.05, 0.55, 1.05] }],
+  [/li-ion|built-in.*pack|rechargeable/, { color: "#2f6fe0", roughness: 0.4 }],
+  [/supercap/, { color: "#1d2026", metalness: 0.6, roughness: 0.3, scale: [0.7, 0.7, 0.7] }],
+  [/aaa battery/, { color: "#d9a520", metalness: 0.4, roughness: 0.35, scale: [0.8, 0.8, 0.8] }],
+  [/usb-c wired|wired usb|wired/, { color: "#202227", roughness: 0.65, scale: [0.6, 0.6, 0.6] }],
+  [/gan charger/, { color: "#f3f4f6", roughness: 0.5, scale: [0.7, 0.7, 0.7] }],
+  [/wireless|qi|bluetooth|dongle/, { color: "#2563eb", roughness: 0.35, scale: [0.8, 0.8, 0.8] }],
+  [/flexible pcb|flex ribbon/, { color: "#c98a2b", roughness: 0.45, scale: [1, 0.5, 1] }],
+  [/modular boards|board-to-board/, { color: "#1e7a46", roughness: 0.5 }],
+  [/single-chip|soc|digital \(i|combo sensor|gyroscope|imu|mems/, { color: "#15171c", metalness: 0.3, roughness: 0.45, scale: [0.8, 0.8, 0.8] }],
+  [/laser sensor/, { color: "#d6303a", roughness: 0.3 }],
+  [/trackball/, { color: "#b4232f", roughness: 0.2, clearcoat: 1, scale: [1.15, 1.15, 1.15] }],
+  [/larger 1-inch|periscope|fixed-focus/, { color: "#0e1014", metalness: 0.5, roughness: 0.2 }],
+  [/analog sensor/, { color: "#3a3f47", roughness: 0.5 }],
+  [/optical switch/, { color: "#2b6cb0", roughness: 0.35 }],
+  [/membrane|silicone|solid rubber/, { color: "#8e969f", roughness: 0.95 }],
+  [/capacitive|touch scroll|touch pad|glass trackpad|force-sensing/, { color: "#0b0d12", metalness: 0.1, roughness: 0.06, clearcoat: 1 }],
+  [/mechanical switches|physical buttons/, { color: "#3b3f46", roughness: 0.55 }],
+  [/hall-effect/, { color: "#4b5563", metalness: 0.6, roughness: 0.35 }],
+  [/optical encoder/, { color: "#525a66", metalness: 0.6, roughness: 0.4 }],
+  [/rgb led/, { color: "#a855f7", roughness: 0.2 }],
+  [/light pipe|edge-lit/, { color: "#e0f2fe", roughness: 0.1, opacity: 0.7 }],
+  [/piezo/, { color: "#c8a24a", metalness: 0.8, roughness: 0.3 }],
+  [/balanced-armature|mems microphone|electret|mic array/, { color: "#9aa1ab", metalness: 0.8, roughness: 0.3, scale: [0.8, 0.8, 0.8] }],
+  [/bone-conduction/, { color: "#3a3f47", roughness: 0.6 }],
+  [/linear resonant/, { color: "#8f96a0", metalness: 0.7, roughness: 0.35 }],
+  [/pneumatic/, { color: "#141414", roughness: 0.85, scale: [1.1, 1.1, 1.1] }],
+  [/polyurethane/, { color: "#e3b341", roughness: 0.5 }],
+  [/belt/, { color: "#1a1a1a", roughness: 0.8 }],
+  [/compliant|flexure|snap-fit|moulded/, { color: "#4b5563", roughness: 0.6 }],
+  [/adhesive/, { color: "#f2d16b", roughness: 0.3, opacity: 0.8 }],
+  [/printed|pad print/, { color: "#ffffff", roughness: 0.5 }],
+  [/magnetic/, { color: "#9ca3af", metalness: 0.9, roughness: 0.25 }],
+  [/usb-c/, { color: "#a8b0ba", metalness: 0.9, roughness: 0.3 }],
+  [/ptfe/, { color: "#f5f5f4", roughness: 0.3 }],
+  [/textured plastic/, { color: "#2d3139", roughness: 1 }],
+];
+
+export function lookFor(name) {
+  const n = String(name || "").toLowerCase();
+  const hit = LOOKS.find(([re]) => re.test(n));
+  if (hit) return hit[1];
+  let h = 0; for (const ch of n) h = (h * 31 + ch.charCodeAt(0)) >>> 0; // anything else: a stable distinct colour
+  return { color: `hsl(${h % 360}, 55%, 52%)`, roughness: 0.45 };
+}
