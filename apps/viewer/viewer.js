@@ -976,26 +976,7 @@ async function loadSamples() {
     const r = await fetch(API + "/api/physical/samples"); const d = await r.json();
     for (const s of d.samples) $("samples").append(new Option(s.title, s.id));
     if (!d.samples.length) $("samples").hidden = true;
-    // the landing screen offers the saved scans as one-click starts
-    $("tryBtns").innerHTML = "";
-    for (const s of d.samples) {
-      const b = el("button", "btn try-btn", s.title); b.type = "button";
-      b.onclick = () => { $("samples").value = s.id; $("samples").dispatchEvent(new Event("change")); };
-      $("tryBtns").append(b);
-    }
-    $("tryRow").hidden = !d.samples.length;
   } catch { $("samples").hidden = true; }
-}
-// drag photos onto the landing screen
-{
-  const dz = $("dropzone"), stage = canvas.parentElement;
-  stage.addEventListener("dragover", (e) => { if ([...e.dataTransfer.types].includes("Files")) { e.preventDefault(); dz.classList.add("over"); } });
-  stage.addEventListener("dragleave", (e) => { if (!e.relatedTarget || !stage.contains(e.relatedTarget)) dz.classList.remove("over"); });
-  stage.addEventListener("drop", async (e) => {
-    e.preventDefault(); dz.classList.remove("over");
-    const blobs = await pickFiles(e.dataTransfer.files); if (blobs.length) analyze(blobs.slice(0, 4));
-  });
-  dz.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("file").click(); } });
 }
 $("samples").addEventListener("change", async (e) => {
   const id = e.target.value; e.target.value = ""; if (!id) return;
