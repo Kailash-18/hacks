@@ -29,7 +29,7 @@ def test_apply_renames_adds_and_never_drops_seen_parts():
     assert bat.label == "1x AA battery compartment" and bat.evidence[0].startswith("Confirmed for Logitech M185")
     assert "omron_microswitch" in ids and "omron_microswitch" in a.scene.ghost_component_ids
     assert any(r.from_ == "omron_microswitch" and r.to == "pcb" for r in a.relationships)
-    assert st == {"renamed": 1, "dropped": 1, "added": 1, "confirmed": 1}
+    assert st == {"renamed": 1, "dropped": 1, "added": 1, "confirmed": 2}
 
 
 def test_parse_and_skip_without_identified_model():

@@ -194,11 +194,15 @@ def apply_bom(result, bom: dict | None) -> dict:
             cid, n = f"{_slug(label)}_{n}", n + 1
         used.add(cid)
         t = _s(p.get("type"), 20)
+        conf = _conf(p.get("confidence"))
         ev = [f"Inside this product per {src_line(p) or 'product sources'} (not visible in the photo)."]
+        if src_line(p) and conf is not None and conf >= 0.6:
+            ev.insert(0, f"Confirmed for {bom.get('product', 'this product')}: {src_line(p)}")
+            stats["confirmed"] += 1
         if _s(p.get("detail"), 120):
             ev.insert(0, f"Spec: {_s(p.get('detail'), 120)}")
         c = Component(id=cid, label=label, type=t if t in PART_TYPES else "unknown", status="inferred",
-                      confidence=_conf(p.get("confidence")), evidence=ev)
+                      confidence=conf, evidence=ev)
         result.components.append(c)
         label_to_id[label.lower()] = cid
         if result.scene:
