@@ -1371,6 +1371,7 @@ html:has(body.physical-site) { scroll-behavior: smooth; }
   .physical-site .layout:has(> .panel:not([hidden])) .stage { height: 62svh; min-height: 430px; overflow: hidden; }
   .physical-site .layout:has(> .panel:not([hidden])) .panel { max-height: 74svh; border-top: 1px solid var(--p-line); border-left: 0; }
 }
+
 @media (max-width: 520px) {
   .physical-site .topbar { padding: 8px 13px; gap: 7px 8px; }
   .physical-site .physical-mark { width: 32px; height: 32px; }
@@ -1930,4 +1931,134 @@ html:has(body.physical-site) { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) {
   .physical-site .physical-visual,
   .physical-site .physical-visual[data-story-mode="active"] { transition: none; transform: none; }
+}
+
+/* Put saved studies on the opening screen; keep the model crisp and soften only its halo. */
+@media (min-width: 841px) {
+  .physical-site .physical-landing {
+    grid-template-rows: minmax(370px, 46svh) auto auto auto;
+    row-gap: clamp(14px, 1.8vw, 24px);
+    padding-top: clamp(18px, 2.5vh, 30px);
+  }
+  .physical-site .physical-copy { grid-row: 1; align-self: center; }
+  .physical-site .physical-visual {
+    grid-row: 1 / span 3;
+    height: min(49svh, 540px);
+    min-height: 370px;
+    padding: clamp(13px, 1.6vw, 22px);
+    position: sticky;
+    top: 82px;
+  }
+  .physical-site .physical-visual::before { filter: blur(3px); transform: scale(1.035); }
+  .physical-site .physical-sample-shelf {
+    position: relative;
+    z-index: 3;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    grid-template-columns: minmax(190px, .64fr) minmax(0, 2fr);
+    padding: 16px 20px 12px;
+    border-color: rgba(147, 187, 243, .18);
+    border-radius: 18px;
+    background: linear-gradient(112deg, rgba(13, 23, 38, .92), rgba(12, 18, 31, .86) 64%, rgba(30, 26, 53, .88));
+    box-shadow: inset 0 1px rgba(255,255,255,.07), 0 16px 48px rgba(0,0,0,.2);
+  }
+  .physical-site .sample-shelf-heading h2 { margin: 10px 0 6px; font-size: clamp(22px, 2vw, 29px); }
+  .physical-site .sample-shelf-heading > div > p:last-child { max-width: 320px; font-size: 10px; }
+  .physical-site .physical-sample-grid { gap: 10px; padding: 3px 3px 7px; }
+  .physical-site .physical-sample-card { flex-basis: clamp(190px, 18vw, 250px); min-height: 205px; padding: 9px 10px; }
+  .physical-site .sample-card-art { height: 106px; min-height: 106px; margin: 4px -3px 6px; }
+  .physical-site .sample-card-analysis { margin: 1px 0 6px; }
+  .physical-site .physical-scroll-story { grid-row: 3; }
+  .physical-site .physical-landing:not(:has(#physicalSamples:not([hidden]))) .physical-about { grid-row: 4; }
+}
+@media (max-width: 840px) {
+  .physical-site .physical-landing { grid-template-rows: auto auto auto auto auto; row-gap: 19px; }
+  .physical-site .physical-visual {
+    grid-row: 2 / span 3;
+    position: sticky;
+    top: 88px;
+    height: clamp(250px, 35svh, 330px);
+    min-height: 250px;
+    opacity: .82;
+  }
+  .physical-site .physical-visual::before { filter: blur(3px); transform: scale(1.035); }
+  .physical-site .physical-visual[data-story-mode="active"] { opacity: .42; filter: saturate(.92) brightness(.82); }
+  .physical-site .physical-scroll-story::before { background: linear-gradient(180deg, rgba(7, 13, 22, .74), rgba(7, 13, 22, .61) 45%, rgba(7, 13, 22, .82)); }
+  .physical-site .physical-sample-shelf {
+    position: relative;
+    z-index: 3;
+    display: block;
+    grid-column: 1;
+    grid-row: 3;
+    padding: 19px 17px 15px;
+    border-color: rgba(147, 187, 243, .18);
+    background: rgba(11, 19, 32, .91);
+  }
+  .physical-site .sample-shelf-heading { display: flex; margin-bottom: 12px; }
+  .physical-site .sample-shelf-heading h2 { margin: 10px 0 6px; font-size: clamp(23px, 4vw, 31px); }
+  .physical-site .physical-sample-grid { display: flex; gap: 11px; overflow-x: auto; padding: 2px 2px 9px; scroll-snap-type: x mandatory; }
+  .physical-site .physical-sample-card { flex: 0 0 min(43vw, 275px); min-height: 225px; scroll-snap-align: start; }
+  .physical-site .sample-card-art { height: 122px; min-height: 122px; }
+  .physical-site .sample-shelf-footnote { margin-top: 6px; }
+  .physical-site .physical-scroll-story { grid-row: 4; }
+  .physical-site .physical-landing:not(:has(#physicalSamples:not([hidden]))) .physical-about { grid-row: 5; }
+}
+@media (max-width: 520px) {
+  .physical-site .physical-landing { row-gap: 16px; padding-top: 24px; }
+  .physical-site .physical-visual { grid-row: 2 / span 3; height: 260px; min-height: 250px; }
+  .physical-site .sample-shelf-heading { display: block; margin-bottom: 10px; }
+  .physical-site .sample-shelf-heading h2 { font-size: 25px; }
+  .physical-site .sample-shelf-heading > div > p:last-child { max-width: 300px; font-size: 10px; }
+  .physical-site .physical-sample-card { flex-basis: min(78vw, 285px); min-height: 230px; }
+  .physical-site .sample-card-art { height: 124px; min-height: 124px; }
+}
+@media (max-width: 1120px) {
+  .physical-site .visual-readout #physicalAssemblyProgress { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .physical-site .physical-visual::before { animation: none; filter: blur(3px); }
+}
+
+/* Keep the opening copy contained above the sample shelf on wide displays. */
+@media (min-width: 1121px) {
+  .physical-site .physical-landing {
+    grid-template-columns: minmax(0, 1.03fr) minmax(0, .97fr);
+    grid-template-rows: minmax(530px, 58svh) auto auto auto;
+    column-gap: clamp(36px, 3.4vw, 64px);
+    row-gap: clamp(18px, 2vw, 28px);
+    padding-top: clamp(24px, 3vh, 36px);
+  }
+  .physical-site .physical-copy { width: min(100%, 710px); }
+  .physical-site .physical-copy h1 {
+    max-width: 710px;
+    margin: clamp(17px, 2.4vh, 25px) 0 14px;
+    font-size: clamp(50px, 3.7vw, 72px);
+    line-height: .98;
+  }
+  .physical-site .physical-lede { max-width: 560px; font-size: 13px; line-height: 1.7; }
+  .physical-site .physical-capabilities { gap: 9px 15px; margin: 18px 0 20px; }
+  .physical-site .physical-scroll-link { margin-top: 17px; }
+  .physical-site .physical-visual { height: min(48svh, 540px); min-height: 390px; }
+}
+
+@media (min-width: 841px) and (max-width: 1120px) {
+  .physical-site .physical-landing {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto;
+    row-gap: 22px;
+    padding: 30px clamp(26px, 5vw, 58px) 38px;
+  }
+  .physical-site .physical-copy { grid-column: 1; grid-row: 1; width: min(100%, 760px); }
+  .physical-site .physical-copy h1 { max-width: 760px; font-size: clamp(48px, 6.2vw, 68px); }
+  .physical-site .physical-visual {
+    grid-column: 1;
+    grid-row: 2;
+    position: relative;
+    top: auto;
+    height: clamp(360px, 48svh, 470px);
+    min-height: 360px;
+  }
+  .physical-site .physical-sample-shelf { grid-row: 3; }
+  .physical-site .physical-scroll-story { grid-row: 4; }
+  .physical-site .physical-landing:not(:has(#physicalSamples:not([hidden]))) .physical-about { grid-row: 5; }
 }
