@@ -871,6 +871,8 @@ export class AssemblyView {
     for (const p of this.parts) { if (!p.group.visible) continue; p.group.updateMatrixWorld(true); minY = Math.min(minY, new THREE.Box3().setFromObject(p.mesh).min.y); }
     this.floor.position.y = (isFinite(minY) ? minY : -3) - (0.04 + TARGET_SIZE * 0.11 * Math.min(1, t * 2.5)); // parts float clear of the plinth when apart
     this.grid.position.y = this.floor.position.y - 0.005;
+    // the base moves with the parts in the same frame: while the slider is dragged nothing can dip into it
+    if (this.fx) { this.fx.group.position.y = this.floor.position.y + 0.01; this.grid.position.y = this.fx.group.position.y - this.fx.H * 1.3 - 0.02; }
     this.lights.children[0].target.position.set(0, this.floor.position.y, 0);
     for (const p of this.parts) p.label.visible = t > 0.25 || p.highlight;
   }
