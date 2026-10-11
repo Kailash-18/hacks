@@ -203,11 +203,14 @@ export class AssemblyView {
     const fitted = {};
     if (main) for (const a of assembly.parts) {
       const c = comp[a.componentId];
-      if (!c || a.shape === "dome" || bands[a.componentId] || !inner.has(c.type)) continue;
+      if (!c) continue;
+      const hidden = c.status !== "observed";
+      if (a.shape === "dome" || bands[a.componentId] || !(inner.has(c.type) || hidden)) continue;
       // a flat base plate under the shell is not squeezed inside it: it gets the shell's oval footprint below
       if (["structure", "cover"].includes(c.type) && a.size[1] < 0.3 * Math.min(a.size[0], a.size[2])) continue;
       const size = a.size.map((v) => v * k), pos = a.position.map((v) => v * k);
-      if (domeTop(main, pos[0], pos[2]) === null || pos[1] > (domeTop(main, pos[0], pos[2]) ?? 0)) continue; // not inside the shell
+      const top0 = domeTop(main, pos[0], pos[2]);
+      if (!hidden && (top0 === null || pos[1] > top0)) continue; // a seen part outside the shell stays where the photo shows it
       const R = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(...a.rotation.map((d) => THREE.MathUtils.degToRad(d)))).elements;
       for (let it = 0; it < 14; it++) {
         const hx = (Math.abs(R[0]) * size[0] + Math.abs(R[4]) * size[1] + Math.abs(R[8]) * size[2]) / 2;
@@ -223,6 +226,11 @@ export class AssemblyView {
         // the shell is roomiest near its base: move the part down before making it smaller
         const low = main.baseY + hy + main.h * 0.04;
         if (low < pos[1] && fits(low)) { pos[1] = low; break; }
+        if (it < 6) { // first slide it in toward the middle, keeping its real size
+          pos[0] += (main.cx - pos[0]) * 0.3; pos[2] += (main.cz - pos[2]) * 0.3;
+          pos[1] = Math.min(pos[1], main.baseY + main.h * 0.6);
+          continue;
+        }
         for (let i = 0; i < 3; i++) size[i] *= 0.9;
         pos[0] += (main.cx - pos[0]) * 0.15; pos[2] += (main.cz - pos[2]) * 0.15;
         pos[1] = Math.max(main.baseY + hy * 0.9, pos[1] - hy * 0.12);
@@ -402,29 +410,38 @@ export class AssemblyView {
     for (const p of this.parts) {
       const along = p.dir.dot(e);
       const internal = p.inferred || ["controller", "power_source", "storage", "connector", "cable"].includes(p.type);
-      if (Math.abs(along) < 0.5 && internal && !this.housing?.has(p)) {
+      if ((Math.abs(along) < 0.5 || (p.inferred && Math.abs(along) < 0.95)) && internal && !this.housing?.has(p)) {
         const side = Math.sign(p.base.dot(e)) || Math.sign(along) || 1;
         p.dir.copy(e).multiplyScalar(side);
       }
     }
-    const GAP = 0.14, EPS = span * 0.04;
+    const EPS = span * 0.04, R = TARGET_SIZE * 0.8 * 0.6, GAPW = TARGET_SIZE * 0.035; // clearance checked at 60% explode
+    const ext = (p) => { // the part's extent along e at its assembled place
+      p.group.position.copy(p.base); p.group.quaternion.copy(p.baseQuat); p.group.scale.setScalar(p.fit || 1); p.group.updateMatrixWorld(true);
+      const b = new THREE.Box3().setFromObject(p.mesh); return [b.min.dot(e), b.max.dot(e)];
+    };
     for (const side of [1, -1]) {
-      const members = this.parts.filter((p) => p.dir.dot(e) * side >= 0.5).map((p) => ({
-        p, along: p.dir.dot(e) * side, key: p.base.dot(e) * side + (this.housing?.has(p) ? EPS * 0.5 : 0) }));
+      const members = this.parts.filter((p) => p.dir.dot(e) * side >= 0.5).map((p) => {
+        const [lo, hi] = ext(p).map((v) => v * side).sort((x, y) => x - y);
+        return { p, along: p.dir.dot(e) * side, lo, hi, key: p.base.dot(e) * side + (this.housing?.has(p) ? EPS * 0.5 : 0) };
+      });
       members.sort((a, b) => a.key - b.key);
-      let prev = null, i = 0;
+      let prevTop = null, i = 0;
       while (i < members.length) { // parts at about the same depth form one level; each level clears the one inside it
         const lvl = [members[i]];
         while (i + lvl.length < members.length && members[i + lvl.length].key - members[i].key <= EPS) lvl.push(members[i + lvl.length]);
         i += lvl.length;
-        const req = prev === null ? 0 : prev + GAP;
-        let top = 0;
-        for (const m of lvl) { const ev = Math.max(m.p.dist * m.along, req); m.p.dist = ev / m.along; top = Math.max(top, ev); }
-        prev = Math.max(prev ?? 0, top);
+        let top = -Infinity;
+        for (const m of lvl) {
+          if (prevTop !== null) { const need = (prevTop + GAPW - m.lo) / (m.along * R); if (need > m.p.dist) m.p.dist = need; }
+          top = Math.max(top, m.hi + m.p.dist * m.along * R);
+        }
+        prevTop = Math.max(prevTop ?? -Infinity, top);
       }
-      const top = Math.max(0, ...members.map((m) => m.p.dist * m.along));
-      if (top > 2.2) for (const m of members) m.p.dist *= 2.2 / top; // keep the whole diagram on screen
+      const far = Math.max(0, ...members.map((m) => m.p.dist * m.along));
+      if (far > 3.2) for (const m of members) m.p.dist *= 3.2 / far; // keep the whole diagram on screen
     }
+    for (const p of this.parts) { p.group.position.copy(p.base); p.group.quaternion.copy(p.baseQuat); p.group.scale.setScalar(p.fit || 1); }
   }
 
   // ---------------------------------------------------------------- effects
@@ -636,7 +653,7 @@ export class AssemblyView {
       if (!best || best.d > Math.max(w, h)) continue; // nothing close enough underneath: leave it as modelled
       const N = 18;
       let g = null;
-      for (const shrink of [1, 0.8, 0.62, 0.48]) { // a side panel taller than the curved wall: fit the part of it that lies on the wall
+      for (const shrink of [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.42]) { // a side panel taller than the curved wall: fit the part of it that lies on the wall
         const G = new THREE.PlaneGeometry(1, 1, N, N), P = G.attributes.position;
         let ok = 0;
         for (let i = 0; i < P.count; i++) {
@@ -647,7 +664,7 @@ export class AssemblyView {
           const pt = hit ? (ok++, hit.point.clone().addScaledVector(best.out, Math.max(0.006, th * 0.5))) : world;
           pt.sub(c); P.setXYZ(i, pt.x, pt.y, pt.z);
         }
-        if (ok >= P.count * 0.92) { g = G; break; }
+        if (ok === P.count) { g = G; break; }
         G.dispose();
       }
       if (!g) continue; // mostly off the host: keep the original shape
@@ -852,7 +869,7 @@ export class AssemblyView {
     // floor sits just under the lowest part
     let minY = Infinity;
     for (const p of this.parts) { if (!p.group.visible) continue; p.group.updateMatrixWorld(true); minY = Math.min(minY, new THREE.Box3().setFromObject(p.mesh).min.y); }
-    this.floor.position.y = (isFinite(minY) ? minY : -3) - 0.02;
+    this.floor.position.y = (isFinite(minY) ? minY : -3) - (0.04 + TARGET_SIZE * 0.11 * Math.min(1, t * 2.5)); // parts float clear of the plinth when apart
     this.grid.position.y = this.floor.position.y - 0.005;
     this.lights.children[0].target.position.set(0, this.floor.position.y, 0);
     for (const p of this.parts) p.label.visible = t > 0.25 || p.highlight;
