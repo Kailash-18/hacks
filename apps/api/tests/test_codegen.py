@@ -310,8 +310,14 @@ def test_agent_prompt_route_is_instant_and_complete():
     out = r.json()
     p = out["prompt"]
     assert out["agent"]["name"] == "Cursor" and "Next.js" in out["stack"]["name"]
-    for part in ("## Design tokens", "## Layout", "## Work plan", "## Definition of done", "use Supabase", "Settings"):
+    for part in ("## Design tokens", "## Layout", "## Plan", ".cursor/rules", "## Definition of done", "use Supabase", "Settings"):
         assert part in p
+    # each agent gets its own way of working, not the same text
+    texts = {ag: c.post("/api/digital/prompt", data={"analysisId": aid, "agent": ag}).json()["prompt"]
+             for ag in ("claude-code", "cursor", "copilot", "lovable", "chat")}
+    assert "CLAUDE.md" in texts["claude-code"] and "copilot-instructions.md" in texts["copilot"]
+    assert "Follow-up prompts" in texts["lovable"] and "## Layout" not in texts["lovable"] and "in full" in texts["chat"]
+    assert len(set(texts.values())) == 5
     assert " px)" in p  # measured boxes
     r2 = c.post("/api/digital/prompt", data={"analysisId": aid, "backend": "0", "agent": "nope", "stack": "nope"})
     assert r2.status_code == 200 and "## Back end" not in r2.json()["prompt"] and r2.json()["agent"]["id"] == "claude-code"

@@ -618,7 +618,9 @@ async function loadPrompt() {
     };
     chips($("#apAgent"), p.agents, "agent");
     chips($("#apStack"), p.stacks.map((x) => ({ ...x, name: x.name.split(/ \+ |,| with /)[0].replace(/ \(.*/, "") })), "stack");
-    $("#apText").value = p.prompt;
+    const changed = $("#apText").value && $("#apText").value !== p.prompt;
+    $("#apText").value = p.prompt; $("#apText").scrollTop = 0;
+    if (changed) { const o = $(".ap-out"); o.classList.remove("swap"); void o.offsetWidth; o.classList.add("swap"); }
     $("#apHow").textContent = p.agent.how;
     const words = p.prompt.split(/\s+/).length;
     $("#apMeta").textContent = `${words.toLocaleString()} words · ${p.agent.name} · ${p.stack.name}` + (p.usesGuide ? " · uses the build plan" : "") + (p.usesBackend ? " · uses the back end" : "");
