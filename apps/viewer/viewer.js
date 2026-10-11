@@ -171,6 +171,7 @@ async function build(analysis, { sample = false } = {}) {
   const has3D = A.scene.assembly && A.scene.assembly.parts.length;
   if (has3D) asm.build(A.scene.assembly, A.components, viewsOf(A), A.relationships);
   $("empty").hidden = true; $("controls").hidden = false; $("panel").hidden = false; steps(STEP_NAMES.length);
+  setPanelTab(panelTab); requestAnimationFrame(moveInk);
   if (has3D) show3D({ intro: true });
   else { await showView(0); introExplode(); }
 }
@@ -559,7 +560,6 @@ function renderParts() {
   const ul = $("parts"); ul.innerHTML = "";
   const seen = A.components.filter((c) => c.status === "observed"), inside = A.components.filter((c) => c.status !== "observed");
   $("partsCount").textContent = A.components.length;
-  $("partsSearch").hidden = A.components.length < 8;
   const q = partsQuery.trim().toLowerCase();
   const match = (c) => !q || c.label.toLowerCase().includes(q) || c.type.replace(/_/g, " ").includes(q);
   const groups = [["observed", "Seen in the photo", seen], ["inferred", "Inside, inferred", inside]]
@@ -567,20 +567,21 @@ function renderParts() {
   let shown = 0;
   for (const [, title, list] of groups) {
     const items = list.filter(match); if (!items.length) continue;
-    ul.append(el("li", "group", `${title} · ${items.length}`));
+    const gh = el("li", "group"); gh.append(el("span", "", title), el("span", "gcount", String(items.length))); ul.append(gh);
     for (const c of items) {
       shown++;
       const li = el("li", ["part", c.id === selected && "sel", affected.has(c.id) && "affected", c.id === removed && "removed"].filter(Boolean).join(" "));
       li.dataset.id = c.id; li.tabIndex = 0;
-      const th = el("span", "thumb " + (FAMILY[c.type] || "other"));
+      const fam = FAMILY[c.type] || "other";
+      li.classList.add(fam); li.style.animationDelay = Math.min(shown, 12) * 25 + "ms";
+      const th = el("span", "thumb" + (c.status === "observed" ? "" : " ghost"));
       const src = cutoutOf(c.id);
       if (src) { const im = el("img"); im.src = src; im.alt = ""; im.loading = "lazy"; th.append(im); }
-      else th.textContent = c.label.trim()[0]?.toUpperCase() || "?";
-      const txt = el("span", "pname"); txt.append(el("b", "", c.label));
-      if (c.function) txt.append(el("small", "", c.function));
-      li.append(th, txt, el("span", "type " + (FAMILY[c.type] || "other"), c.type.replace(/_/g, " ")));
+      const txt = el("span", "pname"); txt.append(el("b", "", c.label), el("small", "", c.type.replace(/_/g, " ")));
+      li.append(th, txt);
       if (c.id === removed) li.append(el("span", "tag gone", "removed"));
       else if (affected.has(c.id)) li.append(el("span", "tag hit", "affected"));
+      else li.append(el("span", "chev", "›"));
       li.onclick = () => select(c.id);
       li.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(c.id); } };
       li.onmouseenter = () => { if (mode === "3d") asm.setHover(c.id, "list"); };
@@ -596,12 +597,13 @@ $("partsFilter").addEventListener("click", (e) => {
 });
 $("partsSearch").addEventListener("input", (e) => { partsQuery = e.target.value; if (A) renderParts(); });
 
-function renderStats() { // one line of counts under the summary
+function renderStats() { // one quiet line of counts under the title; the numbers count up once
   const seen = A.components.filter((c) => c.status === "observed").length, links = A.relationships.length;
   const box = $("stats"); box.innerHTML = "";
-  for (const [n, l, cls] of [[seen, "seen", "observed"], [A.components.length - seen, "inside", "inferred"], [links, "links", "links"],
-    [viewsOf(A).length, viewsOf(A).length === 1 ? "photo" : "photos", "photos"]]) {
-    const s = el("span", "stat " + cls); s.append(el("b", "", String(n)), document.createTextNode(" " + l)); box.append(s);
+  for (const [n, l, cls] of [[seen, "seen", "observed"], [A.components.length - seen, "inside", "inferred"], [links, "links", "lnk"]]) {
+    const s = el("span", "stat " + cls), b = el("b", "", "0"); s.append(b, el("span", "", l)); box.append(s);
+    const t0 = performance.now(), up = (now) => { const k = Math.min(1, (now - t0) / 700); b.textContent = Math.round(n * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(up); };
+    requestAnimationFrame(up);
   }
 }
 
@@ -638,6 +640,8 @@ async function select(id) {
     if (vi >= 0 && vi !== currentView) await showView(vi);
   }
   selected = id; renderParts(); renderDetail(); renderGraph(); paint(); renderChips();
+  if (id && panelTab === "overview") setPanelTab("parts");
+  if (id && panelTab === "parts") $("detail").scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
 function nudge(dir) {
@@ -748,120 +752,78 @@ $("reveal").addEventListener("click", () => { $("reveal").classList.add("out"); 
 const EDGE_COL = { powers: "#ffb020", feeds: "#ffb020", controls: "#36d6ff", connected_to: "#36d6ff", depends_on: "#9b8cff", drives: "#ff5fd2",
   transmits: "#ff5fd2", supports: "#8fa3bf", mounts: "#8fa3bf", contains: "#8fa3bf", attached_to: "#8fa3bf", covers: "#8fa3bf", adjacent_to: "#8fa3bf" };
 // where each kind of part sits around the hub (degrees, 0 = right): power above, outputs right, inputs left, structure below
-// ---------------------------------------------------------------- system map (layered, readable)
-// Parts sit in four bands, top to bottom, the way energy and signals flow through a device:
-// power -> brain -> inputs and outputs -> body. Every name is written out in a pill, links are curves between bands.
-const TIERS = [["power", "Power"], ["brain", "Brain"], ["io", "Inputs and outputs"], ["body", "Body and structure"]];
-const IO_TYPES = new Set(["sensor", "actuator", "wheel", "display", "interface", "mechanism", "connector", "cable", "light", "speaker"]);
-function tierOf(c) {
-  if (c.type === "power_source" || (c.type === "connector" && /batter|power|charg|cell/i.test(c.label))) return 0;
-  if (c.type === "controller") return 1;
-  if (IO_TYPES.has(c.type)) return 2;
-  return 3;
+// ---------------------------------------------------------------- connections (focus view)
+// One part at a time: what it needs above, the part in the middle, what depends on it below, and what holds it.
+// Clicking any neighbour moves the focus there, so you walk the system instead of reading a hairball.
+const FLOW = { powers: ["powers", "power"], feeds: ["feeds", "power"], controls: ["controls", "control"], connected_to: ["signals", "control"],
+  depends_on: ["needs", "control"], drives: ["drives", "motion"], transmits: ["moves", "motion"] };
+const HOLD = new Set(["supports", "mounts", "contains", "attached_to", "covers", "adjacent_to"]);
+function hubId() { // the most connected part is the natural place to start
+  const deg = {}; for (const r of A.relationships) { deg[r.from] = (deg[r.from] || 0) + 1; deg[r.to] = (deg[r.to] || 0) + 1; }
+  return [...A.components].sort((a, b) => (deg[b.id] || 0) - (deg[a.id] || 0))[0]?.id;
 }
-const FAM_COL = { power: "#ffb020", control: "#36d6ff", motion: "#ff5fd2", structure: "#8fa3bf", other: "#8b93a1" };
-function drawSystemMap(svg, W) {
-  const NS = "http://www.w3.org/2000/svg", cs = A.components, big = W > 500;
-  svg.innerHTML = "";
-  const mk = (tag, attrs, parent = svg) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); parent.append(e); return e; };
-  const defs = mk("defs", {});
-  for (const c of new Set([...Object.values(EDGE_COL), "#5b6472", "#ff4a3a"])) {
-    const m = mk("marker", { id: "arr" + c.slice(1) + W, viewBox: "0 0 10 10", refX: 8, refY: 5, markerWidth: 6, markerHeight: 6, orient: "auto-start-reverse" }, defs);
-    mk("path", { d: "M0,1L9,5L0,9z", fill: c }, m);
-  }
-  const glow = mk("filter", { id: "pglow" + W, x: "-30%", y: "-60%", width: "160%", height: "220%" }, defs);
-  mk("feGaussianBlur", { stdDeviation: 3, result: "b" }, glow);
-  const fm = mk("feMerge", {}, glow); mk("feMergeNode", { in: "b" }, fm); mk("feMergeNode", { in: "SourceGraphic" }, fm);
-
-  // measure text once with an offscreen canvas so pills fit their names
-  const ctx = (drawSystemMap.ctx ||= document.createElement("canvas").getContext("2d"));
-  const FS = big ? 13 : 11.5; ctx.font = `500 ${FS}px Inter, sans-serif`;
-  const PH = big ? 30 : 26, GAPX = 8, GAPY = 10, PAD = 10, maxW = W - PAD * 2;
-  const pos = {}; let y = 6;
-  const bands = TIERS.map(() => []); for (const c of cs) bands[tierOf(c)].push(c);
-  const bandRects = [];
-  bands.forEach((list, t) => {
-    if (!list.length) return;
-    const top = y; y += big ? 26 : 18; // band caption
-    let row = [], rowW = 0; const rows = [];
-    for (const c of list) {
-      let text = c.label; let w = ctx.measureText(text).width + 30;
-      while (w > maxW && text.length > 4) { text = text.slice(0, -2); w = ctx.measureText(text + "…").width + 30; }
-      if (text !== c.label) text += "…";
-      if (row.length && rowW + GAPX + w > maxW) { rows.push([row, rowW]); row = []; rowW = 0; }
-      row.push({ c, w, text }); rowW += (row.length > 1 ? GAPX : 0) + w;
-    }
-    if (row.length) rows.push([row, rowW]);
-    for (const [items, rw] of rows) {
-      let x = (W - rw) / 2;
-      for (const it of items) { pos[it.c.id] = { x, y, w: it.w, h: PH, cx: x + it.w / 2, cy: y + PH / 2, text: it.text, tier: t }; x += it.w + GAPX; }
-      y += PH + GAPY;
-    }
-    bandRects.push({ t, top, bottom: y - GAPY + 8 });
-    y += big ? 16 : 12;
-  });
-  const H = Math.max(120, y);
-  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.style.aspectRatio = `${W} / ${H}`;
-
-  // band backgrounds and captions
-  for (const b of bandRects) {
-    mk("rect", { x: 2, y: b.top, width: W - 4, height: b.bottom - b.top, rx: 10, class: "band b" + b.t });
-    mk("text", { x: PAD + 2, y: b.top + (big ? 14 : 12), class: "bandcap" }).textContent = TIERS[b.t][1];
-  }
-  const hot = (r) => affected.has(r.to) && (r.from === removed || affected.has(r.from));
-  const touch = (r) => selected && (r.from === selected || r.to === selected);
-  const eg = mk("g", {});
+function renderGraph() { renderLinks(); }
+function renderLinks() {
+  const box = $("links"); if (!box || !A) return;
+  const fid = selected && compById(selected) ? selected : hubId(); const f = compById(fid);
+  box.innerHTML = ""; if (!f) return;
+  const ups = [], downs = [], holds = [];
   for (const r of A.relationships) {
-    const a = pos[r.from], b = pos[r.to]; if (!a || !b) continue;
-    let d;
-    if (a.tier === b.tier && Math.abs(a.cy - b.cy) < 2) { // same row: arch over the top
-      const lift = Math.min(28, 10 + Math.abs(a.cx - b.cx) * 0.15);
-      d = `M${a.cx},${a.y} C${a.cx},${a.y - lift} ${b.cx},${b.y - lift} ${b.cx},${b.y - 2}`;
-    } else {
-      const down = b.cy > a.cy, y1 = down ? a.y + a.h : a.y, y2 = down ? b.y - 2 : b.y + b.h + 2, k = Math.max(18, Math.abs(y2 - y1) * 0.5);
-      d = `M${a.cx},${y1} C${a.cx},${y1 + (down ? k : -k)} ${b.cx},${y2 - (down ? k : -k)} ${b.cx},${y2}`;
-    }
-    const col = hot(r) ? "#ff4a3a" : EDGE_COL[r.type] || "#5b6472";
-    const dim = selected && !touch(r) && !hot(r);
-    const path = mk("path", { d, fill: "none", stroke: col, "stroke-width": hot(r) ? 2.4 : touch(r) ? 2 : 1.3, opacity: dim ? 0.12 : touch(r) || hot(r) ? 1 : 0.6,
-      "marker-end": `url(#arr${col.slice(1)}${W})`, class: "gedge" + (hot(r) ? " hot" : ""), "data-a": r.from, "data-b": r.to }, eg);
-    if (r.status !== "observed" && !hot(r)) path.setAttribute("stroke-dasharray", "5 4");
-    mk("title", {}, path).textContent = `${compById(r.from).label} ${r.type.replace(/_/g, " ")} ${compById(r.to).label}${r.evidence[0] ? " — " + r.evidence[0] : ""}`;
+    if (r.to === fid && FLOW[r.type]) ups.push([r, r.from]);
+    else if (r.from === fid && FLOW[r.type]) downs.push([r, r.to]);
+    else if ((r.from === fid || r.to === fid) && HOLD.has(r.type)) holds.push([r, r.from === fid ? r.to : r.from]);
   }
-  for (const c of cs) {
-    const p = pos[c.id]; if (!p) continue;
-    const fam = FAMILY[c.type] || "other", col = FAM_COL[fam];
-    const linked = selected && A.relationships.some((r) => (r.from === selected && r.to === c.id) || (r.to === selected && r.from === c.id));
-    const cls = ["pill", c.status !== "observed" && "inf", c.id === selected && "sel", affected.has(c.id) && "hit", c.id === removed && "gone",
-      selected && c.id !== selected && !linked && "dim"].filter(Boolean).join(" ");
-    const g = mk("g", { class: cls, tabindex: 0, role: "button", "aria-label": c.label, "data-id": c.id });
-    g.style.setProperty("--fam", col);
-    g.onclick = () => select(c.id);
-    g.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(c.id); } };
-    g.onmouseenter = () => { mapHover(svg, c.id); if (mode === "3d") asm.setHover(c.id, "graph"); };
-    g.onmouseleave = () => { mapHover(svg, null); if (mode === "3d") asm.setHover(null, "graph"); };
-    mk("rect", { x: p.x, y: p.y, width: p.w, height: p.h, rx: p.h / 2, class: "pbg", filter: c.id === selected || affected.has(c.id) ? `url(#pglow${W})` : "" }, g);
-    mk("circle", { cx: p.x + 13, cy: p.cy, r: 4.5, class: "pdot" }, g);
-    mk("text", { x: p.x + 23, y: p.cy + FS * 0.36, class: "ptext", style: `font-size:${FS}px` }, g).textContent = p.text;
-    mk("title", {}, g).textContent = `${c.label} (${c.type.replace(/_/g, " ")}, ${c.status})${c.function ? " — " + c.function : ""}`;
+  const node = (id, r, dir) => {
+    const c = compById(id), fam = FAMILY[c.type] || "other";
+    const b = el("button", ["lk-node", fam, r.status !== "observed" && "inf", affected.has(id) && "hit", id === removed && "gone"].filter(Boolean).join(" "));
+    b.type = "button";
+    const verb = FLOW[r.type]?.[0] || r.type.replace(/_/g, " ");
+    // read the link from the focused part's point of view
+    const phrase = r.type === "depends_on" ? (dir === "up" ? "it needs this" : "needs it") : dir === "up" ? verb + " it" : "it " + verb;
+    b.append(el("span", "lk-dot"), el("span", "lk-name", c.label), el("span", "lk-verb", phrase));
+    b.title = r.evidence?.[0] || "";
+    b.onclick = () => select(id);
+    b.onmouseenter = () => { if (mode === "3d") asm.setHover(id, "links"); };
+    b.onmouseleave = () => { if (mode === "3d") asm.setHover(null, "links"); };
+    return b;
+  };
+  const group = (title, items, dir, empty) => {
+    const g = el("div", "lk-group " + dir);
+    g.append(el("div", "lk-cap", title));
+    if (!items.length) g.append(el("div", "lk-empty", empty));
+    items.forEach(([r, id], i) => { const n = node(id, r, dir); n.style.animationDelay = i * 40 + "ms"; g.append(n); });
+    return g;
+  };
+  box.append(group("Needs", ups, "up", "Nothing upstream: it needs no other part to work."));
+  const fc = el("div", "lk-focus " + (FAMILY[f.type] || "other"));
+  fc.append(el("span", "lk-ftype", f.type.replace(/_/g, " ")), el("strong", "", f.label));
+  const sub = el("span", "lk-fsub", `${ups.length} in · ${downs.length} out${f.status !== "observed" ? " · inferred" : ""}`); fc.append(sub);
+  if (!selected) fc.append(el("em", "lk-hint", "Most connected part. Pick any part to focus on it."));
+  box.append(fc);
+  box.append(group("Depends on it", downs, "down", "Nothing depends on it."));
+  if (holds.length) {
+    const hg = el("div", "lk-holds"); hg.append(el("div", "lk-cap", "Held together with"));
+    const row = el("div", "lk-chips");
+    for (const [r, id] of holds) { const b = el("button", "lk-chip" + (r.status !== "observed" ? " inf" : ""), compById(id).label); b.type = "button"; b.onclick = () => select(id); row.append(b); }
+    hg.append(row); box.append(hg);
   }
 }
-// hover only toggles classes, so the map is not rebuilt while the pointer moves
-function mapHover(svg, id) {
-  svg.classList.toggle("hovering", !!id);
-  svg.querySelectorAll(".pill").forEach((g) => g.classList.toggle("hov", g.dataset.id === id));
-  svg.querySelectorAll(".gedge").forEach((p) => p.classList.toggle("on", !!id && (p.dataset.a === id || p.dataset.b === id)));
+
+// ---------------------------------------------------------------- panel tabs
+let panelTab = "parts";
+function setPanelTab(t) {
+  panelTab = t;
+  document.querySelectorAll("#ptabs button").forEach((b) => { const on = b.dataset.tab === t; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); });
+  document.querySelectorAll(".pview").forEach((v) => { const on = v.dataset.view === t; v.hidden = !on; v.classList.toggle("on", on); });
+  moveInk();
+  if (t === "links") renderLinks();
 }
-function renderGraph() {
-  $("graphStats").textContent = `${A.components.length} parts · ${A.relationships.length} links`;
-  drawSystemMap($("graph"), 340);
-  if (!$("mapModal").hidden) drawSystemMap($("graphBig"), Math.min(980, innerWidth - 80));
+function moveInk() { // the underline slides to the active tab
+  const b = document.querySelector("#ptabs button.on"), ink = $("ptabInk"); if (!b || !ink) return;
+  ink.style.width = b.offsetWidth + "px"; ink.style.transform = `translateX(${b.offsetLeft}px)`;
 }
-function openMap() { if (!A) return; $("mapModal").hidden = false; renderGraph(); $("mapClose").focus(); }
-function closeMap() { $("mapModal").hidden = true; }
-$("mapOpen").onclick = openMap; $("mapClose").onclick = closeMap;
-$("mapModal").addEventListener("click", (e) => { if (e.target === $("mapModal")) closeMap(); });
-addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("mapModal").hidden) closeMap(); });
+$("ptabs").addEventListener("click", (e) => { const b = e.target.closest("button[data-tab]"); if (b) setPanelTab(b.dataset.tab); });
+addEventListener("resize", moveInk);
 
 // ---------------------------------------------------------------- chat: ask about the object and its parts
 // Answers come from the server's grounded chat over this analysis (parts, links, functions); the photo is not resent.
@@ -1045,8 +1007,6 @@ for (const ev of ["pointermove", "pointerdown", "pointerup", "wheel", "keydown",
 controls.addEventListener("change", () => asm.poke());
 renderer.setAnimationLoop(() => {
   controls.update();
-  if (!$("mapModal").hidden) return; // the 3D view is covered: no need to draw it
-  if (!$("mapModal").hidden) return; // the 3D view is covered: no need to draw it
   if (mode === "3d" && asm.root.visible && !controls.autoRotate && !drag && !asm.busy()) return;
   if (!asm.renderScene()) renderer.render(scene3, camera);
   asm.render();
