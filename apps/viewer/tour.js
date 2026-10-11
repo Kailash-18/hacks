@@ -81,6 +81,7 @@
     sel.value = id; sel.dispatchEvent(new Event("change"));
     await waitFor(() => V.state.parts > 0 && q("#loading").hidden, 40000);
     await sleep(600);
+    q('#ptabs [data-tab="overview"]')?.click();  // the exact-model card lives on the Overview tab
     hi(q("#product"), 4400);
     await waitFor(() => !A.intro, 8000);
     await waitFor(() => q("#spin").checked, 3500);  // the viewer starts spinning once its intro is over
@@ -111,6 +112,7 @@
     await A.orbitTo({ theta: 2.6, el: 0.4, ms: 4200 });
     setCheck("#xray", false);
     cap(6, "Click any part: what it does, what it is made of, what it connects to");
+    q('#ptabs [data-tab="parts"]')?.click();
     const board = partLi(/logic|board|pcb|circuit/i) || q("#parts li");
     board?.click();
     await sleep(700);
@@ -123,9 +125,9 @@
     await sleep(6400);
     if (q("#whatif")?.textContent.match(/put it back/i)) q("#whatif").click();
     await sleep(700);
-    cap(8, "And the system graph: every part and every dependency, ready to explore or ask about");
-    q("#graph")?.scrollIntoView({ behavior: "smooth", block: "center" });
-    hi(q("#graph"), 4600);
+    cap(8, "And the connections: every part and what it depends on, ready to explore or ask about");
+    q('#ptabs [data-tab="links"]')?.click();  // Connections: every part and what it depends on
+    hi(q("#links"), 4600);
     await sleep(4800);
     hideCap();
     await card(BRIDGE, Infinity);
