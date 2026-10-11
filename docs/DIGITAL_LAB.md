@@ -109,3 +109,19 @@ Code: `apps/api/app/services/digital_explorer.py`, `apps/api/app/routes_explorer
 - A screenshot cannot show handlers, API calls, data or navigation: transitions and behavioural effects are hypotheses.
 - Diff matching can report a heavily redesigned element as removed + added.
 - Tokens are measured approximations, not values from source code. Generated code is a starting draft.
+
+### More on the result page
+
+- **Whole app** (side panel): the screen plus the app's other pages (a saved set brings its screens; add your own with
+  *Add a screen* or by dropping images, up to 6). *Build the whole app* sends all screenshots in one call
+  (`POST /api/digital/app`) and returns one HTML page: each screen is a `<section data-screen>`, only the `.active`
+  one shows, and the visible navigation switches between them. Nested screens are detected and retried once.
+- **Refine to 95%**: the page renders the rebuild (with its real web fonts), measures the match, and sends the model
+  the screenshot, its own render, a red difference map, close-ups of the worst regions, wrong-shade colours and the
+  headline font found by pixel matching (`POST /api/digital/refine`). Measured fixes run between rounds (colour shades,
+  text widths); the best-scoring version is kept.
+- **Edit**: click text, a button or a box in the rebuilt page (side by side view) to change its words, text or fill
+  colour and size; *Save as a new version* writes the edits into the code.
+- **Devices**: the rebuild at phone (390), tablet (820) and laptop (1440) widths side by side.
+- **Open in StackBlitz**: the HTML as a project, or the React version as a Vite + React app that installs and runs in
+  the browser (free, no account).
