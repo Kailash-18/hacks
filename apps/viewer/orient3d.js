@@ -102,6 +102,16 @@ export function installAxes(View) {
   P.viewFrom = function (v, ms = 900) {
     const tgt = this.controls.target.clone(), d = this.camera.position.distanceTo(tgt);
     const dirs = { front: [0, 0.001, 1], back: [0, 0.001, -1], top: [0, 1, 0.001], bottom: [0, -1, 0.001], side: [1, 0.001, 0], left: [-1, 0.001, 0], iso: [0.62, 0.42, 0.66] };
+    if (v === "iso") { // the 3D button: the usual three-quarter view, fitted to the current explode level
+      const cp = this.camera.position.clone(), ct = this.controls.target.clone();
+      this.frame(Math.max(0.3, this.explode)); const np = this.camera.position.clone(), nt = this.controls.target.clone();
+      this.camera.position.copy(cp); this.controls.target.copy(ct);
+      const t0 = performance.now();
+      const tick = (now) => { const k = Math.min(1, (now - t0) / ms), e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+        this.camera.position.lerpVectors(cp, np, e); this.controls.target.lerpVectors(ct, nt, e); this.controls.update(); this.poke();
+        if (k < 1) requestAnimationFrame(tick); };
+      this.controls.autoRotate = false; this.onViewChange?.(v); requestAnimationFrame(tick); return;
+    }
     const dir = new THREE.Vector3(...(dirs[v] || dirs.iso)).normalize();
     const from = this.camera.position.clone().sub(tgt), t0 = performance.now();
     const r0 = from.length(), u0 = from.clone().normalize();

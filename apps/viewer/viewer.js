@@ -300,7 +300,7 @@ function objFrame() { // object centre + size in world units for the current pho
 }
 
 function frame() { // three-quarter view so the explode depth is visible
-  if (mode === "3d") return asm.frame();
+  if (mode === "3d") return asm.frame(Math.max(0.3, parseFloat($("explode").value) || 0));
   const o = objFrame();
   const tx = o.cx - (ghosts.length ? o.size * 0.25 : 0), ty = o.cy - o.size * 0.12, tz = o.size * 0.35;
   const dist = o.size * 2.6 + (ghosts.length ? 2.5 : 0) + 2;
@@ -703,6 +703,11 @@ function nudge(dir) {
   reorder(); applyExplode();
 }
 $("forward").onclick = () => nudge(1);
+addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || !A) return;
+  if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || "")) { document.activeElement.blur(); return; } // first Esc leaves the text box
+  if (removed) restoreWhatIf(); else if (selected) select(null);
+});
 $("backward").onclick = () => nudge(-1);
 
 let lastWhatIf = null, whatIfTimers = [];
@@ -732,8 +737,11 @@ $("whatif").onclick = async () => {
       affected.add(a.componentId); renderParts(); renderGraph(); if (mode !== "3d") paint();
     }, delay(a.hops)));
     out.innerHTML = ""; out.append(el("div", "", res.summary));
-    res.affected.forEach((a) => out.append(el("code", "", a.explanation + (a.uncertain ? "  (inferred link)" : ""))));
-    out.append(el("div", "method", res.method)); out.hidden = false;
+    if (res.affected.length) {
+      const names = res.affected.map((a) => a.label);
+      out.append(el("div", "wi-parts", "Affected: " + names.slice(0, 6).join(", ") + (names.length > 6 ? ` and ${names.length - 6} more` : "")));
+    }
+    out.append(el("div", "method", "Graph-based estimate from the part links, not a physics simulation.")); out.hidden = false;
     applyExplode(); renderParts(); renderDetail(); renderGraph(); paint();
   } catch (e) { showError(e.message); }
 };
