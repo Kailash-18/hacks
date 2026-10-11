@@ -861,18 +861,29 @@ export class AssemblyView {
     }
     this.poseVersion = (this.poseVersion || 0) + 1;
     this.updateGuides?.();
+    if (!this.intro && !this.whatif) this.updateFloor?.(); // hand-dragged, nudged, lifted or swapped parts never sink into the base
+  }
+
+  // The base sits just under the lowest piece of any part (its details and screws included) in the same frame.
+  updateFloor() {
+    if (!this.parts.length) return;
+    let minY = Infinity;
+    const box = new THREE.Box3();
+    for (const p of this.parts) {
+      if (!p.group.visible) continue;
+      p.group.updateMatrixWorld(true);
+      for (const o of p.pickables) { box.setFromObject(o); if (isFinite(box.min.y)) minY = Math.min(minY, box.min.y); }
+    }
+    const t = this.explode || 0;
+    this.floor.position.y = (isFinite(minY) ? minY : -3) - (0.04 + TARGET_SIZE * 0.11 * Math.min(1, t * 2.5)); // parts float clear of the base when apart
+    this.grid.position.y = this.floor.position.y - 0.005;
+    if (this.fx) { this.fx.group.position.y = this.floor.position.y + 0.01; this.grid.position.y = this.fx.group.position.y - this.fx.H * 1.3 - 0.02; }
   }
 
   setExplode(t) {
     this.explode = t;
     this.applyPose();
-    // floor sits just under the lowest part
-    let minY = Infinity;
-    for (const p of this.parts) { if (!p.group.visible) continue; p.group.updateMatrixWorld(true); minY = Math.min(minY, new THREE.Box3().setFromObject(p.mesh).min.y); }
-    this.floor.position.y = (isFinite(minY) ? minY : -3) - (0.04 + TARGET_SIZE * 0.11 * Math.min(1, t * 2.5)); // parts float clear of the plinth when apart
-    this.grid.position.y = this.floor.position.y - 0.005;
-    // the base moves with the parts in the same frame: while the slider is dragged nothing can dip into it
-    if (this.fx) { this.fx.group.position.y = this.floor.position.y + 0.01; this.grid.position.y = this.fx.group.position.y - this.fx.H * 1.3 - 0.02; }
+    this.updateFloor();
     this.lights.children[0].target.position.set(0, this.floor.position.y, 0);
     for (const p of this.parts) p.label.visible = t > 0.25 || p.highlight;
   }
