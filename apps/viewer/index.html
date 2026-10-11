@@ -66,7 +66,7 @@ catch { document.documentElement.dataset.theme = "dark"; }
             <select id="samples" class="physical-samples physical-samples-bridge" title="Open a saved teardown" tabindex="-1" aria-hidden="true"><option value="">Explore a study</option></select>
           </div>
           <div class="physical-note"><span>JPG · PNG · WEBP</span><i></i><span>Up to four views of one object</span></div>
-          <a class="physical-scroll-link" href="#physicalScrollStory"><span>Scroll to explore the CPU package</span><i aria-hidden="true">↓</i></a>
+          <a class="physical-scroll-link" href="#physicalScrollStory"><span>Scroll down for sample studies</span><i aria-hidden="true">↓</i></a>
         </div>
 
         <aside class="physical-visual" aria-label="Animated, interactive model of a 100-part multi-die CPU package">
@@ -104,21 +104,22 @@ catch { document.documentElement.dataset.theme = "dark"; }
           </header>
           <div class="physical-sample-grid" id="physicalSampleGrid" aria-label="Available object studies"></div>
           <p class="sample-shelf-footnote"><i></i> Browse sideways, then select a study to open it.</p>
+          <a class="sample-scroll-cue" href="#physicalScrollStory"><span>Keep scrolling to see how each part is mapped</span><i aria-hidden="true">&#8595;</i></a>
         </section>
 
         <section class="physical-scroll-story" id="physicalScrollStory" aria-labelledby="physicalStoryTitle">
           <header class="story-heading">
             <p class="physical-kicker"><i></i> HOW THE LAB READS AN OBJECT <b>FOLLOW THE SCROLL</b></p>
-            <h2 id="physicalStoryTitle">From image to structure.<br/><span>See each stage unfold.</span></h2>
-            <p>The animated CPU is a visual guide. The chapters below show how your photos become part cutouts, depth layers, and connections you can inspect.</p>
+            <h2 id="physicalStoryTitle">A clear path from photo<br/><span>to explorable parts.</span></h2>
+            <p>See how the lab turns your photos into labeled components, an interactive depth view, and a map of part relationships. The CPU is an illustrative model.</p>
             <div class="story-progress" aria-label="Feature walkthrough progress"><i id="physicalStoryProgress"></i></div>
           </header>
           <div class="physical-story-steps">
             <article class="physical-chapter is-active" data-stage="0" aria-current="step">
               <span class="chapter-number">01</span>
               <div class="chapter-content">
-                <p class="chapter-kind">01 / PHOTO INPUT</p><h3>Capture the object from useful angles.</h3>
-                <p>Upload up to four photos of the same object. Begin with a clear front view, then add side, rear, underside, or open views to reveal details one image can miss.</p>
+                <p class="chapter-kind">01 / ADD PHOTOS</p><h3>Start with clear views of one object.</h3>
+                <p>Upload up to four JPG, PNG, or WEBP images. Add front, side, or open views to show details a single photo cannot capture.</p>
                 <div class="chapter-tags"><span>JPG / PNG / WEBP</span><span>UP TO 4 VIEWS</span><span>SAME OBJECT</span></div>
               </div>
               <div class="chapter-demo demo-capture" aria-hidden="true">
@@ -132,8 +133,8 @@ catch { document.documentElement.dataset.theme = "dark"; }
             <article class="physical-chapter" data-stage="1">
               <span class="chapter-number">02</span>
               <div class="chapter-content">
-                <p class="chapter-kind">02 / PART DETECTION</p><h3>Map visible parts to the photo.</h3>
-                <p>The analysis creates cutouts for components it finds in the image. It marks those observations separately from hidden or obscured parts inferred to be inside.</p>
+                <p class="chapter-kind">02 / IDENTIFY PARTS</p><h3>See what is visible—and what is inferred.</h3>
+                <p>Detected components stay linked to their source photo. Hidden or obscured components are marked as inferences, not confirmed observations.</p>
                 <div class="chapter-tags"><span>SOURCE PHOTO</span><span>OBSERVED PARTS</span><span>INFERRED PARTS</span></div>
               </div>
               <div class="chapter-demo demo-pipeline" aria-hidden="true">
@@ -147,8 +148,8 @@ catch { document.documentElement.dataset.theme = "dark"; }
             <article class="physical-chapter" data-stage="2">
               <span class="chapter-number">03</span>
               <div class="chapter-content">
-                <p class="chapter-kind">03 / DEPTH + ASSEMBLY</p><h3>Explore the image in 3D.</h3>
-                <p>When an analysis includes an assembly, inspect its approximate model. For photo-only studies, the viewer builds depth relief from the cutouts with Depth Anything V2 when available, and a silhouette fallback when it is not.</p>
+                <p class="chapter-kind">03 / EXPLORE DEPTH</p><h3>Move from a flat photo to a 3D view.</h3>
+                <p>Rotate and isolate the layered photo relief, or inspect an available assembly. Depth is estimated for exploration; it is not a measured CAD model.</p>
                 <div class="chapter-tags"><span>3D ASSEMBLY</span><span>PHOTO RELIEF</span><span>ROTATE / ISOLATE</span><span>X-RAY</span></div>
               </div>
               <div class="chapter-demo demo-inspector" aria-hidden="true">
@@ -162,8 +163,8 @@ catch { document.documentElement.dataset.theme = "dark"; }
             <article class="physical-chapter" data-stage="3">
               <span class="chapter-number">04</span>
               <div class="chapter-content">
-                <p class="chapter-kind">04 / INSPECT + EXPLAIN</p><h3>Follow a part into its context.</h3>
-                <p>Select or search for a part to see its role, photo evidence, links, and alternatives. Trace connections, try a What if, or ask a question grounded in the analysis. The 3D controls let you isolate, rotate, X-ray, and move parts.</p>
+                <p class="chapter-kind">04 / TRACE RELATIONSHIPS</p><h3>Understand how parts connect.</h3>
+                <p>Select or search for a component to review its photo evidence and linked parts. Explore a what-if or ask a question using the saved analysis.</p>
                 <div class="chapter-tags"><span>PART DETAILS</span><span>LINKED PARTS</span><span>WHAT IF / ASK</span></div>
               </div>
               <div class="chapter-demo demo-impact" aria-hidden="true">
