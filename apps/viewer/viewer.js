@@ -310,7 +310,7 @@ function objFrame() { // object centre + size in world units for the current pho
 }
 
 function frame() { // three-quarter view so the explode depth is visible
-  if (mode === "3d") return asm.frame();
+  if (mode === "3d") return asm.frame(Math.max(0.3, parseFloat($("explode").value) || 0));
   const o = objFrame();
   const tx = o.cx - (ghosts.length ? o.size * 0.25 : 0), ty = o.cy - o.size * 0.12, tz = o.size * 0.35;
   const dist = o.size * 2.6 + (ghosts.length ? 2.5 : 0) + 2;
@@ -515,7 +515,8 @@ function renderPanel() {
   $("title").textContent = A.title ? A.title[0].toUpperCase() + A.title.slice(1) : "";
   $("summary").textContent = A.summary || "";
   const mb = $("modeBadge");
-  mb.textContent = isSample ? "Sample mode · saved real result" : "Live analysis";
+  const curated = A.provider?.name === "curated";
+  mb.textContent = curated ? "Sample · curated reference model" : isSample ? "Sample mode · saved real result" : "Live analysis";
   mb.className = "eyebrow" + (isSample ? " sample" : "");
   const pr = A.scene?.product, pe = $("product");
   if (pr && (pr.searchQuery || pr.brand)) {
@@ -590,6 +591,7 @@ function cutoutOf(id) { // the part's own photo cut-out, when it was seen
   for (const v of viewsOf(A)) { const l = (v.layers || []).find((x) => x.componentId === id); if (l?.cutout) return l.cutout; }
   return null;
 }
+const isVerified = (c) => (c.evidence || []).some((e) => e.startsWith("Confirmed for "));
 function renderParts() {
   const ul = $("parts"); ul.innerHTML = "";
   const seen = A.components.filter((c) => c.status === "observed"), inside = A.components.filter((c) => c.status !== "observed");
@@ -615,6 +617,7 @@ function renderParts() {
       li.append(th, txt);
       if (c.id === removed) li.append(el("span", "tag gone", "removed"));
       else if (swaps.has(c.id)) li.append(el("span", "tag sw", "swapped"));
+      else if (isVerified(c)) li.append(Object.assign(el("span", "tag ok", "✓ verified"), { title: c.evidence[0] }));
       else if (affected.has(c.id)) li.append(el("span", "tag hit", "affected"));
       else li.append(el("span", "chev", "›"));
       li.onclick = () => select(c.id);
@@ -647,7 +650,8 @@ function renderDetail() {
   if (!selected) { d.hidden = true; return; }
   const c = compById(selected); d.hidden = false;
   $("dLabel").textContent = c.label;
-  const st = $("dStatus"); st.className = `chip ${c.status}`; st.textContent = c.status === "observed" ? "seen in photo" : c.status;
+  const st = $("dStatus"); st.className = `chip ${c.status}${isVerified(c) ? " verified" : ""}`;
+  st.textContent = c.status === "observed" ? "seen in photo" : isVerified(c) ? "verified inside" : c.status;
   $("dType").textContent = c.type.replace(/_/g, " "); $("dThumb").replaceChildren(thumbOf(c, "thumb lg")); d.className = "detail " + (FAMILY[c.type] || "other");
   $("dFunction").hidden = !c.function; $("dFunction").textContent = c.function ? "Does: " + c.function : "";
   $("dIfRemoved").hidden = !c.ifRemoved; $("dIfRemoved").textContent = c.ifRemoved ? "Without it: " + c.ifRemoved : "";
@@ -727,6 +731,11 @@ function nudge(dir) {
   reorder(); applyExplode();
 }
 $("forward").onclick = () => nudge(1);
+addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || !A) return;
+  if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || "")) { document.activeElement.blur(); return; } // first Esc leaves the text box
+  if (removed) restoreWhatIf(); else if (selected) select(null);
+});
 $("backward").onclick = () => nudge(-1);
 
 let lastWhatIf = null, whatIfTimers = [];
@@ -756,8 +765,11 @@ $("whatif").onclick = async () => {
       affected.add(a.componentId); renderParts(); renderGraph(); if (mode !== "3d") paint();
     }, delay(a.hops)));
     out.innerHTML = ""; out.append(el("div", "", res.summary));
-    res.affected.forEach((a) => out.append(el("code", "", a.explanation + (a.uncertain ? "  (inferred link)" : ""))));
-    out.append(el("div", "method", res.method)); out.hidden = false;
+    if (res.affected.length) {
+      const names = res.affected.map((a) => a.label);
+      out.append(el("div", "wi-parts", "Affected: " + names.slice(0, 6).join(", ") + (names.length > 6 ? ` and ${names.length - 6} more` : "")));
+    }
+    out.append(el("div", "method", "Graph-based estimate from the part links, not a physics simulation.")); out.hidden = false;
     applyExplode(); renderParts(); renderDetail(); renderGraph(); paint();
   } catch (e) { showError(e.message); }
 };
@@ -808,7 +820,7 @@ function showReveal() {
   const hiddenN = (A.scene.ghostComponentIds || []).length, seen = A.components.length - hiddenN;
   const name = pr && (pr.model ? [pr.brand && !pr.model.toLowerCase().startsWith(pr.brand.toLowerCase()) ? pr.brand : "", pr.model].join(" ").trim() : pr.brand);
   box.innerHTML = "";
-  box.append(el("div", "rk", isSample ? "SAMPLE · SCAN REPLAY" : "SCAN COMPLETE"), el("div", "rt", A.title ? A.title[0].toUpperCase() + A.title.slice(1) : "Object"));
+  box.append(el("div", "rk", A.provider?.name === "curated" ? "SAMPLE · REFERENCE MODEL" : isSample ? "SAMPLE · SCAN REPLAY" : "SCAN COMPLETE"), el("div", "rt", A.title ? A.title[0].toUpperCase() + A.title.slice(1) : "Object"));
   if (name) box.append(el("div", "rs", name + (pr.confidence != null ? ` · ${Math.round(pr.confidence * 100)}% match` : "")));
   const stats = el("div", "rc");
   [[seen, "parts seen"], [hiddenN, "inside (inferred)"], [A.relationships.length, "links"], [(A.scene.assembly?.details || []).length, "details"]].forEach(([n, l]) => {

@@ -136,10 +136,10 @@ def what_if(
     unaffected = [c.id for c in components if c.id != removed_id and c.id not in depth]
     label = by_id[removed_id].label
     if affected:
-        summary = (f"Removing {label} affects {len(affected)} component(s) through dependency edges. "
-                   + ("Some links are inferred, so treat these as hypotheses." if any(a["uncertain"] for a in affected) else ""))
+        summary = (f"Removing the {label} affects {len(affected)} other part{'s' if len(affected) != 1 else ''}. "
+                   + ("Some of these links are inferred, so treat them as likely, not certain." if any(a["uncertain"] for a in affected) else ""))
     else:
-        summary = f"No dependency edges lead out of {label}, so the graph predicts no downstream effect."
+        summary = f"Nothing else depends on the {label}, so the rest of the device keeps working."
     # System health: share of importance that keeps working (parts that only come loose count half).
     weight = {c.id: _weight(c) for c in components}
     total = sum(weight.values()) or 1.0
@@ -165,6 +165,9 @@ def what_if(
         health = min(health, 10)
     elif core:  # the only screen is gone: it still runs, but you cannot use it
         verdict, health = "degraded", min(health, 30)
+    if not affected and verdict != "works":  # no part depends on it, yet the device fails: say why, not "no effect"
+        summary = (f"No other part depends on the {label} directly, but the device "
+                   + ("stops working without it." if verdict == "dead" else "loses part of what it does without it."))
     return {
         "removedComponentId": removed_id,
         "consequence": getattr(removed, "if_removed", "") or _why(removed, verdict, core, affected),

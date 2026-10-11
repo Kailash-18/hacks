@@ -36,6 +36,7 @@ function backdropTexture() { // deep navy studio gradient with a soft glow behin
 }
 
 const TARGET_SIZE = 6; // largest object dimension in world units
+const INTERNAL = new Set(["controller", "power_source", "storage", "connector", "cable", "mechanism", "sensor"]); // never bent onto a shell
 
 const MATERIALS = {
   plastic: { roughness: 0.6, metalness: 0.0, clearcoat: 0.05, clearcoatRoughness: 0.6, envMapIntensity: 0.45 },
@@ -203,28 +204,48 @@ export class AssemblyView {
     const fitted = {};
     if (main) for (const a of assembly.parts) {
       const c = comp[a.componentId];
-      if (!c || a.shape === "dome" || bands[a.componentId] || !inner.has(c.type)) continue;
+      if (!c) continue;
+      const hidden = c.status !== "observed";
+      if (a.shape === "dome" || bands[a.componentId] || !(inner.has(c.type) || hidden)) continue;
       // a flat base plate under the shell is not squeezed inside it: it gets the shell's oval footprint below
       if (["structure", "cover"].includes(c.type) && a.size[1] < 0.3 * Math.min(a.size[0], a.size[2])) continue;
       const size = a.size.map((v) => v * k), pos = a.position.map((v) => v * k);
-      if (domeTop(main, pos[0], pos[2]) === null || pos[1] > (domeTop(main, pos[0], pos[2]) ?? 0)) continue; // not inside the shell
+      const top0 = domeTop(main, pos[0], pos[2]);
+      if (!hidden && (top0 === null || pos[1] > top0)) continue; // a seen part outside the shell stays where the photo shows it
       const R = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(...a.rotation.map((d) => THREE.MathUtils.degToRad(d)))).elements;
       for (let it = 0; it < 14; it++) {
         const hx = (Math.abs(R[0]) * size[0] + Math.abs(R[4]) * size[1] + Math.abs(R[8]) * size[2]) / 2;
         const hy = (Math.abs(R[1]) * size[0] + Math.abs(R[5]) * size[1] + Math.abs(R[9]) * size[2]) / 2;
         const hz = (Math.abs(R[2]) * size[0] + Math.abs(R[6]) * size[1] + Math.abs(R[10]) * size[2]) / 2;
-        let ok = true;
-        for (const [dx, dz] of [[-hx, -hz], [hx, -hz], [-hx, hz], [hx, hz]]) {
+        const fits = (y) => [[-hx, -hz], [hx, -hz], [-hx, hz], [hx, hz]].every(([dx, dz]) => {
           const x = pos[0] + dx, z = pos[2] + dz;
           const inFoot = ((x - main.cx) / (main.ax * 0.94)) ** 2 + ((z - main.cz) / (main.az * 0.94)) ** 2 <= 1;
           const top = domeTop(main, x, z);
-          if (!inFoot || top === null || pos[1] + hy > main.baseY + (top - main.baseY) * 0.94) { ok = false; break; }
+          return inFoot && top !== null && y + hy <= main.baseY + (top - main.baseY) * 0.94;
+        });
+        if (fits(pos[1])) break;
+        // the shell is roomiest near its base: move the part down before making it smaller
+        const low = main.baseY + hy + main.h * 0.04;
+        if (low < pos[1] && fits(low)) { pos[1] = low; break; }
+        if (it < 6) { // first slide it in toward the middle, keeping its real size
+          pos[0] += (main.cx - pos[0]) * 0.3; pos[2] += (main.cz - pos[2]) * 0.3;
+          pos[1] = Math.min(pos[1], main.baseY + main.h * 0.6);
+          continue;
         }
-        if (ok) break;
         for (let i = 0; i < 3; i++) size[i] *= 0.9;
         pos[0] += (main.cx - pos[0]) * 0.15; pos[2] += (main.cz - pos[2]) * 0.15;
         pos[1] = Math.max(main.baseY + hy * 0.9, pos[1] - hy * 0.12);
       }
+      fitted[a.componentId] = { size, pos };
+    }
+    // 3) Parts seen on the underside (they fly out downward: label, battery door, switch, sensor window) sit on the
+    //    flat bottom of the shell, not floating half way up inside it.
+    if (main) for (const a of assembly.parts) {
+      const c = comp[a.componentId];
+      if (!c || a.shape === "dome" || bands[a.componentId] || fitted[a.componentId] || !(a.explodeDir && a.explodeDir[1] < -0.5)) continue;
+      const size = a.size.map((v) => v * k), pos = a.position.map((v) => v * k);
+      if (domeTop(main, pos[0], pos[2]) === null || pos[1] - size[1] / 2 <= main.baseY + main.h * 0.02) continue;
+      pos[1] = main.baseY - size[1] * 0.45;
       fitted[a.componentId] = { size, pos };
     }
     for (const a of assembly.parts) {
@@ -239,7 +260,8 @@ export class AssemblyView {
       const thin = size[1] < 0.3 * Math.min(size[0], size[2]);
       const host = a.shape !== "dome" && domes.find((d) => domeTop(d, pos[0], pos[2]) !== null);
       if (geom) { /* band or trimmed dome built above */ }
-      else if (host && thin && pos[1] > host.baseY + host.h * 0.3 && ["plate", "box", "rounded_box"].includes(a.shape)) {
+      else if (host && thin && pos[1] > host.baseY + host.h * 0.3 && ["plate", "box", "rounded_box"].includes(a.shape)
+        && !inferred && !INTERNAL.has(c.type) && a.material !== "pcb" && !(a.explodeDir && a.explodeDir[1] < -0.5)) {
         // thin part on top of a curved shell (button, badge): bend it onto the shell surface
         const g = new THREE.PlaneGeometry(size[0], size[2], 24, 24); g.rotateX(-Math.PI / 2);
         const P = g.attributes.position;
@@ -295,7 +317,7 @@ export class AssemblyView {
         // only surface parts (labels, badges, buttons, switches) wrap onto the shell; boards and base plates stay flat
         sheetCandidate: !conformed && !inferred && !["controller", "structure", "power_source", "storage", "mechanism", "connector", "sensor"].includes(c.type)
           && ["plate", "box", "rounded_box"].includes(a.shape) && Math.min(...size) < 0.28 * [...size].sort((x, y) => x - y)[1]
-          && !a.cornerRadius && a.material !== "glass" && c.type !== "display" && Math.max(...size) < TARGET_SIZE * 0.4, // big panels keep their shape
+          && !a.cornerRadius && a.material !== "glass" && c.type !== "display" && Math.max(...size) < TARGET_SIZE * (main ? 0.6 : 0.4), // big flat panels keep their shape; on a curved shell a side panel may be long
         dir: new THREE.Vector3(...a.explodeDir).normalize(), dist: a.explodeDist ?? 1, halfH: size[1] / 2 });
     }
     this.wrapStickers();
@@ -389,29 +411,38 @@ export class AssemblyView {
     for (const p of this.parts) {
       const along = p.dir.dot(e);
       const internal = p.inferred || ["controller", "power_source", "storage", "connector", "cable"].includes(p.type);
-      if (Math.abs(along) < 0.5 && internal && !this.housing?.has(p)) {
+      if ((Math.abs(along) < 0.5 || (p.inferred && Math.abs(along) < 0.95)) && internal && !this.housing?.has(p)) {
         const side = Math.sign(p.base.dot(e)) || Math.sign(along) || 1;
         p.dir.copy(e).multiplyScalar(side);
       }
     }
-    const GAP = 0.14, EPS = span * 0.04;
+    const EPS = span * 0.04, R = TARGET_SIZE * 0.8 * 0.6, GAPW = TARGET_SIZE * 0.035; // clearance checked at 60% explode
+    const ext = (p) => { // the part's extent along e at its assembled place
+      p.group.position.copy(p.base); p.group.quaternion.copy(p.baseQuat); p.group.scale.setScalar(p.fit || 1); p.group.updateMatrixWorld(true);
+      const b = new THREE.Box3().setFromObject(p.mesh); return [b.min.dot(e), b.max.dot(e)];
+    };
     for (const side of [1, -1]) {
-      const members = this.parts.filter((p) => p.dir.dot(e) * side >= 0.5).map((p) => ({
-        p, along: p.dir.dot(e) * side, key: p.base.dot(e) * side + (this.housing?.has(p) ? EPS * 0.5 : 0) }));
+      const members = this.parts.filter((p) => p.dir.dot(e) * side >= 0.5).map((p) => {
+        const [lo, hi] = ext(p).map((v) => v * side).sort((x, y) => x - y);
+        return { p, along: p.dir.dot(e) * side, lo, hi, key: p.base.dot(e) * side + (this.housing?.has(p) ? EPS * 0.5 : 0) };
+      });
       members.sort((a, b) => a.key - b.key);
-      let prev = null, i = 0;
+      let prevTop = null, i = 0;
       while (i < members.length) { // parts at about the same depth form one level; each level clears the one inside it
         const lvl = [members[i]];
         while (i + lvl.length < members.length && members[i + lvl.length].key - members[i].key <= EPS) lvl.push(members[i + lvl.length]);
         i += lvl.length;
-        const req = prev === null ? 0 : prev + GAP;
-        let top = 0;
-        for (const m of lvl) { const ev = Math.max(m.p.dist * m.along, req); m.p.dist = ev / m.along; top = Math.max(top, ev); }
-        prev = Math.max(prev ?? 0, top);
+        let top = -Infinity;
+        for (const m of lvl) {
+          if (prevTop !== null) { const need = (prevTop + GAPW - m.lo) / (m.along * R); if (need > m.p.dist) m.p.dist = need; }
+          top = Math.max(top, m.hi + m.p.dist * m.along * R);
+        }
+        prevTop = Math.max(prevTop ?? -Infinity, top);
       }
-      const top = Math.max(0, ...members.map((m) => m.p.dist * m.along));
-      if (top > 2.2) for (const m of members) m.p.dist *= 2.2 / top; // keep the whole diagram on screen
+      const far = Math.max(0, ...members.map((m) => m.p.dist * m.along));
+      if (far > 3.2) for (const m of members) m.p.dist *= 3.2 / far; // keep the whole diagram on screen
     }
+    for (const p of this.parts) { p.group.position.copy(p.base); p.group.quaternion.copy(p.baseQuat); p.group.scale.setScalar(p.fit || 1); }
   }
 
   // ---------------------------------------------------------------- effects
@@ -615,21 +646,29 @@ export class AssemblyView {
       let best = null;
       for (const sgn of [1, -1]) {
         ray.set(c.clone().addScaledVector(n, sgn * reach), n.clone().multiplyScalar(-sgn)); ray.far = reach * 2;
-        const hit = ray.intersectObjects(solids.map((s) => s.mesh), false).find((x) => x.object !== p.mesh);
+        // only an outer surface facing the sticker can host it (not the inside of a shell seen from below)
+        const hit = ray.intersectObjects(solids.map((s) => s.mesh), false).find((x) => x.object !== p.mesh && x.face
+          && x.face.normal.clone().transformDirection(x.object.matrixWorld).dot(n.clone().multiplyScalar(sgn)) > 0.2);
         if (hit) { const d = Math.abs(hit.point.clone().sub(c).dot(n)); if (!best || d < best.d) best = { d, out: n.clone().multiplyScalar(sgn), host: hit.object }; }
       }
       if (!best || best.d > Math.max(w, h)) continue; // nothing close enough underneath: leave it as modelled
-      const N = 18, g = new THREE.PlaneGeometry(1, 1, N, N), P = g.attributes.position;
-      let ok = 0;
-      for (let i = 0; i < P.count; i++) {
-        const u = P.getX(i) * w, v = P.getY(i) * h;
-        const world = c.clone().addScaledVector(U, u).addScaledVector(V, v);
-        ray.set(world.clone().addScaledVector(best.out, reach), best.out.clone().negate()); ray.far = reach * 2.2;
-        const hit = ray.intersectObject(best.host, false)[0];
-        const pt = hit ? (ok++, hit.point.clone().addScaledVector(best.out, Math.max(0.006, th * 0.5))) : world;
-        pt.sub(c); P.setXYZ(i, pt.x, pt.y, pt.z);
+      const N = 18;
+      let g = null;
+      for (const shrink of [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.42]) { // a side panel taller than the curved wall: fit the part of it that lies on the wall
+        const G = new THREE.PlaneGeometry(1, 1, N, N), P = G.attributes.position;
+        let ok = 0;
+        for (let i = 0; i < P.count; i++) {
+          const u = P.getX(i) * w * shrink, v = P.getY(i) * h * shrink;
+          const world = c.clone().addScaledVector(U, u).addScaledVector(V, v);
+          ray.set(world.clone().addScaledVector(best.out, reach), best.out.clone().negate()); ray.far = reach * 2.2;
+          const hit = ray.intersectObject(best.host, false)[0];
+          const pt = hit ? (ok++, hit.point.clone().addScaledVector(best.out, Math.max(0.006, th * 0.5))) : world;
+          pt.sub(c); P.setXYZ(i, pt.x, pt.y, pt.z);
+        }
+        if (ok === P.count) { g = G; break; }
+        G.dispose();
       }
-      if (ok < P.count * 0.6) continue; // mostly off the host: keep the original shape
+      if (!g) continue; // mostly off the host: keep the original shape
       g.computeVertexNormals();
       p.mesh.geometry.dispose(); p.mesh.geometry = g; p.mat.side = THREE.DoubleSide;
       p.edges.geometry.dispose(); p.edges.geometry = new THREE.EdgesGeometry(g, 40); p.edges.visible = false; // a sticker has no hard outline
@@ -823,16 +862,29 @@ export class AssemblyView {
     }
     this.poseVersion = (this.poseVersion || 0) + 1;
     this.updateGuides?.();
+    if (!this.intro && !this.whatif) this.updateFloor?.(); // hand-dragged, nudged, lifted or swapped parts never sink into the base
+  }
+
+  // The base sits just under the lowest piece of any part (its details and screws included) in the same frame.
+  updateFloor() {
+    if (!this.parts.length) return;
+    let minY = Infinity;
+    const box = new THREE.Box3();
+    for (const p of this.parts) {
+      if (!p.group.visible) continue;
+      p.group.updateMatrixWorld(true);
+      for (const o of p.pickables) { box.setFromObject(o); if (isFinite(box.min.y)) minY = Math.min(minY, box.min.y); }
+    }
+    const t = this.explode || 0;
+    this.floor.position.y = (isFinite(minY) ? minY : -3) - (0.04 + TARGET_SIZE * 0.11 * Math.min(1, t * 2.5)); // parts float clear of the base when apart
+    this.grid.position.y = this.floor.position.y - 0.005;
+    if (this.fx) { this.fx.group.position.y = this.floor.position.y + 0.01; this.grid.position.y = this.fx.group.position.y - this.fx.H * 1.3 - 0.02; }
   }
 
   setExplode(t) {
     this.explode = t;
     this.applyPose();
-    // floor sits just under the lowest part
-    let minY = Infinity;
-    for (const p of this.parts) { if (!p.group.visible) continue; p.group.updateMatrixWorld(true); minY = Math.min(minY, new THREE.Box3().setFromObject(p.mesh).min.y); }
-    this.floor.position.y = (isFinite(minY) ? minY : -3) - 0.02;
-    this.grid.position.y = this.floor.position.y - 0.005;
+    this.updateFloor();
     this.lights.children[0].target.position.set(0, this.floor.position.y, 0);
     for (const p of this.parts) p.label.visible = t > 0.25 || p.highlight;
   }
@@ -848,10 +900,10 @@ export class AssemblyView {
     if (box.isEmpty()) box.set(new THREE.Vector3(-3, -3, -3), new THREE.Vector3(3, 3, 3));
     const ctr = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
     const fit = Math.max(size.x, size.y, size.z);
-    ctr.y -= fit * 0.08; // the control bar covers the bottom of the stage, so sit the model a bit higher
+    ctr.y -= fit * 0.16; // the control bar covers the bottom of the stage, so sit the model higher
     const vfov = THREE.MathUtils.degToRad(this.camera.fov);
     const hfov = 2 * Math.atan(Math.tan(vfov / 2) * this.camera.aspect);
-    const d = (fit / 2) / Math.tan(Math.min(vfov, hfov) / 2) * 1.25 + fit * 0.15; // fits short and narrow windows
+    const d = (fit / 2) / Math.tan(Math.min(vfov, hfov) / 2) * 1.32 + fit * 0.15; // fits short and narrow windows, with room for the control bar
     // look across the main explode axis so the gaps between parts are visible
     const axis = [0, 0, 0];
     for (const p of this.parts) { const d = p.dir.clone().applyQuaternion(this.orientQ || new THREE.Quaternion()); axis[0] += Math.abs(d.x) * p.dist; axis[1] += Math.abs(d.y) * p.dist; axis[2] += Math.abs(d.z) * p.dist; }
