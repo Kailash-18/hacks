@@ -145,7 +145,18 @@ async function makeCode(params, label, run = S.run) {
 
 const current = () => S.versions[S.target][S.cur[S.target]];
 function busy(on) { for (const id of ["#apply", "#regen", "#copy", "#download", "#openTab"]) $(id).disabled = on; $$("#targetSeg button").forEach((b) => (b.disabled = on)); }
-function wait(msg) { $("#stageWait").hidden = !msg; if (msg) $("#stageWaitText").textContent = msg; }
+// waiting message with a running seconds counter, so a slow model call never looks frozen
+function wait(msg) {
+  clearInterval(wait.t);
+  $("#stageWait").hidden = !msg;
+  if (!msg) return;
+  const t0 = Date.now(), el = $("#stageWaitText");
+  const tick = () => {
+    const s = Math.round((Date.now() - t0) / 1000);
+    el.textContent = s < 3 ? msg : `${msg} ${s} s` + (s > 45 ? " · the AI is busy, still trying" : "");
+  };
+  tick(); wait.t = setInterval(tick, 1000);
+}
 
 // ---------- code view ----------
 // preview only: no scrollbar strip over the comparison (the downloaded code is untouched)

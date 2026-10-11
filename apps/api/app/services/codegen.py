@@ -290,6 +290,8 @@ def generate_guide(analysis: SystemAnalysis, image: bytes | None, mime: str | No
                    force: bool = False) -> dict[str, Any]:
     name = guide_key(analysis.analysisId)
     if not force and (hit := _cache_get(name)):
+        if not hit.get("tokens"):  # saved without measured tokens (no model call needed to add them)
+            hit["tokens"] = _tokens(analysis, image)
         return {**hit, "cached": True}
     tokens = _tokens(analysis, image)
     comps = json.dumps([[c.label[:50], c.type] for c in analysis.components[:50]], ensure_ascii=False)

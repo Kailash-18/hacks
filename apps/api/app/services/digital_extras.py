@@ -204,8 +204,15 @@ def device_pixel_ratio(w: int, h: int) -> int:
 
 
 def audit_accessibility(analysis: SystemAnalysis, image: bytes) -> dict[str, Any]:
-    from PIL import Image
-    img = np.asarray(Image.open(io.BytesIO(image)).convert("RGB"))
+    try:
+        from PIL import Image
+        img = np.asarray(Image.open(io.BytesIO(image)).convert("RGB"))
+    except ImportError:  # Pillow missing: OpenCV (installed for the Physical Lab) decodes the screenshot too
+        import cv2
+        bgr = cv2.imdecode(np.frombuffer(image, np.uint8), cv2.IMREAD_COLOR)
+        if bgr is None:
+            raise ValueError("Could not read the screenshot.")
+        img = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
     H, W = img.shape[:2]
     dpr = device_pixel_ratio(W, H)
     labelled = {r.to for r in analysis.relationships if r.type == "label_for"}

@@ -148,3 +148,20 @@ def test_saved_demo_results_are_real_and_found():
         d = s.image_path.parent / "build" / f"{cg.code_key(s.analysis.analysisId)}.json"
         out = json.loads(d.read_text(encoding="utf-8"))
         assert out["source"] == "ai" and "cdn.tailwindcss.com" in out["code"]
+
+
+def test_everything_works_without_pillow(monkeypatch):
+    """The team laptop runs without Pillow: tokens, size and the a11y audit fall back to OpenCV."""
+    import sys
+
+    from app.services import digital_explorer as dx
+    from app.services import digital_extras
+
+    a, img = login()
+    with_pil = dx.extract_tokens(a, img)["colors"]["primary"]
+    monkeypatch.setitem(sys.modules, "PIL", None)  # "from PIL import ..." now raises ImportError
+    tok = dx.extract_tokens(a, img)
+    assert tok["colors"]["primary"].startswith("#") and tok["typeScale"]
+    assert sum(abs(int(tok["colors"]["primary"][i:i + 2], 16) - int(with_pil[i:i + 2], 16)) for i in (1, 3, 5)) < 40
+    assert codegen._image_size(img) == (1280, 800)
+    assert digital_extras.audit_accessibility(a, img)["score"] >= 0
