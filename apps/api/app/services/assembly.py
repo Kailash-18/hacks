@@ -109,7 +109,9 @@ Rules:
 - Prefer upright shapes: a "dome" opens downwards (do not rotate it 180 degrees; for a cup that opens upwards
   use a cylinder or rounded_box).
 - importance: 0-1, how much the object's main function depends on the part (battery/main board ~1, logo ~0.05).
-- Slab devices (phones, tablets, e-readers, watches): build them like the real teardown, front to back:
+- Round things are round: a round watch case, dial, lens or knob is a disc/cylinder, or a plate/frame with
+  corner_radius = half its width (a circle). Never draw a round object as a square.
+- Slab devices (phones, tablets, e-readers, square smartwatches): build them like the real teardown, front to back:
   display (thin, front), the side "frame" (an extra part if not listed), internals in one layer inside the
   frame (board, battery, speakers, haptic motor, ports, camera modules), back cover (thin, back). Give the
   display, frame, back cover and camera plateau the real corner_radius. Lenses are "disc"s of glass inside a

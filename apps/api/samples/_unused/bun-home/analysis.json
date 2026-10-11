@@ -1,0 +1,410 @@
+{
+  "analysisId": "digital-a1b5f5f21d822713",
+  "domain": "digital",
+  "title": "Bun Landing Page",
+  "source": {
+    "kind": "image",
+    "filename": "bun-home.png"
+  },
+  "assetId": null,
+  "components": [
+    {
+      "id": "top-banner",
+      "label": "Bun has joined Anthropic \u2014 and Anthropic is betting on Bun \u2192",
+      "type": "banner",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Text at the very top of the page"
+      ],
+      "bbox": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1.0,
+        "height": 0.056
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "navbar",
+      "label": "Navigation Bar",
+      "type": "navbar",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Contains logo, links, search, and install button"
+      ],
+      "bbox": {
+        "x": 0.12,
+        "y": 0.056,
+        "width": 0.759,
+        "height": 0.098
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "bun-logo",
+      "label": "Bun Logo",
+      "type": "logo",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Bun icon and text"
+      ],
+      "bbox": {
+        "x": 0.131,
+        "y": 0.081,
+        "width": 0.068,
+        "height": 0.045
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "nav-links",
+      "label": "Docs, Guides, Reference, Blog",
+      "type": "menu",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "List of navigation links"
+      ],
+      "bbox": {
+        "x": 0.23,
+        "y": 0.095,
+        "width": 0.163,
+        "height": 0.023
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "search-bar",
+      "label": "Search docs, APIs, guides...",
+      "type": "search",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Input field with search placeholder"
+      ],
+      "bbox": {
+        "x": 0.421,
+        "y": 0.077,
+        "width": 0.272,
+        "height": 0.055
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "install-button",
+      "label": "Install",
+      "type": "button",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "White button with 'Install' text"
+      ],
+      "bbox": {
+        "x": 0.828,
+        "y": 0.077,
+        "width": 0.042,
+        "height": 0.055
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "hero-section",
+      "label": "Hero Section",
+      "type": "hero",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Main headline and subtext area"
+      ],
+      "bbox": {
+        "x": 0.13,
+        "y": 0.248,
+        "width": 0.316,
+        "height": 0.336
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "release-badge",
+      "label": "NEW BUN V1.4.3 RELEASED",
+      "type": "badge",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Pink 'NEW' badge and release text"
+      ],
+      "bbox": {
+        "x": 0.13,
+        "y": 0.248,
+        "width": 0.141,
+        "height": 0.023
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "main-heading",
+      "label": "Bun is a fast JavaScript runtime & toolkit. All in one.",
+      "type": "heading",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Large bold text"
+      ],
+      "bbox": {
+        "x": 0.13,
+        "y": 0.313,
+        "width": 0.316,
+        "height": 0.263
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "hero-description",
+      "label": "Runtime, package manager, test runner and bundler...",
+      "type": "paragraph",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Description text below heading"
+      ],
+      "bbox": {
+        "x": 0.13,
+        "y": 0.631,
+        "width": 0.265,
+        "height": 0.151
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "install-command-container",
+      "label": "Install Bun v1.4.3 Command",
+      "type": "container",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Dark box containing terminal command"
+      ],
+      "bbox": {
+        "x": 0.13,
+        "y": 0.896,
+        "width": 0.336,
+        "height": 0.086
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "terminal-command",
+      "label": "powershell -c \"irm bun.sh/install.ps1|iex\"",
+      "type": "text",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Command text inside terminal box"
+      ],
+      "bbox": {
+        "x": 0.143,
+        "y": 0.923,
+        "width": 0.277,
+        "height": 0.028
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "performance-chart-card",
+      "label": "Performance Comparison Chart",
+      "type": "chart",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Bar chart comparing bun, yarn, pnpm, and npm"
+      ],
+      "bbox": {
+        "x": 0.507,
+        "y": 0.333,
+        "width": 0.363,
+        "height": 0.616
+      },
+      "modelNodeId": null,
+      "transform": null
+    },
+    {
+      "id": "chart-tabs",
+      "label": "bun install, Express, Postgres, WebSockets",
+      "type": "tabs",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Tab navigation at top of chart card"
+      ],
+      "bbox": {
+        "x": 0.507,
+        "y": 0.333,
+        "width": 0.363,
+        "height": 0.066
+      },
+      "modelNodeId": null,
+      "transform": null
+    }
+  ],
+  "relationships": [
+    {
+      "id": "navbar--contains--bun-logo",
+      "from": "navbar",
+      "to": "bun-logo",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "navbar--contains--nav-links",
+      "from": "navbar",
+      "to": "nav-links",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "navbar--contains--search-bar",
+      "from": "navbar",
+      "to": "search-bar",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "navbar--contains--install-button",
+      "from": "navbar",
+      "to": "install-button",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "hero-section--contains--release-badge",
+      "from": "hero-section",
+      "to": "release-badge",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "hero-section--contains--main-heading",
+      "from": "hero-section",
+      "to": "main-heading",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "hero-section--contains--hero-description",
+      "from": "hero-section",
+      "to": "hero-description",
+      "type": "contains",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; boxes do not confirm containment"
+      ]
+    },
+    {
+      "id": "install-command-container--contains--terminal-command",
+      "from": "install-command-container",
+      "to": "terminal-command",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "performance-chart-card--contains--chart-tabs",
+      "from": "performance-chart-card",
+      "to": "chart-tabs",
+      "type": "contains",
+      "status": "observed",
+      "confidence": null,
+      "evidence": [
+        "Model-reported parent; child box lies inside parent box"
+      ]
+    },
+    {
+      "id": "main-heading--visually_aligned_with--hero-description",
+      "from": "main-heading",
+      "to": "hero-description",
+      "type": "visually_aligned_with",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Stacked vertically in the hero section"
+      ]
+    },
+    {
+      "id": "hero-section--adjacent_to--performance-chart-card",
+      "from": "hero-section",
+      "to": "performance-chart-card",
+      "type": "adjacent_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Chart is positioned to the right of the hero text"
+      ]
+    },
+    {
+      "id": "install-command-container--appears_related_to--terminal-command",
+      "from": "install-command-container",
+      "to": "terminal-command",
+      "type": "appears_related_to",
+      "status": "inferred",
+      "confidence": null,
+      "evidence": [
+        "Container holds the command text"
+      ]
+    }
+  ],
+  "summary": "The homepage for Bun, a JavaScript runtime and toolkit. It features a dark theme with a prominent hero section, a performance comparison chart, and an installation command snippet.",
+  "limitations": [
+    "The bottom of the page is slightly cut off.",
+    "1 model-reported containment(s) were not confirmed by box geometry (marked inferred).",
+    "A single screenshot shows layout and visible text only; it does not reveal event handlers, API calls, data sources or where any control navigates.",
+    "Bounding boxes are model estimates and may be offset slightly from the true element edges.",
+    "confidence is null because the model does not produce calibrated probabilities."
+  ],
+  "provider": {
+    "name": "google-gemini",
+    "model": "gemini-3-flash-preview"
+  }
+}

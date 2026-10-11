@@ -15,6 +15,7 @@
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
 } }
 </script>
+<link rel="stylesheet" href="/viewer/motion.css" />
 </head>
 <body>
 <header class="topbar">
@@ -31,15 +32,28 @@
   <section class="stage">
     <canvas id="c"></canvas>
     <div id="empty" class="empty">
-      <h1>Photo in. Exploded diagram out.</h1>
-      <p>Upload 1–4 photos of any object. The AI finds its parts, cuts them out, estimates depth and pulls them apart so you can inspect each one. More angles = more real parts.</p>
-      <ul class="tips">
-        <li>One object, filling most of the frame</li>
-        <li>Plain background, good light</li>
-        <li>Objects with visible parts work best: a bike, a keyboard, an open PC, a drone</li>
-        <li>Add a bottom or opened-up shot to reveal parts hidden from the top</li>
-      </ul>
-      <label class="btn primary big" for="file">Choose photos</label>
+      <div class="empty-copy">
+        <h1>Photo in.<br />Exploded diagram out.</h1>
+        <p>Upload 1–4 photos of any object. The AI finds its parts, cuts them out, estimates depth and pulls them apart so you can inspect each one. More angles, more real parts.</p>
+        <ul class="tips">
+          <li>One object, filling most of the frame</li>
+          <li>Plain background, good light</li>
+          <li>Visible parts work best: a bike, a keyboard, an open PC, a drone</li>
+          <li>A bottom or opened-up shot reveals parts hidden from the top</li>
+        </ul>
+        <label class="btn primary big" for="file">Choose photos</label>
+      </div>
+      <figure class="xphone" aria-hidden="true">
+        <div class="xp-stack">
+          <div class="xp-l back" style="--i:0"><i class="cam"></i><i class="cam b"></i><i class="cam c"></i><span>Back glass</span></div>
+          <div class="xp-l batt" style="--i:1"><i></i><span>Battery</span></div>
+          <div class="xp-l board" style="--i:2"><i class="soc"></i><i class="chip a"></i><i class="chip b"></i><i class="chip c"></i><span>Logic board</span></div>
+          <div class="xp-l frame" style="--i:3"><span>Frame</span></div>
+          <div class="xp-l oled" style="--i:4"><span>Display</span></div>
+          <div class="xp-l glass" style="--i:5"><i class="island"></i><span>Cover glass</span></div>
+        </div>
+        <figcaption>iPhone 17 · 16 parts found · pulled apart layer by layer</figcaption>
+      </figure>
     </div>
     <div id="loading" class="loading" hidden>
       <div class="scan">
@@ -55,6 +69,20 @@
         </div>
       </div>
     </div>
+    <div id="focusChip" class="focus-chip" hidden><span>Focused on <b id="focusName"></b></span><button type="button" id="focusExit">Show all <kbd>Esc</kbd></button></div>
+    <aside id="xrayHelp" class="xhelp" hidden aria-label="How to move around the 3D model">
+      <b id="xhTitle">3D controls</b>
+      <dl>
+        <dt><i class="mk l"></i>Left-drag</dt><dd>Rotate</dd>
+        <dt><i class="mk r"></i>Right-drag</dt><dd>Move view</dd>
+        <dt><i class="mk w"></i>Scroll</dt><dd>Zoom</dd>
+        <dt><svg class="ic" viewBox="0 0 16 16"><path d="M4 2l8.5 6.2-3.9.7 2.2 4.4-1.6.8-2.2-4.4L4 12.3z"/></svg>Click a part</dt><dd id="xhClick">Its details</dd>
+        <dt><svg class="ic" viewBox="0 0 16 16"><rect x="1.5" y="6.5" width="7" height="7" rx="1.5" class="o"/><path d="M8 8l6-6M9.5 2H14v4.5" class="o"/></svg>Drag a part</dt><dd>Pull it out</dd>
+        <dt><svg class="ic" viewBox="0 0 16 16"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M12 1.5v3h-3" class="o"/></svg>Shift + drag</dt><dd>Turn it</dd>
+        <dt><svg class="ic" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.4"/><circle cx="8" cy="8" r="5.5" class="o"/><path d="M8 .8v2M8 13.2v2M.8 8h2M13.2 8h2" class="o"/></svg>Double-click</dt><dd>Focus on it</dd>
+      </dl>
+      <div class="xh-legend" id="xhLegend" hidden><span><i style="--c:#ffb020"></i>Power</span><span><i style="--c:#36d6ff"></i>Signal</span><span><i style="--c:#9b8cff"></i>Depends on</span><span><i style="--c:#ff5fd2"></i>Motion</span><span><i style="--c:#8fa3bf"></i>Holds</span></div>
+    </aside>
     <div id="reveal" class="reveal" hidden></div>
     <div id="impact" class="impact" hidden></div>
     <div id="flash" class="flash"></div>
@@ -141,5 +169,6 @@
 </main>
 <script type="module" src="/viewer/viewer.js"></script>
 <script src="/viewer/tour.js" defer></script>
+<script src="/viewer/motion.js" defer></script>
 </body>
 </html>

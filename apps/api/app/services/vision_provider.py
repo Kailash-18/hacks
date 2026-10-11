@@ -41,6 +41,42 @@ class VisionProviderError(Exception):
 _FENCE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.IGNORECASE)
 
 
+def repair_truncated_json(text: str) -> str | None:
+    """A long answer cut off at the token limit: keep every element that is complete and close the brackets.
+    (Busy pages such as a news feed have many parts; losing the tail beats losing the whole analysis.)"""
+    start = text.find("{")
+    if start < 0:
+        return None
+    stack, in_str, esc, last_ok = [], False, False, None
+    for i in range(start, len(text)):
+        ch = text[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch in "{[":
+            stack.append("}" if ch == "{" else "]")
+        elif ch in "}]":
+            if not stack:
+                break
+            stack.pop()
+            if not stack:
+                return text[start:i + 1]
+            last_ok = (i + 1, list(stack))   # an element just closed: a safe place to cut
+        elif ch == "," and stack and stack[-1] == "]":  # between two array items
+            last_ok = (i, list(stack))
+    if not last_ok:
+        return None
+    cut, rest = last_ok
+    return text[start:cut].rstrip().rstrip(",") + "".join(reversed(rest))
+
+
 def parse_model_json(text: str | None) -> dict[str, Any]:
     """Parse a model reply into a JSON object, tolerating code fences and leading prose."""
     if not text or not text.strip():
@@ -55,7 +91,14 @@ def parse_model_json(text: str | None) -> dict[str, Any]:
         try:
             value = json.loads(cleaned[start : end + 1])
         except json.JSONDecodeError:
-            raise VisionProviderError("provider_bad_output", "The model returned malformed JSON.") from None
+            fixed = repair_truncated_json(cleaned)
+            try:
+                value = json.loads(fixed) if fixed else None
+            except json.JSONDecodeError:
+                value = None
+            if not isinstance(value, dict):
+                raise VisionProviderError("provider_bad_output", "The model returned malformed JSON.") from None
+            value.setdefault("_truncated", True)
     if not isinstance(value, dict):
         raise VisionProviderError("provider_bad_output", "The model returned JSON that is not an object.")
     return value
@@ -128,7 +171,7 @@ class SharedClientAdapter:
         finally:
             self.last_call = {"seconds": round(time.perf_counter() - t0, 1), "provider": self.name, "model": self.model}
 
-    def generate_code_text_images(self, images: list[tuple[bytes, str]], prompt: str) -> str:
+    def generate_code_text_images(self, images: list[tuple[bytes, str]], prompt: str, **kw) -> str:
         """Several screenshots -> plain text (a whole multi-screen app). Same error mapping as generate_json."""
         from .vision_client import ProviderError
 
@@ -136,7 +179,7 @@ class SharedClientAdapter:
             raise VisionProviderError("provider_error", "This provider cannot build from several screenshots.", 501)
         t0 = time.perf_counter()
         try:
-            return self.inner.generate_code_text_images(images, prompt)
+            return self.inner.generate_code_text_images(images, prompt, **kw)
         except ProviderError as exc:
             status = int(getattr(exc, "status", 502) or 502)
             raise VisionProviderError(_CODE_BY_STATUS.get(status, "provider_error"), str(exc), status) from None

@@ -109,3 +109,32 @@ Code: `apps/api/app/services/digital_explorer.py`, `apps/api/app/routes_explorer
 - A screenshot cannot show handlers, API calls, data or navigation: transitions and behavioural effects are hypotheses.
 - Diff matching can report a heavily redesigned element as removed + added.
 - Tokens are measured approximations, not values from source code. Generated code is a starting draft.
+
+### More on the result page
+
+- **Whole app** (side panel): the screen plus the app's other pages (a saved set brings its screens; add your own with
+  *Add a screen* or by dropping images, up to 6). *Build the whole app* sends all screenshots in one call
+  (`POST /api/digital/app`) and returns one HTML page: each screen is a `<section data-screen>`, only the `.active`
+  one shows, and the visible navigation switches between them. Nested screens are detected and retried once.
+  A "Screens in this app" bar above the preview jumps between screens, and the original screenshot follows. A failed
+  build says so instead of passing one screen off as the app.
+- Refine (`POST /api/digital/refine`) is kept in the API but no longer has a button in the viewer.
+- **Edit**: click text, a button or a box in the rebuilt page (side by side view) to change its words, text or fill
+  colour and size; *Save as a new version* writes the edits into the code.
+- **Devices**: the rebuild at phone (390), tablet (820) and laptop (1440) widths side by side.
+- **Open in StackBlitz**: the HTML as a project, or the React version as a Vite + React app that installs and runs in
+  the browser (free, no account).
+
+
+## Prompt for your own agent
+
+The **Prompt for your agent** tab (also the dashed button in the right panel) writes a complete, ready-to-paste prompt for
+Claude Code, Cursor, GitHub Copilot, Lovable / Bolt / v0 or any chat AI. It is built from what was measured (layout tree
+with pixel boxes, colours, type scale, components, behaviour, back end, the build plan and a definition of done), so it is
+instant and needs no model call. Pick the agent and the stack (React, Next.js, HTML, Vue, React Native, Flutter), add extra
+requirements, then copy it or download it as `.md` together with the screenshot. `POST /api/digital/prompt`.
+
+## How to build it (v2)
+
+The build plan now has a starter code snippet and a "done when" check per step, the project's file tree, components with
+their state, a back end section (database, tables, endpoints, auth, rules), pitfalls, tests to write and free deployment.

@@ -7,6 +7,7 @@ import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer
 import { installAxes } from "./orient3d.js";
 import { installSwap } from "./swap3d.js";
 import { installHolo } from "./holo3d.js";
+import { installXray } from "./xray3d.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
@@ -1027,7 +1028,21 @@ export class AssemblyView {
       w.mat.opacity = (w.structural ? 0.45 : 0.8) * (on ? 1 : 0.18);
       for (const sp of w.sprites) sp.material.opacity = on ? 1 : 0.15;
     }
+    // focus (double-click): only that part stays; everything else fades to a faint outline, labels hide
+    const fid = this.focusId && this.parts.some((p) => p.id === this.focusId && p.group.visible) ? this.focusId : null;
+    for (const p of this.parts) {
+      const out = !!fid && p.id !== fid;
+      p.label.element.classList.toggle("unfocus", out);
+      if (!out) continue;
+      p.mat.transparent = true; p.mat.opacity = 0.035; p.mat.depthWrite = false; p.mat.emissiveIntensity = 0;
+      p.edges.material.opacity = 0.05; p.mat.needsUpdate = true;
+      for (const m of p.extras) { m.transparent = true; m.opacity = 0.03; m.depthWrite = false; m.needsUpdate = true; }
+      if (p.decal?.isObject3D) p.decal.visible = false;
+    }
+    if (fid) for (const w of this.wires || []) { const on = w.r.from === fid || w.r.to === fid;
+      w.mat.opacity = on ? (w.structural ? 0.45 : 0.8) : 0; for (const sp of w.sprites) sp.material.opacity = on ? 1 : 0; }
     this.applyHolo(selected);
+    this.applyXrayFx?.(selected);
     this.setExplode(this.explode);
   }
 
@@ -1191,6 +1206,8 @@ export class AssemblyView {
     mid.y += len * 0.28 + 0.2; mid.addScaledVector(perp.normalize(), side * len);
     return new THREE.QuadraticBezierCurve3(pa, mid, pb);
   }
+
+  setFocus(id) { this.focusId = id || null; if (this.lastPaint) this.paint(this.lastPaint); this.poke?.(); }
 
   setXray(on) { this.xray = on; if (this.wireGroup) this.wireGroup.visible = on; if (this.lastPaint) this.paint(this.lastPaint); }
 
@@ -1409,7 +1426,7 @@ export class AssemblyView {
 
   update(now) {
     const dt = Math.min(0.05, (now - (this._last || now)) / 1000); this._last = now;
-    this.updateSweep(now); this.updateIntro(now); this.updateWhatIf(now); this.updateSparks(now, dt); this.updateWires(now);
+    this.updateSweep(now); this.updateIntro(now); this.updateWhatIf(now); this.updateSparks(now, dt); this.updateWires(now); this.updateXrayFx?.(now);
     this.updateEffects(now, dt);
     if (this.ringT0) { // shockwave ring when the object locks together
       const k = clamp01((now - this.ringT0) / 1100);
@@ -1448,3 +1465,4 @@ function footTexture() { // soft square glow where the beam meets the plinth
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 installHolo(AssemblyView);
+installXray(AssemblyView);

@@ -26,8 +26,8 @@ button, input, textarea { font: inherit; color: inherit; }
 [hidden] { display: none !important; }
 /* the two preview views are moved off screen instead of display:none: Chrome leaves a sandboxed preview that loaded
    while not displayed white when it is shown, and a React Native app would measure a 0 x 0 screen */
-#side[hidden] { display: grid !important; } #wipe[hidden] { display: block !important; }
-#side[hidden], #wipe[hidden] { position: absolute !important; left: -12000px !important; top: 0; width: 1000px; pointer-events: none; }
+#side[hidden] { display: grid !important; } #wipe[hidden] { display: block !important; } #devices[hidden] { display: flex !important; }
+#side[hidden], #wipe[hidden], #devices[hidden] { position: absolute !important; left: -12000px !important; top: 0; width: 1000px; pointer-events: none; }
 
 /* bar */
 .bar { display: flex; align-items: center; gap: 20px; height: 56px; padding: 0 24px; background: var(--sheet); border-bottom: 1px solid var(--rule); }
@@ -307,14 +307,117 @@ kbd { font: 500 15px "IBM Plex Mono", monospace; background: var(--paper); borde
 .side img { width: auto; max-width: 100%; margin: 0 auto; }
 .side figure { align-items: center; }
 
-/* whole site from every saved screen of it */
-.whole { display: grid; gap: 6px; padding-bottom: 14px; border-bottom: 1px solid var(--rule); }
-.whole-btn { width: 100%; display: flex; justify-content: center; align-items: baseline; gap: 8px; font-weight: 600; color: #04131a;
+/* whole app from several screens */
+.whole { display: grid; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--rule); }
+.whole h3 { font-size: 15px; margin: 0; }
+.screens { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; border: 1px dashed transparent; border-radius: 8px; transition: border-color .2s; }
+.screens.over { border-color: var(--blue); }
+.scr { position: relative; margin: 0; }
+.scr img { display: block; width: 100%; aspect-ratio: 16/10; object-fit: cover; object-position: top; border: 1px solid var(--rule); border-radius: 6px; }
+.scr figcaption { font-size: 11px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.scr-x { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border-radius: 50%; border: 0; background: rgba(0,0,0,.7); color: #fff; cursor: pointer; line-height: 20px; padding: 0; }
+.whole-row { display: flex; gap: 6px; }
+.whole-row .btn { flex: 1; }
+.whole-btn { display: flex; justify-content: center; align-items: baseline; gap: 8px; font-weight: 600; color: #04131a;
   background: linear-gradient(92deg, #5ef2ff, #4f8cff); border: 0; box-shadow: 0 0 22px rgba(94,242,255,.25); }
 .whole-btn small { font-weight: 500; opacity: .75; }
-.whole-btn:hover { filter: brightness(1.08); }
-.whole-btn:disabled { opacity: .6; }
-.whole p { margin: 0; font-size: 13px; color: var(--ink-2); }
-.refine-btn { border: 0; border-radius: 999px; padding: 5px 12px; font: 600 12px Inter, system-ui, sans-serif; cursor: pointer; color: #04131a;
-  background: linear-gradient(92deg, #5ef2ff, #4f8cff); }
-.refine-btn:disabled { opacity: .55; cursor: progress; }
+.whole-btn:disabled { opacity: .45; box-shadow: none; cursor: default; }
+.whole p { margin: 0; font-size: 12px; color: var(--ink-2); }
+
+/* devices: phone, tablet, laptop side by side */
+.devices { display: flex; gap: 24px; align-items: flex-end; justify-content: center; padding: 18px 12px 6px; }
+.dev { margin: 0; display: grid; justify-items: center; gap: 8px; }
+.dev figcaption { font-size: 12px; color: var(--ink-2); }
+.devwrap { position: relative; overflow: hidden; background: #fff; box-sizing: content-box; }
+.devwrap iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; }
+.devwrap.phone { border: 8px solid #1f2937; border-radius: 26px; }
+.devwrap.tablet { border: 10px solid #1f2937; border-radius: 18px; }
+.devwrap.laptop { border: 8px solid #1f2937; border-bottom-width: 14px; border-radius: 10px 10px 4px 4px; }
+.actions .sb-btn { flex-basis: 100%; }
+/* the tool row holds many controls: wrap to a second line instead of squeezing labels */
+.tools { flex-wrap: wrap; justify-content: flex-start; align-items: center; row-gap: 8px; }
+.tools .seg button, .tools .xray-btn, .refine-btn, .acc-heat { white-space: nowrap; }
+.tools .acc { margin-left: auto; }
+.screens { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.panel { min-width: 0; }
+.whole { grid-template-columns: minmax(0, 1fr); }
+.whole-row { flex-wrap: wrap; }
+.whole-row .btn { min-width: 0; }
+.whole-row .whole-btn { flex-basis: 100%; order: -1; }
+
+/* ---------- right panel: tidy sections ---------- */
+.code-grid { grid-template-columns: minmax(0, 1fr) 340px; }
+.panel { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; gap: 0; padding: 0; scrollbar-width: thin; }
+.panel > * { padding: 16px 18px; border-bottom: 1px solid var(--rule); }
+.panel > :last-child { border-bottom: 0; }
+.panel > .notes:empty { display: none; }
+.panel .btn { height: 36px; font-size: 14px; padding: 0 12px; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.actions .btn, .actions .sb-btn { width: 100%; flex: none; flex-basis: auto; }
+.actions .ap-btn { grid-column: 1 / -1; border-style: dashed; color: var(--blue-ink); }
+.actions .ap-btn:hover { border-color: var(--blue); background: var(--blue-soft); }
+.whole { border-bottom: 1px solid var(--rule); padding-bottom: 16px; gap: 10px; }
+.whole h3 { display: flex; justify-content: space-between; align-items: baseline; }
+.whole h3 small { font: 12px "IBM Plex Mono", monospace; color: var(--ink-2); font-weight: 400; }
+.screens { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.scr-x { width: 18px; height: 18px; line-height: 18px; font-size: 13px; top: 4px; right: 4px; }
+.scr-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; aspect-ratio: 16/10; border: 1px dashed #3a414d;
+  border-radius: 6px; background: var(--field); color: var(--ink-2); font-size: 11px; cursor: pointer; padding: 0; }
+.scr-add span { font-size: 18px; line-height: 1; color: var(--blue); }
+.scr-add:hover { border-color: var(--blue); color: var(--ink); }
+.whole-btn { width: 100%; height: 40px !important; align-items: center; }
+.whole-btn:disabled { background: var(--field); color: var(--ink-2); }
+.change label { font-size: 15px; }
+.change .chips button { font-size: 12px; }
+.versions h3 { font-size: 15px; }
+@media (max-width: 1100px) { .panel { position: static; max-height: none; } }
+
+/* ---------- prompt for your own agent ---------- */
+.ap { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 20px; align-items: start; margin-top: 8px; }
+.ap-opts { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--radius); padding: 20px; display: grid; gap: 14px; position: sticky; top: 12px; }
+.ap-opts h2 { margin: 0; font-size: 20px; letter-spacing: -.01em; }
+.ap-opts > p { margin: 0; font-size: 14px; line-height: 1.5; }
+.ap-field { display: grid; gap: 6px; }
+.ap-field > span, .ap-field > label { font-size: 13px; font-weight: 600; }
+.ap-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ap-chips button { border: 1px solid var(--rule); background: var(--field); border-radius: 99px; padding: 4px 11px; font-size: 13px; cursor: pointer; color: var(--ink-2); }
+.ap-chips button:hover { color: var(--ink); border-color: #3a414d; }
+.ap-chips button.on { background: var(--blue-soft); border-color: var(--blue); color: var(--blue-ink); }
+.ap-check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.ap-check input { margin-top: 2px; accent-color: var(--blue); }
+.ap-field textarea { width: 100%; resize: vertical; border: 1px solid var(--rule); border-radius: 8px; padding: 9px 10px; background: var(--field); font: inherit; font-size: 13px; color: var(--ink); }
+.ap-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ap-actions .primary { grid-column: 1 / -1; }
+.ap-actions .btn { height: 36px; font-size: 14px; }
+.ap-how { margin: 0; font-size: 13px; color: var(--ink-2); background: var(--field); border-radius: 8px; padding: 10px 12px; line-height: 1.5; }
+.ap-how:empty { display: none; }
+.ap-out { background: #0b0d10; border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; }
+.ap-bar { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--rule); background: var(--sheet); }
+.ap-bar small { color: var(--ink-2); font: 12px "IBM Plex Mono", monospace; text-align: right; }
+#apText { width: 100%; min-height: 70vh; border: 0; resize: vertical; background: transparent; color: #dfe4ea; padding: 16px; font: 13px/1.6 "IBM Plex Mono", monospace; outline: none; white-space: pre-wrap; }
+@media (max-width: 900px) { .ap { grid-template-columns: 1fr; } .ap-opts { position: static; } }
+
+/* toast: dark card with light text, readable on any background */
+.toast { background: #1f2530; color: #f1f4f8; border: 1px solid #3a4250; box-shadow: 0 10px 30px rgba(0,0,0,.55); font-weight: 500; }
+
+/* side by side: the differences sit over both pictures */
+.side-orig { position: relative; }
+.side-orig img { display: block; }
+.sideframe .heat { z-index: 2; }
+
+/* whole app: the screens it contains */
+.screenbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 0 10px; padding: 8px 12px; background: var(--sheet);
+  border: 1px solid rgba(94,242,255,.35); border-radius: var(--radius); }
+.screenbar > span { font-size: 13px; font-weight: 600; }
+.screenbar small { color: var(--ink-2); font-size: 12px; margin-left: auto; }
+#screenChips { display: flex; flex-wrap: wrap; gap: 6px; }
+#screenChips button { border: 1px solid var(--rule); background: var(--field); color: var(--ink-2); border-radius: 99px; padding: 3px 11px; font-size: 13px; cursor: pointer; text-transform: capitalize; }
+#screenChips button:hover { color: var(--ink); }
+#screenChips button.on { background: var(--blue-soft); border-color: var(--blue); color: var(--blue-ink); }
+#acc.off { display: none !important; }
+/* prompt: the text fills the window height next to the options */
+.ap-out { position: sticky; top: 12px; height: calc(100vh - 24px); min-height: 520px; }
+#apText { flex: 1; min-height: 0; height: auto; resize: none; overflow: auto; }
+.ap-out.swap { animation: ap-swap .45s ease; }
+@keyframes ap-swap { 0% { box-shadow: 0 0 0 0 rgba(94,242,255,.0); } 30% { box-shadow: 0 0 0 3px rgba(94,242,255,.35); } 100% { box-shadow: 0 0 0 0 rgba(94,242,255,0); } }
+@media (max-width: 900px) { .ap-out { position: static; height: 75vh; } }

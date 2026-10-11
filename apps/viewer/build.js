@@ -61,12 +61,12 @@ async function loadExamples() {
     const all = await api("/api/digital/samples");
     const set = all.filter((s) => s.set).sort((a, b) => (a.order ?? 99) - (b.order ?? 99)).filter((s) => !s.compareWith);
     const list = (set.length ? set : all).slice(0, 4);
-    S.sets = {}; for (const s of set) S.sets[s.set] = (S.sets[s.set] || 0) + 1;  // screens per saved site
+    S.sets = {}; for (const s of set) (S.sets[s.set] ||= []).push(s);  // the screens of each saved app, in order
     $("#examples").innerHTML = list.map((s) => `<button class="ex" data-id="${esc(s.id)}"><img src="${esc(s.imageUrl)}" alt="" loading="lazy" /><span>${esc(s.title.replace(/^.*·\s*/, ""))}</span></button>`).join("");
     $$(".ex").forEach((b) => (b.onclick = async () => {
       const s = list.find((x) => x.id === b.dataset.id);
       const blob = await (await fetch(s.imageUrl)).blob();
-      start(blob, `${s.id}.png`, s.title.replace(/^.*·\s*/, ""), s.set);
+      start(blob, `${s.id}.png`, s.title.replace(/^.*·\s*/, ""), s.set, s.id);
     }));
     if (!list.length) $(".examples").hidden = true;
   } catch { $(".examples").hidden = true; }
@@ -79,17 +79,18 @@ function showStart() {
 }
 
 // ---------- main flow ----------
-async function start(blob, name, title = "", set = null) {
+async function start(blob, name, title = "", set = null, sampleId = null) {
   const run = ++S.run;
   if (S.shot?.url) URL.revokeObjectURL(S.shot.url);
   const url = URL.createObjectURL(blob);
   const [w, h] = await imgSize(url);
-  const n = set ? S.sets?.[set] || 0 : 0;
-  $("#whole").hidden = n < 2;
-  if (n >= 2) $("#wholeBtn").innerHTML = `Build the whole site <small>${n} screens</small>`;
-  Object.assign(S, { set: n >= 2 ? set : null, shot: { blob, url, w, h, name }, analysis: null, guide: null, tree: null, sel: null,
+  // the other screens of a saved app come along, so "Build the whole app" works straight away
+  const extra = (set && S.sets?.[set] || []).filter((x) => x.id !== sampleId)
+    .map((x) => ({ name: `${x.id}.png`, url: x.imageUrl, title: x.title.replace(/^.*·\s*/, ""), blob: null }));
+  Object.assign(S, { extra, shot: { blob, url, w, h, name }, analysis: null, guide: null, tree: null, sel: null,
     versions: { html: [], react: [], "react-native": [], flutter: [] }, cur: { html: -1, react: -1, "react-native": -1, flutter: -1 }, target: "html", backend: null, a11y: null, acc: {} });
-  $("#acc").hidden = true; $("#heat").hidden = true; $("#accHeat").checked = false;
+  $("#acc").hidden = true; showHeat(false); $("#accHeat").checked = false; $("#screenBar").hidden = true;
+  renderScreens();
   for (const id of ["#beImg", "#axImg"]) $(id).src = url;
   $("#beSummary").textContent = "Inferring the data model and API from what the screen shows…"; $("#beEr").innerHTML = "";
   $("#beEndpoints").innerHTML = ""; $("#beBoxes").innerHTML = ""; $("#beNotes").innerHTML = ""; $("#beBadge").textContent = "";
@@ -139,21 +140,23 @@ async function makeCode(params, label, run = S.run) {
   try {
     const out = await api("/api/digital/code", { method: "POST", body: form(params) });
     if (run !== S.run) return;
+    if (out.source !== "ai" && params.baseCode && out.code === params.baseCode) { const m = out.notes?.[0] || "The change could not be applied."; status(m, true); toast(m); return; }
     S.versions[t].push({ code: out.code, notes: out.notes || [], source: out.source, change: out.change, label,
       model: out.provider?.model, cached: out.cached });
     S.cur[t] = S.versions[t].length - 1;
     if (out.source !== "ai") status(out.notes?.[0] || "Showing the layout-only draft.", true);
     else status("");
     S.target = t; renderTarget(); renderVersions(); renderNotes(); renderCode();
+    if (params.baseCode && params.change && out.source === "ai" && !Object.values(CONVERT).includes(params.change)) toast(`Applied: v${S.versions[t].length} is ready`);
   } catch (e) {
-    if (run === S.run) status(`Could not write the code: ${e.message}`, true);
+    if (run === S.run) { status(`Could not write the code: ${e.message}`, true); toast(`Could not write the code: ${e.message}`); }
   } finally {
     if (run === S.run) { wait(null); busy(false); }
   }
 }
 
 const current = () => S.versions[S.target][S.cur[S.target]];
-function busy(on) { for (const id of ["#apply", "#regen", "#copy", "#download", "#openTab"]) $(id).disabled = on; $$("#targetSeg button").forEach((b) => (b.disabled = on)); }
+function busy(on) { for (const id of ["#apply", "#regen", "#copy", "#download", "#openTab", "#stackblitz"]) $(id).disabled = on; $$("#targetSeg button").forEach((b) => (b.disabled = on)); }
 // waiting message with a running seconds counter, so a slow model call never looks frozen
 function wait(msg) {
   clearInterval(wait.t);
@@ -204,10 +207,20 @@ const FLUTTER_DOC = `<!doctype html><html><head><meta charset="utf-8"><style>bod
 font:16px system-ui,sans-serif;background:#0b1220;color:#cbd5e1;text-align:center;padding:32px;box-sizing:border-box}b{color:#fff;font-size:20px}</style></head>
 <body><div><b>Flutter runs outside the browser preview</b><p>Press <b>Run in DartPad</b>: the code is copied, DartPad opens, paste it and press Run.<br>Or put it in <code>lib/main.dart</code> of a Flutter project.</p></div></body></html>`;
 
+// whole-app pages: tell the viewer which screens exist and which one shows, and switch screens on request
+const SCREEN_JS = `<script>(()=>{const all=()=>[...document.querySelectorAll("[data-screen]")].filter(s=>!s.parentElement.closest("[data-screen]"));
+const send=()=>{const a=all();parent.postMessage({appScreens:a.map(s=>s.dataset.screen),active:a.findIndex(s=>s.classList.contains("active"))},"*")};
+addEventListener("message",e=>{const n=e.data&&e.data.goScreen;if(n==null)return;const a=all();if(!a.some(s=>s.dataset.screen===n))return;
+a.forEach(s=>s.classList.toggle("active",s.dataset.screen===n));scrollTo(0,0)});
+new MutationObserver(send).observe(document.body,{subtree:true,attributes:true,attributeFilter:["class"]});addEventListener("load",send);send()})();<\/script>`;
 function previewDoc(v) {
   if (S.target === "react-native") return nativeDoc(v.code);
   if (S.target === "flutter") return FLUTTER_DOC;
-  if (S.target === "html") return /<\/head>/i.test(v.code) ? v.code.replace(/<\/head>/i, NO_BAR + "</head>") : NO_BAR + v.code;
+  if (S.target === "html") {
+    const doc = /<\/head>/i.test(v.code) ? v.code.replace(/<\/head>/i, NO_BAR + "</head>") : NO_BAR + v.code;
+    if (!/data-screen=/.test(v.code)) return doc;
+    return /<\/body>/i.test(doc) ? doc.replace(/<\/body>(?![\s\S]*<\/body>)/i, SCREEN_JS + "</body>") : doc + SCREEN_JS;
+  }
   // React preview: same Tailwind, React + Babel in the sandboxed frame
   let src = v.code.replace(/^\s*import[^;\n]*;?\s*$/gm, "");
   const m = src.match(/export\s+default\s+function\s+([A-Z]\w*)/) || src.match(/export\s+default\s+([A-Z]\w*)\s*;?/);
@@ -225,9 +238,31 @@ ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(
 </script></body></html>`;
 }
 
+// the same rebuilt page at three real widths, to show it is responsive (phone, tablet, laptop)
+function renderDevices() {
+  const v = current();
+  if (!v || S.view !== "devices") return;
+  const doc = previewDoc(v), box = $("#devices"), H = Math.max(320, Math.min(560, innerHeight - box.getBoundingClientRect().top - 60));
+  const figs = $$("#devices .dev"), totalW = box.clientWidth - 24 * (figs.length - 1) - 24 - figs.length * 24;  // gaps, padding, frames
+  const ks = figs.map((f) => H / +f.dataset.h), sumW = figs.reduce((a, f, i) => a + +f.dataset.w * ks[i], 0), fit = Math.min(1, totalW / sumW);
+  figs.forEach((f, i) => {
+    const w = +f.dataset.w, h = +f.dataset.h, k = ks[i] * fit, wrap = f.querySelector(".devwrap"), fr = f.querySelector("iframe");
+    wrap.style.width = `${Math.round(w * k)}px`; wrap.style.height = `${Math.round(h * k)}px`;
+    Object.assign(fr.style, { width: `${w}px`, height: `${h}px`, transform: `scale(${k})` });
+    const key = doc.length + ":" + S.target + S.cur[S.target];
+    if (fr.dataset.doc !== key) { fr.srcdoc = doc; fr.dataset.doc = key; }
+  });
+}
+addEventListener("resize", () => S.view === "devices" && renderDevices());
+
 function renderCode() {
   const v = current();
   if (!v) return;
+  renderDevices();
+  if (!(S.target === "html" && /data-screen=/.test(v.code))) {  // not a whole app: no screen bar, the first screenshot
+    $("#screenBar").hidden = true; S.appScreens = null; S.appActive = 0; $("#acc").classList.remove("off");
+    if (S.shot?.url) for (const id of ["#origImg", "#sideImg"]) if ($(id).getAttribute("src") !== S.shot.url) $(id).src = S.shot.url;
+  }
   const doc = previewDoc(v);
   for (const id of ["#frame", "#sideFrame"]) if ($(id).dataset.doc !== doc.length + ":" + S.target + S.cur[S.target]) {
     $(id).srcdoc = doc; $(id).dataset.doc = doc.length + ":" + S.target + S.cur[S.target];
@@ -288,7 +323,8 @@ function setView(v) {
   if (v === "wipe" && S.shot && isMobile()) { toast("A phone app is compared side by side with the screenshot"); v = "side"; }
   S.view = v;
   $$("#viewSeg button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
-  $("#wipe").hidden = v !== "wipe"; $("#side").hidden = v !== "side"; $("#codeView").hidden = v !== "code";
+  $("#wipe").hidden = v !== "wipe"; $("#side").hidden = v !== "side"; $("#codeView").hidden = v !== "code"; $("#devices").hidden = v !== "devices";
+  if (v === "devices") requestAnimationFrame(renderDevices);
   // a React Native app measures the screen once at start: one loaded while hidden saw a 0 x 0 screen, so reload it
   const shown = { wipe: "#frame", side: "#sideFrame" }[v];
   if (shown && $(shown).dataset.hiddenLoad === "true" && current()) { delete $(shown).dataset.doc; requestAnimationFrame(renderCode); }
@@ -299,9 +335,10 @@ $$("#viewSeg button").forEach((b) => (b.onclick = () => setView(b.dataset.v)));
 function setTarget(t, generate = true) {
   S.target = t; renderTarget();
   // a mobile app is compared side by side with the screenshot (a wipe needs the same size and layout)
-  if (isMobile() && S.view === "wipe") { S.prevView = "wipe"; setView("side"); }
+  if (isMobile() && (S.view === "wipe" || S.view === "devices")) { S.prevView = S.view; setView("side"); }
   if (!isMobile() && S.prevView === "wipe") { S.prevView = null; if (S.view === "side") setView("wipe"); }
   $("#openTab").textContent = t === "flutter" ? "Run in DartPad" : "Open";
+  $("#stackblitz").hidden = !["html", "react"].includes(t);
   if (generate && t !== "html" && !S.versions[t].length) {
     const base = S.versions.html[S.cur.html];
     makeCode({ target: t, baseCode: base?.code, change: base ? CONVERT[t] : "" }, `First ${TARGET_NAME[t]} version`);
@@ -333,26 +370,55 @@ $("#changeForm").onsubmit = (e) => {
   if (!v) return toast("Wait for the first version.");
   makeCode({ target: S.target, change, baseCode: v.code }, change.length > 40 ? change.slice(0, 40) + "…" : change).then(() => ($("#change").value = ""));
 };
-// every saved screen of this site in one working app: its navigation wired, its windows opening and closing
+// ---------- whole app: every screen of the app in one working page, its navigation wired ----------
+function renderScreens() {
+  const all = [{ url: S.shot?.url, title: "This screen" }, ...(S.extra || [])];
+  $("#screens").innerHTML = all.map((x, i) => `<figure class="scr"><img src="${esc(x.url || "")}" alt="" /><figcaption>${i + 1}. ${esc(x.title || "Screen")}</figcaption>
+    ${i ? `<button type="button" class="scr-x" data-i="${i - 1}" aria-label="Remove screen ${i + 1}">×</button>` : ""}</figure>`).join("")
+    + (all.length < 6 ? `<button type="button" class="scr-add" id="scrAdd" title="Add a screenshot of another page"><span>+</span>Add screen</button>` : "");
+  $("#scrAdd")?.addEventListener("click", () => $("#addFile").click());
+  $$("#screens .scr-x").forEach((b) => (b.onclick = () => { const [r] = S.extra.splice(+b.dataset.i, 1); if (r?.own) URL.revokeObjectURL(r.url); renderScreens(); }));
+  const n = all.length;
+  $("#wholeBtn").disabled = n < 2;
+  $("#wholeBtn").innerHTML = n < 2 ? "Build the whole app" : `Build the whole app <small>${n} screens</small>`;
+  $("#wholeBtn").title = n < 2 ? "Add at least one more screen first" : "";
+  $("#screenCount").textContent = `${n} / 6`;
+}
+function addScreens(files) {
+  for (const f of [...files].filter((f) => f.type.startsWith("image/")).slice(0, 6 - 1 - S.extra.length))
+    S.extra.push({ blob: f, name: f.name || "screen.png", url: URL.createObjectURL(f), title: (f.name || "Screen").replace(/\.\w+$/, "").slice(0, 24), own: true });
+  renderScreens();
+}
+$("#addScreen").onclick = () => $("#addFile").click();
+$("#toPrompt").onclick = () => setTab("prompt");
+$("#addFile").addEventListener("change", (e) => { addScreens(e.target.files); e.target.value = ""; });
+$("#screens").addEventListener("dragover", (e) => { e.preventDefault(); e.stopPropagation(); $("#screens").classList.add("over"); });
+$("#screens").addEventListener("dragleave", () => $("#screens").classList.remove("over"));
+$("#screens").addEventListener("drop", (e) => { e.preventDefault(); e.stopPropagation(); $("#screens").classList.remove("over"); addScreens(e.dataTransfer.files); });
 $("#wholeBtn").onclick = async () => {
-  if (!S.set || !S.analysis) return;
-  const run = S.run, n = S.sets[S.set];
-  wait(`Building the whole site from ${n} screens…`); busy(true); $("#wholeBtn").disabled = true;
+  if (!S.analysis || !S.extra.length) return;
+  const run = S.run, n = S.extra.length + 1;
+  wait(`Building the whole app from ${n} screens…`); busy(true); $("#wholeBtn").disabled = true;
   status(`Reading all ${n} screenshots together and wiring the navigation between them. This takes about a minute.`);
   try {
-    const fd = new FormData(); fd.append("set", S.set);
+    const fd = new FormData(); fd.append("image", S.shot.blob, S.shot.name);
+    for (const x of S.extra) fd.append("image", x.blob || (x.blob = await (await fetch(x.url)).blob()), x.name);
     const out = await api("/api/digital/app", { method: "POST", body: fd });
     if (run !== S.run) return;
-    S.versions.html.push({ code: out.code, notes: out.notes || [], source: out.source, change: out.change, label: `Whole site · ${n} screens`,
+    if (out.fallback || !/data-screen=/.test(out.code || "")) {  // never pass one screen off as the whole app
+      const m = out.notes?.[0] || "The whole app could not be built. Try again.";
+      status(m, true); toast(m); return;
+    }
+    S.versions.html.push({ code: out.code, notes: out.notes || [], source: out.source, change: out.change, label: `Whole app · ${n} screens`,
       model: out.provider?.model, cached: out.cached, app: true });
     S.cur.html = S.versions.html.length - 1;
-    S.target = "html"; renderTarget(); renderVersions(); renderNotes(); renderCode(); setView("wipe");
-    status(out.source === "ai" ? "Whole site built: click the navigation in the rebuilt page." : (out.notes?.[0] || ""), out.source !== "ai");
-    toast("Use the rebuilt page: its navigation opens the other screens");
+    S.target = "html"; renderTarget(); renderVersions(); renderNotes(); renderCode(); setView("side");
+    status(`Whole app built: ${n} screens in one page. Use the screen buttons above the preview, or click the app's own menus and buttons. Open or Download gives you the full working app.`);
+    toast("Whole app ready: try its menus and buttons");
   } catch (e) {
-    if (run === S.run) status(`Could not build the whole site: ${e.message}`, true);
+    if (run === S.run) status(`Could not build the whole app: ${e.message}`, true);
   } finally {
-    if (run === S.run) { wait(null); busy(false); $("#wholeBtn").disabled = false; }
+    if (run === S.run) { wait(null); busy(false); renderScreens(); }
   }
 };
 $("#regen").onclick = () => { if (S.analysis) makeCode({ target: S.target, force: "1" }, "Written again"); };
@@ -371,6 +437,34 @@ $("#download").onclick = () => {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   toast(`Downloaded ${name}`);
 };
+// a real, editable project in StackBlitz (free, runs in the browser): plain HTML, or a Vite + React app
+function stackblitzFiles(v) {
+  const title = S.analysis?.title || "Rebuilt screen";
+  if (S.target === "html") return { template: "html", files: { "index.html": v.code } };
+  let app = v.code.replace(/^\s*import\s[^;\n]*from\s*["']react["'];?\s*$/gm, "");
+  app = `import React, { useState, useEffect, useRef, useMemo, useCallback, Fragment } from "react";\n${app}`;
+  if (!/export\s+default/.test(app)) { const m = app.match(/function\s+([A-Z]\w*)/); if (m) app += `\nexport default ${m[1]};\n`; }
+  return { template: "node", files: {
+    "package.json": JSON.stringify({ name: "rebuilt-screen", private: true, type: "module", scripts: { dev: "vite", build: "vite build" },
+      dependencies: { react: "^18.3.1", "react-dom": "^18.3.1" }, devDependencies: { vite: "^5.4.10", "@vitejs/plugin-react": "^4.3.3" } }, null, 2),
+    "vite.config.js": 'import { defineConfig } from "vite";\nimport react from "@vitejs/plugin-react";\nexport default defineConfig({ plugins: [react()] });\n',
+    "index.html": `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8" />\n<meta name="viewport" content="width=device-width, initial-scale=1" />\n<title>${esc(title)}</title>\n<script src="https://cdn.tailwindcss.com"></script>\n</head>\n<body>\n<div id="root"></div>\n<script type="module" src="/src/main.jsx"></script>\n</body>\n</html>\n`,
+    "src/main.jsx": 'import React from "react";\nimport { createRoot } from "react-dom/client";\nimport App from "./App.jsx";\ncreateRoot(document.getElementById("root")).render(<App />);\n',
+    "src/App.jsx": app } };
+}
+$("#stackblitz").onclick = () => {
+  const v = current(); if (!v || !["html", "react"].includes(S.target)) return;
+  const { template, files } = stackblitzFiles(v);
+  const f = document.createElement("form");
+  f.method = "POST"; f.action = `https://stackblitz.com/run?file=${encodeURIComponent(S.target === "html" ? "index.html" : "src/App.jsx")}`; f.target = "_blank";
+  const add = (k, val) => { const i = document.createElement("input"); i.type = "hidden"; i.name = k; i.value = val; f.append(i); };
+  add("project[title]", `${S.analysis?.title || "Rebuilt screen"} (rebuilt from a screenshot)`);
+  add("project[description]", "Rebuilt from a screenshot by Visual Reverse Engineering");
+  add("project[template]", template);
+  for (const [k, val] of Object.entries(files)) add(`project[files][${k}]`, val);
+  document.body.append(f); f.submit(); f.remove();
+  toast("Opening a live project in StackBlitz");
+};
 $("#openTab").onclick = async () => {
   const v = current(); if (!v) return;
   if (S.target === "flutter") {  // DartPad runs Flutter: copy the code, open it, the user pastes and presses Run
@@ -386,11 +480,12 @@ $("#openTab").onclick = async () => {
 function setTab(t) {
   S.tab = t;
   $$(".tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === t));
-  for (const x of ["code", "guide", "structure", "backend", "a11y"]) $(`#tab-${x}`).hidden = x !== t;
+  for (const x of ["code", "guide", "prompt", "structure", "backend", "a11y"]) $(`#tab-${x}`).hidden = x !== t;
   if (t === "code") requestAnimationFrame(fit);
   if (t === "structure") requestAnimationFrame(placeBoxes);
   if (t === "guide" && S.guide) replayGuide();
   if (t === "backend") loadBackend();
+  if (t === "prompt") loadPrompt();
   if (t === "a11y") loadA11y();
 }
 $$(".tabs button").forEach((b) => (b.onclick = () => setTab(b.dataset.tab)));
@@ -398,7 +493,7 @@ $$(".tabs button").forEach((b) => (b.onclick = () => setTab(b.dataset.tab)));
 // ---------- guide ----------
 function renderGuide() {
   const g = S.guide; if (!g) return;
-  const c = g.tokens?.colors || {}, ts = g.tokens?.typeScale || {};
+  const c = g.tokens?.colors || {}, ts = g.tokens?.typeScale || {}, be = g.backend || {};
   const lvl = { easy: 1, medium: 2, hard: 3 }[g.effort?.level] || 2;
   const mono = (n) => (String(n).match(/[A-Za-z0-9]+/g) || ["?"]).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
   const icon = { lock: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
@@ -417,13 +512,28 @@ function renderGuide() {
         </div>
       </div>
     </header>
-    ${g.stack?.length ? `<section class="g-sec"><h3>Recommended stack</h3><div class="g-stack">${g.stack.map((s, i) => `<div class="g-card" style="--i:${i}"><span class="g-mono">${esc(mono(s.name))}</span><div><b>${esc(s.name)}</b><p>${esc(s.why)}</p></div></div>`).join("")}</div></section>` : ""}
-    ${g.steps?.length ? `<section class="g-sec"><h3>Build plan</h3><ol class="g-steps">${g.steps.map((s, i) => `<li style="--i:${i}"><span class="g-num">${i + 1}</span><div class="g-step"><b>${esc(s.title)}</b><p>${esc(s.detail)}</p></div></li>`).join("")}</ol></section>` : ""}
-    ${g.components?.length ? `<section class="g-sec"><h3>Components to build <small>hover one to find it on the screen</small></h3><div class="g-comp-wrap"><div class="g-mini"><img src="${esc(S.shot?.url || "")}" alt="" /></div><div class="g-comps">${g.components.map((x, i) => `<div class="g-card g-comp" style="--i:${i}" data-name="${esc(x.name)}"><code class="g-tag">&lt;${esc(x.name)} /&gt;</code><p>${esc(x.purpose)}</p>${x.props?.length ? `<div class="g-props">${x.props.map((p) => `<span>${esc(p)}</span>`).join("")}</div>` : ""}</div>`).join("")}</div></div></section>` : ""}
+    ${g.stack?.length ? `<section class="g-sec"><h3>Recommended stack</h3><div class="g-stack">${g.stack.map((s, i) => `<div class="g-card" style="--i:${i}"><span class="g-mono">${esc(mono(s.name))}</span><div><b>${esc(s.name)}</b>${s.role ? `<em class="g-role">${esc(s.role)}</em>` : ""}<p>${esc(s.why)}</p></div></div>`).join("")}</div></section>` : ""}
+    ${g.steps?.length ? `<section class="g-sec"><h3>Build plan</h3><ol class="g-steps">${g.steps.map((s, i) => `<li style="--i:${i}"><span class="g-num">${i + 1}</span><div class="g-step"><b>${esc(s.title)}</b><p>${esc(s.detail)}</p>${s.code ? `<pre class="g-code"><span>${esc(s.lang || "code")}</span><code>${esc(s.code)}</code></pre>` : ""}${s.check ? `<p class="g-check"><i>✓</i>${esc(s.check)}</p>` : ""}</div></li>`).join("")}</ol></section>` : ""}
+    ${g.fileTree ? `<section class="g-sec"><h3>Project structure</h3><pre class="g-tree">${esc(g.fileTree)}</pre></section>` : ""}
+    ${g.components?.length ? `<section class="g-sec"><h3>Components to build <small>hover one to find it on the screen</small></h3><div class="g-comp-wrap"><div class="g-mini"><img src="${esc(S.shot?.url || "")}" alt="" /></div><div class="g-comps">${g.components.map((x, i) => `<div class="g-card g-comp" style="--i:${i}" data-name="${esc(x.name)}"><code class="g-tag">&lt;${esc(x.name)} /&gt;</code><p>${esc(x.purpose)}</p>${x.props?.length ? `<div class="g-props">${x.props.map((p) => `<span>${esc(p)}</span>`).join("")}</div>` : ""}${x.state?.length ? `<div class="g-props g-state">${x.state.map((p) => `<span>${esc(p)}</span>`).join("")}</div>` : ""}</div>`).join("")}</div></div></section>` : ""}
     ${g.behaviour?.length || g.data?.length ? `<section class="g-sec g-two">
       ${g.behaviour?.length ? `<div><h3>What the screenshot can't show</h3><p class="muted g-note">You still need to build these. They are informed guesses from what is visible.</p><ul class="g-list">${g.behaviour.map((b) => `<li><i>${icon.lock}</i>${esc(b)}</li>`).join("")}</ul></div>` : ""}
       ${g.data?.length ? `<div><h3>Data it needs</h3><p class="muted g-note">What the back end has to provide.</p><ul class="g-list">${g.data.map((b) => `<li><i>${icon.db}</i>${esc(b)}</li>`).join("")}</ul></div>` : ""}
     </section>` : ""}
+    ${be.endpoints?.length || be.tables?.length ? `<section class="g-sec"><h3>Back end <small>${esc(be.summary || "what the server has to do")}</small></h3>
+      <div class="g-be">
+        <div>${be.database ? `<p class="g-kv"><b>Database</b>${esc(be.database)}</p>` : ""}${be.auth ? `<p class="g-kv"><b>Auth</b>${esc(be.auth)}</p>` : ""}
+          ${be.tables?.length ? `<div class="g-tables">${be.tables.map((t) => `<div class="g-table"><code>${esc(t.name)}</code><ul>${t.columns.split(/,\s*/).map((col) => `<li>${esc(col)}</li>`).join("")}</ul></div>`).join("")}</div>` : ""}</div>
+        <div>${be.endpoints?.length ? `<ul class="g-eps">${be.endpoints.map((e) => `<li><span class="g-m g-${esc(e.method.toLowerCase())}">${esc(e.method)}</span><code>${esc(e.path)}</code><p>${esc(e.purpose)}${e.usedBy ? ` <small>· ${esc(e.usedBy)}</small>` : ""}</p></li>`).join("")}</ul>` : ""}
+          ${be.rules?.length ? `<h4>Rules to enforce</h4><ul class="g-list">${be.rules.map((r) => `<li><i>${icon.lock}</i>${esc(r)}</li>`).join("")}</ul>` : ""}</div>
+      </div>
+      <p class="muted g-note">Open the Backend tab for the full data model, SQL and OpenAPI file.</p></section>` : ""}
+    ${g.pitfalls?.length || g.testing?.length || g.deploy?.length ? `<section class="g-sec g-three">
+      ${g.pitfalls?.length ? `<div><h3>Watch out for</h3><ul class="g-bul warn">${g.pitfalls.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+      ${g.testing?.length ? `<div><h3>Tests to write</h3><ul class="g-bul test">${g.testing.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+      ${g.deploy?.length ? `<div><h3>Put it online (free)</h3><ul class="g-bul ship">${g.deploy.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+    </section>` : ""}
+    <section class="g-sec g-cta"><div><b>Rather let your own AI agent build it?</b><p>Get a complete prompt with all of this for Claude Code, Cursor, Copilot or Lovable.</p></div><button class="btn primary" type="button" id="gToPrompt">Prompt for your agent</button></section>
     ${Object.keys(c).length ? `<section class="g-sec"><h3>Design tokens <small>measured from the screenshot's pixels</small></h3>
       <div class="g-swatches">${Object.entries(c).map(([k, v]) => `<div class="g-sw"><i style="background:${esc(v)}"></i><b>${esc(k)}</b><code>${esc(v)}</code></div>`).join("")}</div>
       ${Object.keys(ts).length ? `<div class="g-type">${Object.entries(ts).map(([k, v]) => `<div><span style="font-size:${Math.min(56, +v || 14)}px">Aa</span><b>${esc(k)}</b><code>${esc(v)}px</code></div>`).join("")}</div>` : ""}
@@ -460,10 +570,69 @@ function renderGuide() {
     };
     card.onmouseleave = () => $$("#guide .g-mini .g-hl").forEach((e) => e.classList.remove("on"));
   });
+  $("#gToPrompt").onclick = () => setTab("prompt");
   replayGuide();
 }
 // one orchestrated entrance each time the plan is shown
 function replayGuide() { const el = $("#guide"); el.classList.remove("reveal"); void el.offsetWidth; el.classList.add("reveal"); }
+
+// ---------- whole app: jump between its screens; the original follows when the screenshots are known ----------
+addEventListener("message", (e) => {
+  const d = e.data;
+  if (!d || !Array.isArray(d.appScreens) || e.source !== $("#sideFrame").contentWindow && e.source !== $("#frame").contentWindow) return;
+  const v = current(); if (!v || S.target !== "html" || !d.appScreens.length) { $("#screenBar").hidden = true; return; }
+  S.appScreens = d.appScreens; S.appActive = Math.max(0, d.active);
+  $("#screenBar").hidden = false;
+  $("#screenChips").innerHTML = d.appScreens.map((n, i) => `<button type="button" data-i="${i}" class="${i === S.appActive ? "on" : ""}">${i + 1}. ${esc(n.replace(/[-_]+/g, " "))}</button>`).join("");
+  $$("#screenChips button").forEach((b) => (b.onclick = () => goScreen(+b.dataset.i)));
+  syncOriginal();
+});
+function goScreen(i) {
+  const n = S.appScreens?.[i]; if (n == null) return;
+  for (const f of [$("#frame"), $("#sideFrame"), ...$$("#devices iframe")]) f.contentWindow?.postMessage({ goScreen: n }, "*");
+}
+function syncOriginal() {
+  // the n-th screen of the app is the n-th screenshot added, when there are as many
+  const shots = [{ url: S.shot?.url }, ...(S.extra || [])], i = S.appActive || 0;
+  const url = shots.length === S.appScreens?.length ? shots[i]?.url : i === 0 ? S.shot?.url : null;
+  for (const id of ["#origImg", "#sideImg"]) if (url && $(id).getAttribute("src") !== url) $(id).src = url;
+  if (!url) $("#sideImg").src = S.shot?.url || "";
+  $("#acc").classList.toggle("off", i !== 0);  // the match is measured against the first screen
+}
+
+// ---------- prompt for the developer's own coding agent (no model call: built from what was measured) ----------
+const AP = { agent: "claude-code", stack: "react" };
+try { Object.assign(AP, JSON.parse(localStorage.getItem("ap-opts") || "{}")); } catch {}
+async function loadPrompt() {
+  if (!S.analysis) return;
+  const run = S.run, extras = $("#apScreens").checked ? (S.extra || []).map((x) => x.title || "Screen").join("\n") : "";
+  $("#apMeta").textContent = "Writing…";
+  try {
+    const p = await api("/api/digital/prompt", { method: "POST", body: form({ agent: AP.agent, stack: AP.stack,
+      backend: $("#apBackend").checked ? "1" : "0", extra: $("#apExtra").value, screens: extras }) });
+    if (run !== S.run) return;
+    S.prompt = p;
+    const chips = (el, list, key) => {
+      el.innerHTML = list.map((x) => `<button type="button" data-id="${esc(x.id)}" class="${x.id === AP[key] ? "on" : ""}">${esc(x.name)}</button>`).join("");
+      el.querySelectorAll("button").forEach((b) => (b.onclick = () => { AP[key] = b.dataset.id; try { localStorage.setItem("ap-opts", JSON.stringify(AP)); } catch {} loadPrompt(); }));
+    };
+    chips($("#apAgent"), p.agents, "agent");
+    chips($("#apStack"), p.stacks.map((x) => ({ ...x, name: x.name.split(/ \+ |,| with /)[0].replace(/ \(.*/, "") })), "stack");
+    const changed = $("#apText").value && $("#apText").value !== p.prompt;
+    $("#apText").value = p.prompt; $("#apText").scrollTop = 0;
+    if (changed) { const o = $(".ap-out"); o.classList.remove("swap"); void o.offsetWidth; o.classList.add("swap"); }
+    $("#apHow").textContent = p.agent.how;
+    const words = p.prompt.split(/\s+/).length;
+    $("#apMeta").textContent = `${words.toLocaleString()} words · ${p.agent.name} · ${p.stack.name}` + (p.usesGuide ? " · uses the build plan" : "") + (p.usesBackend ? " · uses the back end" : "");
+  } catch (e) { if (run === S.run) $("#apMeta").textContent = `Could not write the prompt: ${e.message}`; }
+}
+for (const id of ["#apBackend", "#apScreens"]) $(id).onchange = loadPrompt;
+$("#apExtra").onchange = loadPrompt;
+$("#apCopy").onclick = async () => { try { await navigator.clipboard.writeText($("#apText").value); toast("Prompt copied: paste it into your agent with the screenshot"); } catch { $("#apText").select(); toast("Press Ctrl+C to copy"); } };
+const saveAs = (blob, name) => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
+const slug = () => (S.analysis?.title || "screen").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "screen";
+$("#apMd").onclick = () => saveAs(new Blob([$("#apText").value], { type: "text/markdown" }), `${slug()}-prompt.md`);
+$("#apShot").onclick = async () => { if (!S.shot?.url) return; const b = await (await fetch(S.shot.url)).blob(); saveAs(b, `${slug()}.${(b.type.split("/")[1] || "png").replace("jpeg", "jpg")}`); };
 
 // ---------- structure ----------
 async function renderStructure() {
@@ -517,10 +686,24 @@ function captureDoc(doc, w, h) {
   return new Promise((resolve, reject) => {
     const token = Math.random().toString(36).slice(2);
     // capture inside the sandboxed frame itself (html-to-image renders the live DOM through an SVG, no nested frame)
-    const inj = `<script src="${H2I}"><\/script><script>addEventListener("load",()=>setTimeout(async()=>{try{
+    // web fonts: an SVG snapshot cannot use the page's fonts, and html-to-image cannot read Google's cross-origin
+    // CSS, so the Latin font files are fetched and inlined here; without this the text is measured in a fallback font
+    const inj = `<script src="${H2I}"><\/script><script>
+    async function __fontCSS(){let out="";const hrefs=new Set();
+      for(const l of document.querySelectorAll('link[href*="fonts.googleapis.com"]'))hrefs.add(l.href);
+      for(const st of document.querySelectorAll("style"))for(const m of st.textContent.matchAll(/https:\\/\\/fonts\\.googleapis\\.com\\/[^"')\\s]+/g))hrefs.add(m[0]);
+      const data=(b)=>new Promise(ok=>{const r=new FileReader();r.onload=()=>ok(r.result);r.readAsDataURL(b)});
+      for(const href of hrefs){try{const css=await(await fetch(href)).text();
+        for(let b of css.split(/(?=\\/\\*)/)){if(/^\\/\\*/.test(b)&&!/^\\/\\*\\s*latin\\s*\\*\\//.test(b))continue;
+          for(const m of [...b.matchAll(/url\\((https:[^)]+)\\)/g)]){try{b=b.replace(m[1],await data(await(await fetch(m[1])).blob()))}catch(_){}}
+          out+=b}}catch(_){}}
+      return out}
+    addEventListener("load",()=>setTimeout(async()=>{try{
+      try{await document.fonts.ready}catch(_){}
+      const fontEmbedCSS=await __fontCSS();
       const bg=getComputedStyle(document.body).backgroundColor;
       const o={width:${w},height:${h},canvasWidth:${w},canvasHeight:${h},pixelRatio:1,cacheBust:false,
-        backgroundColor:(bg&&bg!=="rgba(0, 0, 0, 0)")?bg:"#ffffff"};
+        backgroundColor:(bg&&bg!=="rgba(0, 0, 0, 0)")?bg:"#ffffff",...(fontEmbedCSS?{fontEmbedCSS}:{})};
       let url; try{url=await htmlToImage.toPng(document.documentElement,o)}catch(_){url=await htmlToImage.toPng(document.documentElement,{...o,skipFonts:true})}
       parent.postMessage({accShot:"${token}",data:url},"*")}catch(e){parent.postMessage({accShot:"${token}",error:String(e&&e.message||e)},"*")}},1500))<\/script>`;
     const f = document.createElement("iframe");
@@ -587,7 +770,8 @@ function setRing(p) {
   bar.style.stroke = p >= 85 ? "var(--ok)" : p >= 70 ? "var(--amber)" : "#c2410c";
 }
 function showAccuracy(r) {
-  $("#acc").hidden = false; $("#accLbl").textContent = "visual match";
+  const v = current(), changed = v?.change && !v.app && !/^(Whole site|Refine)/.test(v.change) && !Object.values(CONVERT).includes(v.change);
+  $("#acc").hidden = false; $("#accLbl").textContent = changed ? "match · lower is expected after your change" : "visual match";
   const t0 = performance.now(), tick = () => { const k = Math.min(1, (performance.now() - t0) / 700), p = Math.round(r.score * (1 - Math.pow(1 - k, 3)));
     $("#accPct").textContent = p + "%"; setRing(p); if (k < 1) requestAnimationFrame(tick); };
   tick();
@@ -595,10 +779,22 @@ function showAccuracy(r) {
   const g = c.getContext("2d"), img = g.createImageData(r.gw, r.gh);
   for (let i = 0; i < r.gw * r.gh; i++) { const d = r.miss[i]; const a = d < 0.18 ? 0 : Math.min(200, (d - 0.18) * 320); img.data.set([255, 40, 60, a], i * 4); }
   g.putImageData(img, 0, 0);
-  c.hidden = !$("#accHeat").checked;
+  for (const id of ["#sideHeat", "#sideHeat2"]) { const o = $(id); o.width = r.gw; o.height = r.gh; o.getContext("2d").putImageData(img, 0, 0); }
+  showHeat($("#accHeat").checked);
 }
 // ---------- refine: show the AI how its code renders, let it fix the differences, measure again ----------
-const TARGET_MATCH = 95, MAX_ROUNDS = 4;
+const TARGET_MATCH = 95, MAX_ROUNDS = 5;
+// the screenshot with its differences painted red, so the model sees exactly where it is off
+async function diffImage(r) {
+  const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = S.shot.url; });
+  const c = document.createElement("canvas"); c.width = S.shot.w; c.height = Math.min(S.shot.h, 6000);
+  const g = c.getContext("2d"); g.drawImage(img, 0, 0);
+  const h = document.createElement("canvas"); h.width = r.gw; h.height = r.gh;
+  const hg = h.getContext("2d"), d = hg.createImageData(r.gw, r.gh);
+  for (let i = 0; i < r.gw * r.gh; i++) { const v = r.miss[i]; d.data.set([255, 0, 40, v < 0.15 ? 0 : Math.min(190, (v - 0.15) * 300)], i * 4); }
+  hg.putImageData(d, 0, 0); g.imageSmoothingEnabled = true; g.drawImage(h, 0, 0, c.width, c.height);
+  return new Promise((ok) => c.toBlob(ok, "image/png"));
+}
 async function measured(v) {
   const key = `${S.target}:${S.cur[S.target]}`;
   for (let i = 0; i < 200 && (S.acc[key] === "busy" || S.acc[key] === undefined); i++) {
@@ -618,11 +814,184 @@ function worstRegions(r) {  // a 4 x 3 grid of the difference map, worst cells f
   return out.sort((a, b) => b.d - a.d).slice(0, 4).filter((c) => c.d > 0.08)
     .map((c) => `x ${c.gx * 25}-${c.gx * 25 + 25}%, y ${Math.round(c.gy * 33.3)}-${Math.round(c.gy * 33.3 + 33.3)}% (${Math.round(c.d * 100)}% off)`).join("; ");
 }
+// where the main colours of the screenshot come out a different shade in the render (exact hex, so it can be fixed)
+const hexOf = (c) => "#" + c.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("");
+async function colorPairs(render) {
+  const gw = 320, gh = Math.max(20, Math.round(gw * S.shot.h / S.shot.w));
+  const [a, b] = await Promise.all([pixels(S.shot.url, gw, gh), pixels(render, gw, gh)]);
+  const groups = new Map(), n = gw * gh;
+  for (let i = 0; i < n; i++) {
+    const k = ((a[i * 4] >> 3) << 10) | ((a[i * 4 + 1] >> 3) << 5) | (a[i * 4 + 2] >> 3);
+    const g = groups.get(k) || [0, 0, 0, 0, 0, 0, 0]; g[0]++;
+    for (let c = 0; c < 3; c++) { g[1 + c] += a[i * 4 + c]; g[4 + c] += b[i * 4 + c]; }
+    groups.set(k, g);
+  }
+  return [...groups.values()].sort((x, y) => y[0] - x[0]).slice(0, 8).filter((g) => g[0] > n * 0.01).map((g) => {
+    const t = [g[1], g[2], g[3]].map((v) => v / g[0]), r = [g[4], g[5], g[6]].map((v) => v / g[0]);
+    return { t, r, share: g[0] / n, off: Math.hypot(t[0] - r[0], t[1] - r[1], t[2] - r[2]) };
+  }).filter((c) => c.off > 6);
+}
+const colorText = (pairs) => pairs.map((c) => `${hexOf(c.t)} in the target is ${hexOf(c.r)} in your render (${Math.round(c.share * 100)}% of the page)`).join("; ");
+// measured colour correction: a hex colour in the code that renders as the wrong shade is set to the sampled one
+function colorSnap(code, pairs) {
+  const rgb = (h) => h.length === 4 ? [1, 2, 3].map((i) => parseInt(h[i] + h[i], 16)) : [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  let n = 0;
+  const out = code.replace(/#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g, (h) => {
+    const c = rgb(h);
+    const p = pairs.find((q) => q.share > 0.02 && Math.hypot(c[0] - q.r[0], c[1] - q.r[1], c[2] - q.r[2]) < 10);
+    if (!p) return h;
+    n++; return hexOf(p.t);
+  });
+  return { code: out, n };
+}
+// close-ups of the worst regions, target on the left and the render on the right, so small details are visible
+async function closeUps(r, renderUrl) {
+  const load = (src) => new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = src; });
+  const [ti, ri] = await Promise.all([load(S.shot.url), load(renderUrl)]);
+  const cells = [];
+  for (let gy = 0; gy < 3; gy++) for (let gx = 0; gx < 4; gx++) {
+    let s = 0, n = 0;
+    for (let y = Math.floor(gy * r.gh / 3); y < Math.floor((gy + 1) * r.gh / 3); y++)
+      for (let x = Math.floor(gx * r.gw / 4); x < Math.floor((gx + 1) * r.gw / 4); x++) { s += r.miss[y * r.gw + x]; n++; }
+    cells.push({ gx, gy, d: s / Math.max(1, n) });
+  }
+  const W = S.shot.w, H = Math.min(S.shot.h, 6000), out = [];
+  for (const c of cells.sort((a, b) => b.d - a.d).slice(0, 3)) {
+    const x0 = Math.max(0, (c.gx / 4) * W - W * 0.04), y0 = Math.max(0, (c.gy / 3) * H - H * 0.05);
+    const w = Math.min(W - x0, W / 4 + W * 0.08), h = Math.min(H - y0, H / 3 + H * 0.1);
+    const k = Math.min(2, 640 / w), cv = document.createElement("canvas"); cv.width = Math.round(w * k) * 2 + 12; cv.height = Math.round(h * k);
+    const g = cv.getContext("2d"); g.fillStyle = "#ff0040"; g.fillRect(0, 0, cv.width, cv.height);
+    g.drawImage(ti, x0, y0, w, h, 0, 0, w * k, h * k); g.drawImage(ri, x0, y0, w, h, w * k + 12, 0, w * k, h * k);
+    out.push({ blob: await new Promise((ok) => cv.toBlob(ok, "image/png")),
+      where: `x ${Math.round(x0 / W * 100)}-${Math.round((x0 + w) / W * 100)}%, y ${Math.round(y0 / H * 100)}-${Math.round((y0 + h) / H * 100)}%` });
+  }
+  return out;
+}
+// measured text fitting: each visible text of the screenshot is found in the rendered page, its text width compared
+// with the width it has in the screenshot, and its font size scaled to match (only tags whose class is unique in the code)
+function fitText(code) {
+  const comps = (S.analysis?.components || []).filter((c) => c.bbox && c.label && c.label.length >= 6 && /heading|text|button|link|label|badge|title|paragraph/i.test(c.type))
+    .map((c) => ({ t: (c.label.includes(":") ? c.label.split(":").slice(1).join(":") : c.label).replace(/\s+/g, " ").trim().slice(0, 80), w: c.bbox.width * S.shot.w }))
+    .filter((c) => c.t.length >= 6);  // labels like "Main heading: Build something..." carry the visible text after the colon
+  if (!comps.length) return Promise.resolve({ code, n: 0 });
+  const token = Math.random().toString(36).slice(2);
+  const inj = `<script>addEventListener("load",()=>setTimeout(async()=>{try{await document.fonts.ready}catch(_){}
+    const C=${JSON.stringify(comps)},out=[],norm=s=>(s||"").replace(/\\s+/g," ").trim().toLowerCase();
+    for(const c of C){let best=null;const t=norm(c.t);
+      for(const e of document.body.querySelectorAll("*")){const x=norm(e.innerText);if(!x||x.length>t.length*1.3+4)continue;
+        if(x===t||x.startsWith(t.slice(0,24))){if(!best||e.contains(best)===false&&best.contains(e))best=e;else if(!best)best=e}}
+      if(!best)continue;const r=document.createRange();r.selectNodeContents(best);const w=r.getBoundingClientRect().width;
+      if(w<20)continue;out.push({cls:best.getAttribute("class")||"",tag:best.tagName.toLowerCase(),k:c.w/w,fs:parseFloat(getComputedStyle(best).fontSize)})}
+    parent.postMessage({fit:"${token}",out},"*")},1200))<\/script>`;
+  return new Promise((resolve) => {
+    const f = document.createElement("iframe");
+    f.setAttribute("sandbox", "allow-scripts"); f.setAttribute("aria-hidden", "true");
+    Object.assign(f.style, { position: "fixed", left: "-20000px", top: "0", width: `${S.shot.w}px`, height: `${S.shot.h}px`, border: "0" });
+    const done = (v) => { removeEventListener("message", on); clearTimeout(tm); f.remove(); resolve(v); };
+    const on = (e) => {
+      if (e.data?.fit !== token) return;
+      let out = code, n = 0;
+      for (const m of e.data.out) {
+        if (!m.cls || m.k < 0.7 || m.k > 1.45 || Math.abs(m.k - 1) < 0.04) continue;
+        const attr = `class="${m.cls}"`, at = out.indexOf(attr);
+        if (at < 0 || out.indexOf(attr, at + 1) >= 0) continue;  // the class string must point at one tag only
+        const fs = Math.round(m.fs * m.k * 10) / 10;
+        const t0 = out.lastIndexOf("<", at), t1 = out.indexOf(">", at), tag = out.slice(t0, t1);
+        const tag2 = /\sstyle="/.test(tag) ? tag.replace(/\sstyle="/, ` style="font-size:${fs}px;`) : tag.replace(attr, `style="font-size:${fs}px" ${attr}`);
+        out = out.slice(0, t0) + tag2 + out.slice(t1); n++;
+      }
+      done({ code: out, n });
+    };
+    const tm = setTimeout(() => done({ code, n: 0 }), 15000);
+    addEventListener("message", on);
+    f.srcdoc = /<\/body>/i.test(code) ? code.replace(/<\/body>(?![\s\S]*<\/body>)/i, inj + "</body>") : code + inj;
+    document.body.append(f);
+  });
+}
+// font finder: the headline's text is drawn in candidate Google Fonts and compared, ink against ink, with the
+// headline in the screenshot; the closest face is passed to the model (it tends to default to Inter)
+const FONT_CANDIDATES = ["Inter", "Archivo", "Space Grotesk", "Manrope", "DM Sans", "Plus Jakarta Sans", "Poppins", "Montserrat", "Sora",
+  "Outfit", "Figtree", "Geist", "Bricolage Grotesque", "Instrument Sans", "Work Sans", "IBM Plex Sans", "Rubik", "Lexend", "Onest",
+  "Syne", "Unbounded", "Archivo Narrow", "Barlow", "Roboto", "Open Sans", "Lato", "Nunito Sans", "Raleway", "Oswald", "Playfair Display",
+  "Fraunces", "Instrument Serif", "Libre Franklin", "Public Sans", "Urbanist", "Red Hat Display", "Epilogue", "Hanken Grotesk"];
+const WIDTH_AXIS = { Archivo: "wdth,wght@62..125,100..900", "Bricolage Grotesque": "opsz,wdth,wght@12..96,75..100,200..800" };
+const STRETCH = { normal: 100, "semi-condensed": 87.5, condensed: 75, "extra-condensed": 62.5 };
+let fontCache = null;
+async function findFont() {
+  if (fontCache?.id === S.analysis?.analysisId) return fontCache.text;
+  const h = (S.analysis?.components || []).filter((c) => c.type === "heading" && c.bbox && c.label && !c.label.includes(":") && c.label.length >= 8)
+    .sort((a, b) => b.bbox.width * b.bbox.height - a.bbox.width * a.bbox.height)[0];
+  if (!h) return "";
+  if (!document.getElementById("fontFinder")) {
+    const l = document.createElement("link"); l.id = "fontFinder"; l.rel = "stylesheet";
+    l.href = "https://fonts.googleapis.com/css2?" + FONT_CANDIDATES.map((f) => `family=${f.replace(/ /g, "+")}:${WIDTH_AXIS[f] || "wght@500;700;800"}`).join("&") + "&display=block";
+    document.head.append(l); await new Promise((ok) => { l.onload = ok; l.onerror = ok; setTimeout(ok, 8000); });
+  }
+  // the headline's lines in the screenshot: ink bands, each with its ink width, height and density
+  const pad = 6, X = Math.max(0, Math.round(h.bbox.x * S.shot.w) - pad), Y = Math.max(0, Math.round(h.bbox.y * S.shot.h) - pad);
+  const W = Math.min(S.shot.w - X, Math.round(h.bbox.width * S.shot.w) + 2 * pad), H = Math.min(S.shot.h - Y, Math.round(h.bbox.height * S.shot.h) + 2 * pad);
+  const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = S.shot.url; });
+  const tc = document.createElement("canvas"); tc.width = W; tc.height = H;
+  const tg = tc.getContext("2d", { willReadFrequently: true }); tg.drawImage(img, X, Y, W, H, 0, 0, W, H);
+  const td = tg.getImageData(0, 0, W, H).data, lum = (d, i) => 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2];
+  const bg = lum(td, 0), ink = (x, y) => Math.abs(lum(td, (y * W + x) * 4) - bg) > 70;
+  const rows = []; for (let y = 0; y < H; y++) { let n = 0; for (let x = 0; x < W; x++) n += ink(x, y); rows.push(n); }
+  const bands = []; let y0 = -1;
+  const rmax = Math.max(...rows), cut = Math.max(1, rmax * 0.1);  // a descender touching the next line is not a line
+  for (let y = 0; y <= H; y++) { const on = y < H && rows[y] > cut; if (on && y0 < 0) y0 = y; if (!on && y0 >= 0) { if (y - y0 > 6) bands.push([y0, y]); y0 = -1; } }
+  for (let i = 0; i < bands.length; i++) {  // grow each band to its full ink (ascenders, descenders), not past the neighbours
+    const lo = i ? Math.ceil((bands[i - 1][1] + bands[i][0]) / 2) : 0, hi = i < bands.length - 1 ? Math.floor((bands[i][1] + bands[i + 1][0]) / 2) : H;
+    while (bands[i][0] > lo && rows[bands[i][0] - 1] > 0) bands[i][0]--;
+    while (bands[i][1] < hi && rows[bands[i][1]] > 0) bands[i][1]++;
+  }
+  const lines = bands.map(([a, b]) => { let x0 = W, x1 = 0, n = 0;
+    for (let y = a; y < b; y++) for (let x = 0; x < W; x++) if (ink(x, y)) { n++; if (x < x0) x0 = x; if (x > x1) x1 = x; }
+    return { w: x1 - x0 + 1, h: b - a, dens: n / Math.max(1, (x1 - x0 + 1) * (b - a)) }; }).filter((l) => l.w > 20);
+  const words = h.label.replace(/\s+/g, " ").trim().split(" "), N = lines.length;
+  window.__fontFinder = { lines, words };
+  if (!N || N > 4 || words.length < N || words.length > 16) return "";
+  const splits = [];  // every way to break the words into N lines
+  (function rec(i, acc) { if (acc.length === N - 1) { splits.push([...acc, words.length]); return; } for (let j = i + 1; j < words.length; j++) rec(j, [...acc, j]); })(0, []);
+  const c = document.createElement("canvas"); c.width = 900; c.height = 260; const g = c.getContext("2d", { willReadFrequently: true });
+  const box = (t) => { const m = g.measureText(t); return { w: m.actualBoundingBoxLeft + m.actualBoundingBoxRight, h: m.actualBoundingBoxAscent + m.actualBoundingBoxDescent, asc: m.actualBoundingBoxAscent, left: m.actualBoundingBoxLeft }; };
+  let best = null;
+  for (const fam of FONT_CANDIDATES) for (const wt of [500, 700, 800]) for (const st of WIDTH_AXIS[fam] ? Object.keys(STRETCH) : ["normal"]) {
+    const f100 = `${st} ${wt} 100px "${fam}"`;
+    try { await document.fonts.load(f100); } catch { continue; }
+    if (!document.fonts.check(f100)) continue;
+    for (const ls of [0, -0.01, -0.02, -0.03]) {
+      g.font = f100; g.letterSpacing = `${ls * 100}px`;
+      let pick = null;
+      for (const sp of splits) {  // shape match: each line's width / ink height against the screenshot's
+        let err = 0, st = 0, sizes = [];
+        sp.forEach((end, li) => { const t = words.slice(li ? sp[li - 1] : 0, end).join(" "), m = box(t);
+          err += Math.abs(Math.log((m.w / m.h) / (lines[li].w / lines[li].h))); sizes.push(lines[li].h / m.h * 100); });
+        const mean = sizes.reduce((a, b) => a + b) / N; for (const z of sizes) st += Math.abs(z - mean) / mean;  // one size for all lines
+        err = err / N + st / N;
+        if (!pick || err < pick.err) pick = { err, sp, size: mean };
+      }
+      // stroke weight: ink density of the first line drawn at the matched size
+      const t0 = words.slice(0, pick.sp[0]).join(" "); g.font = `${st} ${wt} ${pick.size}px "${fam}"`;
+      const m = box(t0); g.fillStyle = "#000"; g.fillRect(0, 0, c.width, c.height); g.fillStyle = "#fff";
+      g.fillText(t0, m.left + 2, m.asc + 2);
+      const bw = Math.min(c.width, Math.ceil(m.w) + 4), bh = Math.min(c.height, Math.ceil(m.h) + 4), dd = g.getImageData(0, 0, bw, bh).data;
+      let n = 0; for (let i = 0; i < bw * bh; i++) n += dd[i * 4] > 128; const dens = n / Math.max(1, (m.w) * (m.h));
+      const score = pick.err + 1.5 * Math.abs(dens - lines[0].dens);
+      (window.__fontScores ||= []).push([fam, wt, st, ls, +score.toFixed(3)]);
+      if (!best || score < best.score) best = { fam, wt, st, ls, s: Math.round(pick.size), score, lines: pick.sp.length };
+    }
+  }
+  g.letterSpacing = "0px";
+  window.__fontFinder = { lines, best };  // for debugging in the console
+  const text = best && best.score < 0.35 ? `the main headline measures closest to "${best.fam}" weight ${best.wt}${best.st !== "normal" ? `, font-stretch ${STRETCH[best.st]}% (load the font with its wdth axis)` : ""}, about ${best.s}px, letter-spacing ${best.ls}em, ${best.lines} lines (shape error ${best.score.toFixed(2)})` : "";
+  fontCache = { id: S.analysis?.analysisId, text };
+  return text;
+}
 async function refineLoop() {
   if (S.target !== "html" || !current()) return;
   const run = S.run, btn = $("#refineBtn");
   btn.disabled = true; busy(true);
-  let best = { i: S.cur.html, score: (await measured(current()))?.score ?? 0 };
+  let best = { i: S.cur.html, score: (await measured(current()))?.score ?? 0 }, snaps = 0, fits = 0, fails = 0;
   try {
     for (let round = 1; round <= MAX_ROUNDS && best.score < TARGET_MATCH; round++) {
       if (run !== S.run) return;
@@ -631,11 +1000,34 @@ async function refineLoop() {
       if (!res) throw new Error("the match could not be measured");
       wait(`Refining, round ${round}: ${res.score}% match, comparing the render with the screenshot…`);
       status(`Round ${round}: the AI sees its own render next to the screenshot and fixes what differs.`);
-      const png = await (await fetch(await captureDoc(previewDoc(v), S.shot.w, Math.min(S.shot.h, 6000)))).blob();
-      const out = await api("/api/digital/refine", { method: "POST", body: form({ render: new File([png], "render.png", { type: "image/png" }),
-        baseCode: v.code, score: String(res.score), regions: worstRegions(res) }) });
+      const shotUrl = await captureDoc(previewDoc(v), S.shot.w, Math.min(S.shot.h, 6000));
+      if (fits++ < 2) {  // instant, measured fix: text sizes to the widths they have in the screenshot
+        const ft = await fitText(v.code);
+        if (ft.n) {
+          S.versions.html.push({ ...v, code: ft.code, label: `Text sizes matched (${ft.n})`, cached: false });
+          S.cur.html = S.versions.html.length - 1; renderVersions(); renderCode();
+          const now = (await measured(current()))?.score ?? 0;
+          if (now > best.score) { best = { i: S.cur.html, score: now }; if (now >= TARGET_MATCH) break; round--; continue; }
+        }
+      }
+      const pairs = await colorPairs(shotUrl);
+      const snap = colorSnap(v.code, pairs);
+      if (snap.n && snaps++ < 3) {  // instant, measured fix first: wrong shades -> the sampled colours
+        S.versions.html.push({ ...v, code: snap.code, label: `Colours matched (${snap.n})`, cached: false });
+        S.cur.html = S.versions.html.length - 1; renderVersions(); renderCode();
+        const now = (await measured(current()))?.score ?? 0;
+        if (now > best.score) { best = { i: S.cur.html, score: now }; if (now >= TARGET_MATCH) break; round--; continue; }
+      }
+      const png = await (await fetch(shotUrl)).blob(), colors = colorText(pairs), ups = await closeUps(res, shotUrl);
+      const fontMatch = await findFont().catch(() => "");
+      const fd = form({ render: new File([png], "render.png", { type: "image/png" }),
+        diff: new File([await diffImage(res)], "diff.png", { type: "image/png" }),
+        baseCode: v.code, score: String(res.score), regions: worstRegions(res), colors, fontMatch, force: "1",
+        closeupWhere: ups.map((u) => u.where).join(" | ") });
+      ups.forEach((u, i) => fd.append("closeup", new File([u.blob], `closeup${i}.png`, { type: "image/png" })));
+      const out = await api("/api/digital/refine", { method: "POST", body: fd });
       if (run !== S.run) return;
-      if (out.source !== "ai") { status(out.notes?.[0] || "Refine unavailable.", true); break; }
+      if (out.source !== "ai") { status(out.notes?.[0] || "Refine unavailable.", true); if (++fails >= 2) break; continue; }  // one bad round is retried
       S.versions.html.push({ code: out.code, notes: out.notes || [], source: out.source, change: out.change, label: `Refined · round ${round}`,
         model: out.provider?.model, cached: out.cached });
       S.cur.html = S.versions.html.length - 1; renderVersions(); renderNotes(); renderCode();
@@ -651,8 +1043,8 @@ async function refineLoop() {
     if (run === S.run) { wait(null); busy(false); btn.disabled = false; }
   }
 }
-$("#refineBtn").onclick = refineLoop;
-$("#accHeat").onchange = (e) => { $("#heat").hidden = !e.target.checked; if (e.target.checked) setWipe(100); };
+const showHeat = (on) => { for (const id of ["#heat", "#sideHeat", "#sideHeat2"]) $(id).hidden = !on; };
+$("#accHeat").onchange = (e) => { showHeat(e.target.checked); if (e.target.checked && S.view === "wipe") setWipe(100); };
 
 // ---------- back end, reverse-engineered ----------
 async function loadBackend(force = false) {

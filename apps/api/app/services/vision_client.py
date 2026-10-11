@@ -126,7 +126,9 @@ class GeminiVisionClient:
         today = _dt.datetime.utcnow().date().isoformat()
         tried = set()
         busy: dict[str, int] = {}
-        for _ in range(10):  # bounded: model switches + retries
+        cfg = dict(cfg)
+        attempts = cfg.pop("_attempts", 10)  # long answers (a whole site) are not retried ten times
+        for _ in range(attempts):  # bounded: model switches + retries
             model = self.model
             c = dict(cfg)
             if model.startswith("gemini-3") and model not in self._no_thinking:
@@ -137,7 +139,12 @@ class GeminiVisionClient:
                 resp = self._get().models.generate_content(model=model, contents=contents,
                                                            config=types.GenerateContentConfig(**c))
                 if not resp.text:
-                    raise ProviderError("Vision provider returned an empty response.", 502)
+                    why = ""
+                    try:
+                        why = str(resp.candidates[0].finish_reason).rsplit(".", 1)[-1]
+                    except Exception:
+                        pass
+                    raise ProviderError(f"Vision provider returned an empty response{f' ({why})' if why else ''}.", 502)
                 return resp if raw else resp.text
             except ProviderError:
                 raise
@@ -243,18 +250,19 @@ class GeminiVisionClient:
         return self._generate([types.Part.from_bytes(data=image_bytes, mime_type=mime_type), prompt],
                               {"temperature": 0.2, "max_output_tokens": int(os.getenv("GEMINI_CODE_MAX_TOKENS", "20000"))})
 
-    def generate_code_text_images(self, images: list[tuple[bytes, str]], prompt: str, max_tokens: int = 32000) -> str:
+    def generate_code_text_images(self, images: list[tuple[bytes, str]], prompt: str, max_tokens: int = 32000,
+                                  timeout_s: int = 360) -> str:
         """Several screenshots + prompt -> plain text (a whole multi-screen app in one file)."""
         from google.genai import types
         # a whole site is a long answer: give this one call minutes, not the default 100 s
         return self._generate([types.Part.from_bytes(data=b, mime_type=m) for b, m in images] + [prompt],
-                              {"temperature": 0.2, "max_output_tokens": max_tokens,
-                               "http_options": types.HttpOptions(timeout=int(os.getenv("GEMINI_APP_TIMEOUT_MS", "360000")))})
+                              {"temperature": 0.2, "max_output_tokens": max_tokens, "_attempts": 6,
+                               "http_options": types.HttpOptions(timeout=timeout_s * 1000)})
 
     @staticmethod
     def _cfg(max_tokens: int | None = None, temperature: float = 0.2) -> dict:
         return {"response_mime_type": "application/json", "temperature": temperature,
-                "max_output_tokens": max_tokens or int(os.getenv("GEMINI_MAX_TOKENS", "12000"))}
+                "max_output_tokens": max_tokens or int(os.getenv("GEMINI_MAX_TOKENS", "16000"))}
 
     # ------------------------------------------------------------------ errors
     @staticmethod

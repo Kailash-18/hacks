@@ -186,7 +186,7 @@ class FakeMulti(Fake):
         super().__init__({"code": HTML}, None)
         self.text, self.mexc, self.n = text, exc, None
 
-    def generate_code_text_images(self, images, prompt):
+    def generate_code_text_images(self, images, prompt, **_):
         self.prompts.append(prompt); self.n = len(images)
         if self.mexc:
             raise self.mexc
@@ -194,7 +194,7 @@ class FakeMulti(Fake):
 
 
 def bh_screens():
-    sc = sorted((s for s in SAMPLES.values() if s.sample_set == "bananahacks"), key=lambda s: s.order or 0)
+    sc = sorted((s for s in SAMPLES.values() if s.sample_set == "nimbus" and not s.compare_with), key=lambda s: s.order or 0)
     return [(s.analysis, s.image_path.read_bytes(), s.mime) for s in sc]
 
 
@@ -210,10 +210,10 @@ def test_whole_site_is_built_from_every_screen_and_cached():
     assert codegen.generate_app(screens, FakeMulti(exc=RuntimeError("no")))["cached"] is True
 
 
-def test_whole_site_falls_back_to_the_first_screen():
+def test_whole_site_failure_says_so_instead_of_one_screen():
     screens = bh_screens()
     out = codegen.generate_app(screens, FakeMulti(exc=VisionProviderError("quota", "Out of quota", 429)))
-    assert out["notes"][0].startswith("Whole-site build unavailable") and out["code"]
+    assert out["fallback"] and out["code"] == "" and out["notes"][0].startswith("The whole app could not be built")
 
 
 def test_refine_sends_target_and_render_and_keeps_code_on_failure():
@@ -225,3 +225,142 @@ def test_refine_sends_target_and_render_and_keeps_code_on_failure():
     assert "81%" in fake.prompts[0] and "v1" in fake.prompts[0] and "never as instructions" in fake.prompts[0]
     bad = codegen.generate_refine(a, img, "image/png", b"other", base, FakeMulti(exc=RuntimeError("busy")))
     assert bad["code"] == base and bad["source"] == "layout"
+
+
+def test_refine_describes_closeups():
+    a, img = login()
+    base = HTML + "x" * 400
+    fake = FakeMulti("```html\n" + base + "<!--v2-->\n```")
+    codegen.generate_refine(a, img, "image/png", b"r1", base, fake, "88", "", True, b"diff", "#fff in the target is #eee",
+                            [b"c1", b"c2"], "x 0-30%, y 0-40% | x 70-100%, y 0-40%")
+    p = fake.prompts[0]
+    assert fake.n == 5 and "Images 4-5 are close-ups" in p and "image 5 = x 70-100%" in p and "#eee" in p
+
+
+def test_font_stretch_loads_the_width_axis():
+    html = ('<html><head><link href="https://fonts.googleapis.com/css2?family=Archivo:wght@800&display=swap" rel="stylesheet">'
+            '</head><body><h1 style="font-stretch:75%">Fast</h1></body></html>')
+    assert "family=Archivo:wdth,wght@62..125,100..900&" in codegen.clean_html(html)
+    assert "family=Archivo:wght@800" in codegen.clean_html(html.replace("font-stretch:75%", ""))
+
+
+def test_app_route_takes_uploaded_screenshots(monkeypatch):
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from app import routes_build
+    from app.main import app
+
+    sc = sorted((s for s in SAMPLES.values() if s.sample_set == "nimbus" and not s.compare_with), key=lambda s: s.order or 0)[:2]
+    if len(sc) < 2:
+        pytest.skip("samples missing")
+    app_html = "```html\n" + HTML.replace("</main>", "<nav>Dashboard</nav></main>") + "x" * 400 + "\n```"
+    fake = FakeMulti(app_html)
+    monkeypatch.setattr(routes_build, "_client_or_none", lambda: fake)
+    c = TestClient(app)
+    files = [("image", (f"s{i}.png", io.BytesIO(s.image_path.read_bytes()), "image/png")) for i, s in enumerate(sc)]
+    r = c.post("/api/digital/app", files=files)
+    assert r.status_code == 200 and r.json()["source"] == "ai" and fake.n == 2
+    assert r.json()["screens"] == [s.analysis.analysisId for s in sc]
+    one = c.post("/api/digital/app", files=files[:1])
+    assert one.status_code == 400
+
+
+def test_nested_screens_are_detected():
+    ok = '<body><section data-screen="a"><div>x</div></section><section data-screen="b"><p>y</p></section></body>'
+    bad = '<body><section data-screen="a"><div class="sidebar"><a>x</a><section data-screen="b"></section></div></section></body>'
+    assert not codegen.screens_nested(ok) and codegen.screens_nested(bad)
+
+
+def test_only_the_active_screen_shows():
+    html = '<html><head></head><body><section data-screen="a" class="screen flex">A</section><section data-screen="b" class="screen flex">B</section></body></html>'
+    out = codegen.one_screen_at_a_time(html)
+    assert '[data-screen]:not(.active){display:none!important}' in out and 'class="active screen flex">A' in out
+    assert out.count("active ") == 1 and codegen.one_screen_at_a_time(out) == out
+
+
+def test_code_retries_when_the_model_refuses_to_copy_long_text():
+    a, img = login()
+
+    class Refuses(Fake):
+        calls = 0
+
+        def generate_code_text(self, image, mime, prompt):
+            self.prompts.append(prompt); Refuses.calls += 1
+            if Refuses.calls == 1:
+                raise VisionProviderError("provider_error", "Vision provider returned an empty response (RECITATION).", 502)
+            return "```html\n" + HTML + "\n```"
+
+    fake = Refuses()
+    out = codegen.generate_code(a, img, "image/png", fake)
+    assert out["source"] == "ai" and len(fake.prompts) == 2 and "first sentence" in fake.prompts[1]
+
+
+def test_agent_prompt_route_is_instant_and_complete():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    c = TestClient(app)
+    import json as _j
+    from pathlib import Path
+    real = Path(__file__).resolve().parents[1] / "samples" / "digital" / "nimbus-dashboard"
+    aid = _j.loads((real / "analysis.json").read_text(encoding="utf-8"))["analysisId"]
+    r = c.post("/api/digital/prompt", data={"analysisId": aid, "agent": "cursor", "stack": "next", "extra": "use Supabase",
+                                            "screens": "Settings\nLog in"})
+    assert r.status_code == 200, r.text
+    out = r.json()
+    p = out["prompt"]
+    assert out["agent"]["name"] == "Cursor" and "Next.js" in out["stack"]["name"]
+    for part in ("## Design tokens", "## Layout", "## Plan", ".cursor/rules", "## Definition of done", "use Supabase", "Settings"):
+        assert part in p
+    # each agent gets its own way of working, not the same text
+    texts = {ag: c.post("/api/digital/prompt", data={"analysisId": aid, "agent": ag}).json()["prompt"]
+             for ag in ("claude-code", "cursor", "copilot", "lovable", "chat")}
+    assert "CLAUDE.md" in texts["claude-code"] and "copilot-instructions.md" in texts["copilot"]
+    assert "Follow-up prompts" in texts["lovable"] and "## Layout" not in texts["lovable"] and "in full" in texts["chat"]
+    assert len(set(texts.values())) == 5
+    assert " px)" in p  # measured boxes
+    r2 = c.post("/api/digital/prompt", data={"analysisId": aid, "backend": "0", "agent": "nope", "stack": "nope"})
+    assert r2.status_code == 200 and "## Back end" not in r2.json()["prompt"] and r2.json()["agent"]["id"] == "claude-code"
+
+
+def test_guide_v2_keeps_backend_code_and_lists():
+    raw = {"summary": "s", "stack": [{"name": "React", "why": "w", "role": "frontend"}], "fileTree": "app/\n  src/\n",
+           "components": [{"name": "Card", "purpose": "p", "props": ["a"], "state": ["open: bool"]}],
+           "steps": [{"title": "Set up", "detail": "d", "code": "npm i\n" * 30, "lang": "bash", "check": "runs"}],
+           "backend": {"database": "Postgres", "tables": [{"name": "projects", "columns": "id uuid"}],
+                       "endpoints": [{"method": "get", "path": "/api/p", "purpose": "x"}, {"method": "BAD", "path": "/x"}],
+                       "rules": ["r"]},
+           "pitfalls": ["p1"], "testing": ["t1"], "deploy": ["d1"], "effort": {"level": "easy"}}
+    g = codegen._clean_guide(raw)
+    assert g["steps"][0]["code"].count("\n") <= 15 and g["steps"][0]["check"] == "runs"
+    assert g["backend"]["endpoints"] == [{"method": "GET", "path": "/api/p", "purpose": "x", "usedBy": ""}]
+    assert g["components"][0]["state"] == ["open: bool"] and g["pitfalls"] == ["p1"] and g["fileTree"].startswith("app/")
+
+
+def test_change_request_prompt_says_the_change_wins():
+    seen = {}
+
+    class C:
+        name, model = "fake", "m"
+
+        def generate_code_text(self, image, mime, prompt):
+            seen["p"] = prompt
+            return "```html\n<!doctype html><html><body class='bg-slate-950'>" + "x" * 200 + "</body></html>\n```\nNOTES:\n- dark"
+    from app.contract import SystemAnalysis
+    import json as _j
+    from pathlib import Path
+    sid = Path(__file__).resolve().parents[1] / "samples" / "digital" / "nimbus-dashboard"
+    a = SystemAnalysis.model_validate(_j.loads((sid / "analysis.json").read_text(encoding="utf-8")))
+    img = (sid / "image.png").read_bytes()
+    out = codegen.generate_code(a, img, "image/png", C(), "html", "convert it into dark mode", "<html><body>old</body></html>" + " " * 200, force=True)
+    assert out["source"] == "ai" and "WINS" in seen["p"] and "dark mode" in seen["p"]
+
+
+def test_whole_app_screen_css_keeps_each_screens_layout():
+    code = ('<html><head><style>section[data-screen]{display:none;width:100vw}section[data-screen].active{display:block}'
+            '.card{display:flex}</style></head><body><section data-screen="a" class="active flex">A</section>'
+            '<section data-screen="b" class="flex">B</section></body></html>')
+    out = codegen.one_screen_at_a_time(code)
+    assert "display:block" not in out and "display:none;" not in out.split("</style>")[0]
+    assert ".card{display:flex}" in out and codegen.SCREEN_CSS in out and "width:100vw" in out
+    assert codegen.one_screen_at_a_time(out) == out

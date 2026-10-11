@@ -10,6 +10,8 @@
 <link rel="stylesheet" href="/viewer/build.css" />
 <link rel="stylesheet" href="/viewer/build-fx.css" />
 <link rel="stylesheet" href="/viewer/tour.css" />
+<link rel="stylesheet" href="/viewer/motion.css" />
+<link rel="stylesheet" href="/viewer/build-polish.css" />
 </head>
 <body>
 <header class="bar">
@@ -50,6 +52,7 @@
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="code" aria-selected="true">Rebuilt code</button>
     <button role="tab" data-tab="guide">How to build it</button>
+    <button role="tab" data-tab="prompt">Prompt for your agent</button>
     <button role="tab" data-tab="structure">Inspect</button>
     <button role="tab" data-tab="backend">Backend</button>
     <button role="tab" data-tab="a11y">Accessibility</button>
@@ -62,18 +65,18 @@
     <div class="code-grid">
       <div class="stage-col">
         <div class="tools">
-          <div class="seg" id="viewSeg"><button data-v="wipe" class="on">Compare</button><button data-v="side">Side by side</button><button data-v="code">Code</button></div>
+          <div class="seg" id="viewSeg"><button data-v="wipe" class="on">Compare</button><button data-v="side">Side by side</button><button data-v="devices" title="The rebuilt page on a phone, a tablet and a laptop">Devices</button><button data-v="code">Code</button></div>
           <div class="seg" id="targetSeg"><button data-t="html" class="on">HTML</button><button data-t="react">React</button><button data-t="react-native" title="Mobile app (Expo), live preview in a phone frame">React Native</button><button data-t="flutter" title="Mobile app (Dart); runs in DartPad">Flutter</button></div>
           <div class="acc" id="acc" hidden title="How closely the rebuilt page matches the screenshot, measured pixel by pixel">
             <span class="acc-ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" class="trk"/><circle cx="18" cy="18" r="15" class="bar" id="accBar"/></svg></span>
             <span class="acc-txt"><b id="accPct">–</b><small id="accLbl">visual match</small></span>
             <label class="acc-heat"><input type="checkbox" id="accHeat" /> Show differences</label>
-            <button type="button" class="refine-btn" id="refineBtn" title="The AI looks at how its code renders next to the screenshot and fixes what differs, round after round">Refine to 95%</button>
           </div>
         </div>
+        <div class="screenbar" id="screenBar" hidden><span>Screens in this app</span><div id="screenChips"></div><small>or click the app's own menus and buttons</small></div>
         <div id="stage" class="stage">
           <div class="wipe" id="wipe">
-            <div class="layer rebuilt"><iframe id="frame" title="Rebuilt page" sandbox="allow-scripts"></iframe></div>
+            <div class="layer rebuilt"><iframe id="frame" title="Rebuilt page" sandbox="allow-scripts allow-forms"></iframe></div>
             <div class="layer original" id="origLayer"><img id="origImg" alt="Original screenshot" /></div>
             <canvas id="heat" class="heat" hidden></canvas>
             <div class="catch" aria-hidden="true"></div>
@@ -81,8 +84,13 @@
             <span class="tag left">Original</span><span class="tag right">Rebuilt</span>
           </div>
           <div class="side" id="side" hidden>
-            <figure><img id="sideImg" alt="Original screenshot" /><figcaption>Original</figcaption></figure>
-            <figure><div class="sideframe" id="sideFrameWrap"><iframe id="sideFrame" title="Rebuilt page" sandbox="allow-scripts"></iframe></div><figcaption>Rebuilt</figcaption></figure>
+            <figure><div class="side-orig"><img id="sideImg" alt="Original screenshot" /><canvas id="sideHeat" class="heat" hidden></canvas></div><figcaption>Original</figcaption></figure>
+            <figure><div class="sideframe" id="sideFrameWrap"><iframe id="sideFrame" title="Rebuilt page" sandbox="allow-scripts allow-forms"></iframe><canvas id="sideHeat2" class="heat" hidden></canvas></div><figcaption>Rebuilt</figcaption></figure>
+          </div>
+          <div class="devices" id="devices" hidden>
+            <figure class="dev" data-w="390" data-h="844"><div class="devwrap phone"><iframe title="Rebuilt page on a phone" sandbox="allow-scripts allow-forms"></iframe></div><figcaption>Phone · 390 px</figcaption></figure>
+            <figure class="dev" data-w="820" data-h="1180"><div class="devwrap tablet"><iframe title="Rebuilt page on a tablet" sandbox="allow-scripts allow-forms"></iframe></div><figcaption>Tablet · 820 px</figcaption></figure>
+            <figure class="dev" data-w="1440" data-h="900"><div class="devwrap laptop"><iframe title="Rebuilt page on a laptop" sandbox="allow-scripts allow-forms"></iframe></div><figcaption>Laptop · 1440 px</figcaption></figure>
           </div>
           <pre id="codeView" class="codeview" hidden><code id="codeText"></code></pre>
           <div id="stageWait" class="stage-wait" hidden><div class="spinner"></div><span id="stageWaitText">Writing the code…</span></div>
@@ -93,11 +101,17 @@
         <div class="actions">
           <button class="btn primary" id="copy">Copy code</button>
           <button class="btn" id="download">Download</button>
-          <button class="btn" id="openTab" title="Open the rebuilt page in a new tab">Open</button>
+          <button class="btn" id="openTab" title="Open the rebuilt page in a new tab">Open in a tab</button>
+          <button class="btn sb-btn" id="stackblitz" title="Open it as a real, editable project in StackBlitz (free, runs in the browser)">StackBlitz</button>
+          <button class="btn ap-btn" id="toPrompt" type="button" title="A ready-to-paste prompt for Claude Code, Cursor, Copilot or Lovable">Prompt for your own AI agent</button>
         </div>
-        <div class="whole" id="whole" hidden>
-          <button class="btn whole-btn" id="wholeBtn" type="button">Build the whole site</button>
-          <p>All saved screens of this site in one working app: its menus, dock and windows open the other screens.</p>
+        <div class="whole" id="whole">
+          <h3>Whole app <small id="screenCount"></small></h3>
+          <div class="screens" id="screens" title="Drop screenshots of the app's other pages here"></div>
+          <button class="btn" id="addScreen" type="button" hidden>Add a screen</button>
+          <button class="btn whole-btn" id="wholeBtn" type="button" disabled>Build the whole app</button>
+          <input type="file" id="addFile" accept="image/png,image/jpeg,image/webp" multiple hidden />
+          <p>Add the app's other pages (up to 6). You get one working page whose menus and buttons open them.</p>
         </div>
         <form id="changeForm" class="change">
           <label for="change">Change it</label>
@@ -118,6 +132,31 @@
   <!-- guide -->
   <section id="tab-guide" class="tab" hidden>
     <article id="guide" class="guide"></article>
+  </section>
+
+  <!-- prompt for the developer's own coding agent -->
+  <section id="tab-prompt" class="tab" hidden>
+    <div class="ap">
+      <div class="ap-opts">
+        <h2>Build it with your own AI agent</h2>
+        <p class="muted">A complete, ready-to-paste prompt made from everything measured on this screen: layout with pixel boxes, colours, type scale, components, behaviour, back end and a work plan. Paste it into your agent together with the screenshot.</p>
+        <div class="ap-field"><span>Agent</span><div class="ap-chips" id="apAgent"></div></div>
+        <div class="ap-field"><span>Stack</span><div class="ap-chips" id="apStack"></div></div>
+        <label class="ap-check"><input type="checkbox" id="apBackend" checked /> Include the back end (data model, endpoints, auth)</label>
+        <label class="ap-check"><input type="checkbox" id="apScreens" checked /> Include the other screens added under Whole app</label>
+        <div class="ap-field"><label for="apExtra">Anything else</label><textarea id="apExtra" rows="3" placeholder="e.g. use Supabase for auth, add a dark mode toggle, TypeScript strict"></textarea></div>
+        <div class="ap-actions">
+          <button class="btn primary" id="apCopy" type="button">Copy prompt</button>
+          <button class="btn" id="apMd" type="button">Download .md</button>
+          <button class="btn" id="apShot" type="button">Download screenshot</button>
+        </div>
+        <p class="ap-how" id="apHow"></p>
+      </div>
+      <div class="ap-out">
+        <div class="ap-bar"><b>Prompt</b><small id="apMeta"></small></div>
+        <textarea id="apText" spellcheck="false" aria-label="Prompt for your agent (you can edit it)"></textarea>
+      </div>
+    </div>
   </section>
 
   <!-- inspect: dev-mode for a screenshot -->
@@ -185,5 +224,11 @@
 <script src="/viewer/tour.js"></script>
 <script src="/viewer/build.js"></script>
 <script src="/viewer/build-fx.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/dart.min.js"></script>
+<script src="/viewer/build-edit.js"></script>
+<script src="/viewer/motion.js" defer></script>
+<script src="/viewer/build-polish.js"></script>
+<script src="/viewer/genesis.js"></script>
 </body>
 </html>

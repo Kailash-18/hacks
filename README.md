@@ -4,7 +4,7 @@
 
 Photograph any object. The **Physical Lab** finds its parts, cuts each one out, estimates depth, and builds an interactive exploded diagram you can rotate, pull apart, inspect part by part, and question with "what if I remove this?".
 
-Paste a screenshot of any website or app. The **Digital Lab** rebuilds it as working HTML or React (compare it with the original using a wipe slider, then ask for changes), writes a step-by-step plan for building it for real, and shows the component structure behind it. A multi-screen explorer maps user workflows between screens and compares versions.
+Paste a screenshot of any website or app. The **Digital Lab** rebuilds it as working HTML or React (compare it with the original using a wipe slider, then ask for changes), writes a step-by-step plan for building it for real, and shows the component structure behind it. Several screenshots of one app become one clickable app; the rebuild can be refined against its own render, edited by clicking it, checked on phone/tablet/laptop and opened as a live StackBlitz project. A multi-screen explorer maps user workflows between screens and compares versions.
 
 Both labs produce the same `SystemAnalysis` shape: components, relationships, evidence and an observed / inferred status for every item.
 
