@@ -13,7 +13,7 @@ catch { document.documentElement.dataset.theme = "dark"; }
 <link rel="stylesheet" href="/viewer/style.css" />
 <link rel="stylesheet" href="/viewer/labswitch.css" />
 <link rel="stylesheet" href="/viewer/tour.css" />
-<link rel="stylesheet" href="/viewer/physical-ui.css?v=20261012-scroll-center-103" />
+<link rel="stylesheet" href="/viewer/physical-ui.css?v=20261012-watch-movement-104" />
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -69,20 +69,20 @@ catch { document.documentElement.dataset.theme = "dark"; }
           <a class="physical-scroll-link" href="#physicalScrollStory"><span>Scroll down for sample studies</span><i aria-hidden="true">↓</i></a>
         </div>
 
-        <aside class="physical-visual" aria-label="Animated, interactive model of a 100-part multi-die CPU package">
+        <aside class="physical-visual" aria-label="Animated, interactive exploded model of a 100-part mechanical watch movement">
           <div class="visual-grid" aria-hidden="true"></div>
           <svg class="visual-traces" viewBox="0 0 760 620" preserveAspectRatio="none" aria-hidden="true">
             <path d="M0 128h124l42 42h90M760 96H626l-54 54h-78M0 476h146l54-54h56m504 90H626l-56-56h-72M105 0v92m528-92v88M245 620v-84m302 84v-78"/>
             <circle cx="124" cy="128" r="3"/><circle cx="626" cy="96" r="3"/><circle cx="200" cy="422" r="3"/><circle cx="570" cy="512" r="3"/>
           </svg>
-          <div class="visual-topline"><span><i></i> MULTI-DIE COMPUTE PACKAGE / 100 PARTS</span><b>MOVE CURSOR TO ROTATE · CLICK A PART</b></div>
+          <div class="visual-topline"><span><i></i> MECHANICAL WATCH MOVEMENT / 100 PARTS</span><b>MOVE CURSOR TO ROTATE · CLICK A PART</b></div>
           <div class="visual-stage source-stage">
             <canvas id="physicalAssemblyCanvas" class="physical-assembly-canvas" aria-hidden="true"></canvas>
             <div class="source-fallback" id="physicalSourceFallback" aria-hidden="true">
               <img id="physicalSourceImage" alt="" />
               <div class="source-boxes" id="physicalSourceBoxes"></div>
             </div>
-            <div class="source-overlay" aria-hidden="true"><span class="source-chip"><i></i><b id="physicalPreviewName">AXIOM / MULTI-DIE CPU</b></span><span class="source-chip source-chip-right"><b id="physicalPreviewParts">100 CPU PACKAGE COMPONENTS</b></span></div>
+            <div class="source-overlay" aria-hidden="true"><span class="source-chip"><i></i><b id="physicalPreviewName">MERIDIAN / MECHANICAL WATCH</b></span><span class="source-chip source-chip-right"><b id="physicalPreviewParts">100 WATCH MOVEMENT COMPONENTS</b></span></div>
             <div class="source-corner corner-tl"></div><div class="source-corner corner-tr"></div><div class="source-corner corner-bl"></div><div class="source-corner corner-br"></div>
           </div>
           <div class="physical-drop-rail">
@@ -90,7 +90,7 @@ catch { document.documentElement.dataset.theme = "dark"; }
             <div class="drop-rail-copy"><b>Start with your object</b><span>Choose or drop up to four photos, or paste an image from your clipboard.</span></div>
             <label class="drop-rail-button" for="file">Choose photos <span>↗</span></label>
           </div>
-          <div class="visual-readout"><span><i></i> ILLUSTRATIVE CPU / 100 COMPONENTS</span><span id="physicalStageLabel">01 / SOURCE PHOTO</span><span id="physicalAssemblyProgress">100 PARTS / ASSEMBLED</span><b id="physicalInteractionStatus" aria-live="polite">100 CPU PARTS · HOVER TO INSPECT</b></div>
+          <div class="visual-readout"><span><i></i> ILLUSTRATIVE WATCH / 100 COMPONENTS</span><span id="physicalStageLabel">01 / SOURCE PHOTO</span><span id="physicalAssemblyProgress">100 PARTS / ASSEMBLED</span><b id="physicalInteractionStatus" aria-live="polite">100 WATCH PARTS · HOVER TO INSPECT</b></div>
         </aside>
 
         <section class="physical-sample-shelf" id="physicalSamples" aria-labelledby="physicalSamplesTitle" hidden>
@@ -111,7 +111,7 @@ catch { document.documentElement.dataset.theme = "dark"; }
           <header class="story-heading">
             <p class="physical-kicker"><i></i> HOW THE LAB READS AN OBJECT <b>FOLLOW THE SCROLL</b></p>
             <h2 id="physicalStoryTitle">A clear path from photo<br/><span>to explorable parts.</span></h2>
-            <p>See how the lab turns your photos into labeled components, an interactive depth view, and a map of part relationships. The CPU is an illustrative model.</p>
+            <p>See how the lab turns your photos into labeled components, an interactive depth view, and a map of part relationships. The watch is an illustrative model.</p>
             <div class="story-progress" aria-label="Feature walkthrough progress"><i id="physicalStoryProgress"></i></div>
           </header>
           <div class="physical-story-steps">
@@ -177,7 +177,7 @@ catch { document.documentElement.dataset.theme = "dark"; }
               <span class="chapter-state">EXPLAIN</span>
             </article>
           </div>
-          <footer class="story-footnote"><i></i> The animated CPU is an illustrative 100-part model. Saved studies and uploads show their own photo evidence; inferred internals and estimated depth are marked as interpretations.</footer>
+          <footer class="story-footnote"><i></i> The animated watch is an illustrative 100-part model. Saved studies and uploads show their own photo evidence; inferred internals and estimated depth are marked as interpretations.</footer>
         </section>
 
         <section class="physical-about" id="physicalAbout" aria-labelledby="physicalAboutTitle">
@@ -295,8 +295,8 @@ catch { document.documentElement.dataset.theme = "dark"; }
   </aside>
 </main>
 <script type="module" src="/viewer/viewer.js"></script>
-<script src="/viewer/physical-ui.js?v=20261012-scroll-center-103" defer></script>
-<script type="module" src="/viewer/physical-assembly.js?v=20261012-scroll-center-103"></script>
+<script src="/viewer/physical-ui.js?v=20261012-watch-movement-104" defer></script>
+<script type="module" src="/viewer/physical-assembly.js?v=20261012-watch-movement-104"></script>
 <script src="/viewer/tour.js" defer></script>
 </body>
 </html>

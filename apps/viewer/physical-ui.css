@@ -2129,7 +2129,7 @@ html:has(body.physical-site) { scroll-behavior: smooth; }
   .physical-site .physical-scroll-story::before { inset: 0 -22px; border: 0; background: transparent; backdrop-filter: none; }
 }
 
-/* Keep the no-WebGL CPU preview reading like an exploded assembly, not an app icon. */
+/* Keep the no-WebGL watch preview reading like an exploded assembly, not an app icon. */
 .physical-site .source-fallback {
   width: min(90%, 720px);
   height: auto;
@@ -2215,4 +2215,33 @@ html:has(body.physical-site) { scroll-behavior: smooth; }
 
 @media (prefers-reduced-motion: reduce) {
   .physical-site .physical-visual[data-story-mode="active"] { transform: none; }
+}
+
+.physical-site .physical-copy h1 { letter-spacing: -.06em; }
+.physical-site .physical-lede { max-width: 600px; font-size: 16px; line-height: 1.7; }
+.physical-site .physical-capabilities span { font-size: 11px; }
+.physical-site .physical-note { font-size: 9px; }
+.physical-site .physical-upload,
+.physical-site .physical-actions .physical-samples { font-size: 12px; }
+.physical-site .physical-top-upload { font-size: 12px !important; }
+.physical-site .brand-copy strong { font-size: 13px; }
+.physical-site .visual-topline,
+.physical-site .visual-readout { font-size: 9px; letter-spacing: .09em; }
+.physical-site .source-chip { font-size: 8px; }
+.physical-site .drop-rail-copy b { font-size: 11px; }
+.physical-site .drop-rail-copy span { font-size: 9px; }
+.physical-site .drop-rail-button { font-size: 9px; }
+
+@media (max-width: 840px) {
+  .physical-site .physical-lede { font-size: 14px; }
+  .physical-site .visual-topline,
+  .physical-site .visual-readout { font-size: 8px; }
+  .physical-site .source-chip { font-size: 7px; }
+}
+
+@media (max-width: 520px) {
+  .physical-site .physical-lede { font-size: 13px; }
+  .physical-site .visual-topline,
+  .physical-site .visual-readout { font-size: 7px; }
+  .physical-site .source-chip { font-size: 6px; }
 }

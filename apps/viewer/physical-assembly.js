@@ -491,60 +491,45 @@ function createPrecisionScene() {
   const fallback = document.querySelector("#physicalSourceImage");
   const sourceName = document.querySelector("#physicalPreviewName");
   const sourceCount = document.querySelector("#physicalPreviewParts");
-  if (sourceName) sourceName.textContent = "AXIOM / MULTI-DIE CPU";
-  if (sourceCount) sourceCount.textContent = "100 CPU PACKAGE COMPONENTS";
+  if (sourceName) sourceName.textContent = "MERIDIAN / MECHANICAL WATCH";
+  if (sourceCount) sourceCount.textContent = "100 WATCH MOVEMENT COMPONENTS";
   if (fallback) {
-    fallback.alt = "Animated exploded CPU assembly with silicon dies, circuit layers, a floating heat spreader, and a dense field of underside contacts";
+    fallback.alt = "Exploded mechanical watch movement with a layered steel case, visible gears, balance wheel, jeweled bearings, hands, and precision markers";
     fallback.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 500">
         <defs>
-          <linearGradient id="board" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1d5664"/><stop offset=".48" stop-color="#102b3d"/><stop offset="1" stop-color="#091625"/></linearGradient>
-          <linearGradient id="metal" x1="0" y1="0" x2=".9" y2="1"><stop stop-color="#f4fbff"/><stop offset=".24" stop-color="#a8c2d6"/><stop offset=".58" stop-color="#526c83"/><stop offset=".82" stop-color="#d6e6f2"/><stop offset="1" stop-color="#566b81"/></linearGradient>
-          <linearGradient id="silicon" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#79efff"/><stop offset=".42" stop-color="#4e92ec"/><stop offset="1" stop-color="#554dd0"/></linearGradient>
-          <linearGradient id="copper" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe2a0"/><stop offset=".44" stop-color="#c68748"/><stop offset="1" stop-color="#704327"/></linearGradient>
-          <radialGradient id="aura"><stop stop-color="#557ff4" stop-opacity=".32"/><stop offset="1" stop-color="#557ff4" stop-opacity="0"/></radialGradient>
-          <pattern id="microtrace" width="18" height="18" patternUnits="userSpaceOnUse"><path d="M0 9h7l4-4h7M9 18v-5l4-4" fill="none" stroke="#61d6d3" stroke-opacity=".28" stroke-width="1"/><circle cx="7" cy="9" r="1.3" fill="#9ed9c7" fill-opacity=".7"/></pattern>
-          <filter id="shadow" x="-.4" y="-.4" width="1.8" height="1.9"><feGaussianBlur in="SourceAlpha" stdDeviation="12"/><feOffset dy="17"/><feComponentTransfer><feFuncA type="linear" slope=".52"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-          <filter id="glow" x="-.8" y="-.8" width="2.6" height="2.6"><feGaussianBlur stdDeviation="5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-          <style>
-            .orbit{transform-origin:340px 250px;animation:orbit 18s linear infinite}.lid{transform-box:fill-box;transform-origin:center;animation:lid 5.2s ease-in-out infinite}.pulse{animation:pulse 2.4s ease-in-out infinite}.scan{animation:scan 4.6s ease-in-out infinite}.spark{animation:spark 2s ease-in-out infinite alternate}
-            @keyframes orbit{to{transform:rotate(360deg)}}@keyframes lid{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}@keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}@keyframes scan{0%,100%{opacity:0;transform:translateY(-82px)}22%,70%{opacity:.7}55%{transform:translateY(105px);opacity:.18}}@keyframes spark{to{opacity:.3;filter:brightness(1.7)}}
-            @media(prefers-reduced-motion:reduce){.orbit,.lid,.pulse,.scan,.spark{animation:none}}
-          </style>
+          <radialGradient id="aura"><stop stop-color="#537df1" stop-opacity=".34"/><stop offset="1" stop-color="#537df1" stop-opacity="0"/></radialGradient>
+          <linearGradient id="steel" x2="1" y2="1"><stop stop-color="#eaf5ff"/><stop offset=".42" stop-color="#657f98"/><stop offset=".72" stop-color="#d6e7f4"/><stop offset="1" stop-color="#40556d"/></linearGradient>
+          <linearGradient id="brass" x2="1" y2="1"><stop stop-color="#ffe6a2"/><stop offset=".48" stop-color="#bd8040"/><stop offset="1" stop-color="#684324"/></linearGradient>
+          <linearGradient id="dial" x2="1" y2="1"><stop stop-color="#19364b"/><stop offset=".5" stop-color="#0c1b2a"/><stop offset="1" stop-color="#253a50"/></linearGradient>
+          <filter id="shadow" x="-.3" y="-.3" width="1.6" height="1.8"><feGaussianBlur in="SourceAlpha" stdDeviation="10"/><feOffset dy="14"/><feComponentTransfer><feFuncA type="linear" slope=".55"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
         </defs>
-        <ellipse cx="340" cy="265" rx="270" ry="210" fill="url(#aura)"/>
-        <g class="orbit" fill="none" stroke="#74cfff" stroke-opacity=".34"><ellipse cx="340" cy="250" rx="272" ry="91" transform="rotate(-17 340 250)"/><ellipse cx="340" cy="250" rx="248" ry="126" transform="rotate(23 340 250)" stroke="#9b86ff" stroke-opacity=".26"/></g>
-        <g transform="translate(340 251)">
-          <g filter="url(#shadow)" transform="translate(11 72) matrix(1 .16 -.18 .91 0 0)">
-            <rect x="-168" y="-104" width="336" height="208" rx="20" fill="#07101b" stroke="#90b8d0" stroke-opacity=".75" stroke-width="3"/>
-            <rect x="-157" y="-93" width="314" height="186" rx="15" fill="url(#metal)" stroke="#e2f0f8" stroke-opacity=".72" stroke-width="2"/>
-            <rect x="-144" y="-80" width="288" height="160" rx="10" fill="#101f31" stroke="#6fe1e4" stroke-opacity=".66" stroke-width="2"/>
-            ${Array.from({length:120},(_,i)=>{const x=-130+(i%12)*23.6,y=-68+Math.floor(i/12)*13.7;return `<circle cx="${x}" cy="${y}" r="4.1" fill="url(#copper)" stroke="#fff0bd" stroke-opacity=".48" stroke-width=".8"/>`;}).join("")}
-            <path d="M-139-86h278M-139 86h278M-149-72v144M149-72v144" stroke="#f1c77e" stroke-opacity=".78" stroke-width="2"/>
+        <ellipse cx="340" cy="260" rx="255" ry="220" fill="url(#aura)"/>
+        <g fill="none" stroke="#78cfff" stroke-opacity=".28"><ellipse cx="340" cy="250" rx="265" ry="93" transform="rotate(-18 340 250)"/><ellipse cx="340" cy="250" rx="244" ry="128" transform="rotate(22 340 250)" stroke="#a28bff"/></g>
+        <g filter="url(#shadow)" transform="translate(340 264) rotate(-12)">
+          <circle r="166" fill="#08121e" stroke="url(#steel)" stroke-width="18"/>
+          <circle r="150" fill="#102438" stroke="#8de8ed" stroke-opacity=".8" stroke-width="2"/>
+          <circle r="133" fill="url(#dial)" stroke="url(#brass)" stroke-width="5"/>
+          <circle r="119" fill="none" stroke="#8cb7d3" stroke-opacity=".48" stroke-width="1.5"/>
+          ${Array.from({length:60},(_,i)=>{const a=i*Math.PI/30,r1=i%5===0?119:124,r2=132,x1=Math.sin(a)*r1,y1=-Math.cos(a)*r1,x2=Math.sin(a)*r2,y2=-Math.cos(a)*r2;return `<path d="M${x1.toFixed(1)} ${y1.toFixed(1)}L${x2.toFixed(1)} ${y2.toFixed(1)}" stroke="${i%5===0?"#f0cf88":"#84afc4"}" stroke-width="${i%5===0?3:1.2}"/>`;}).join("")}
+          ${Array.from({length:12},(_,i)=>{const a=i*Math.PI/6,x=Math.sin(a)*102,y=-Math.cos(a)*102;return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="#b9d9ec" stroke="#f5d48f" stroke-width="1.5"/>`;}).join("")}
+          <g fill="none" stroke="url(#brass)" stroke-width="7">
+            <circle cx="-52" cy="-42" r="31"/><circle cx="43" cy="-48" r="24"/><circle cx="57" cy="38" r="35"/><circle cx="-37" cy="55" r="25"/><circle cx="-2" cy="-2" r="40"/>
           </g>
-          <g transform="matrix(1 .16 -.18 .91 0 0)">
-            <rect x="-184" y="-120" width="368" height="240" rx="19" fill="#07101a" stroke="#b2d5e9" stroke-opacity=".9" stroke-width="3"/>
-            <rect x="-173" y="-109" width="346" height="218" rx="14" fill="url(#board)" stroke="#4bd6d2" stroke-opacity=".72" stroke-width="2"/>
-            <rect x="-165" y="-101" width="330" height="202" rx="10" fill="url(#microtrace)" opacity=".94"/>
-            <path d="M-154-85h52l15 14h25m-92 111h41l12-12h24m223-112h-39l-13 13h-24m76 105h-43l-14-13h-20M-111-102v26m220-25v26M-116 102V76m228 25V73" fill="none" stroke="#e6a85e" stroke-width="3" stroke-linecap="round"/>
-            <path d="M-153-91h34v18h32m110-24v17h-23m113-6h-29v19h-22M-154 89h29V72h28m102 31V88h24m99 3h-32V73h-18" fill="none" stroke="#77f0dc" stroke-opacity=".68" stroke-width="2"/>
-            ${Array.from({length:24},(_,i)=>{const x=-139+(i%12)*25.3,y=i<12?-96:96;return `<g><rect x="${x-5}" y="${y-4}" width="10" height="8" rx="2" fill="#111c28" stroke="#e4b96e" stroke-width="1.3"/><circle cx="${x}" cy="${y}" r="1.4" fill="#79d5ec"/></g>`;}).join("")}
-            ${Array.from({length:8},(_,i)=>{const x=i%2?-40:40,y=-68+Math.floor(i/2)*42;return `<g><rect x="${x-33}" y="${y-17}" width="66" height="34" rx="5" fill="#080e1b" stroke="#d09452" stroke-width="2"/><rect x="${x-28}" y="${y-13}" width="56" height="26" rx="3" fill="#172641" stroke="#56b6d8" stroke-width="1.5"/><rect x="${x-21}" y="${y-8}" width="42" height="16" rx="2" fill="url(#silicon)" opacity=".92"/><path d="M${x-17} ${y-3}h34M${x-17} ${y+2}h34" stroke="#c8fbff" stroke-opacity=".48" stroke-width="1"/></g>`;}).join("")}
-            ${Array.from({length:20},(_,i)=>{const side=i<10?-1:1,row=i%10,x=side*145,y=-77+row*17;return `<g transform="translate(${x} ${y})"><rect x="-7" y="-5" width="14" height="10" rx="2" fill="#111925" stroke="#d4b072" stroke-width="1.2"/><path d="M-3-5v10M3-5v10" stroke="#e3edf5" stroke-opacity=".62" stroke-width="1"/><circle class="pulse" r="1.5" fill="#62e5dc"/></g>`;}).join("")}
-            <path d="M-178-115h28m-28 0v28M178-115h-28m28 0v28M-178 115h28m-28 0v-28M178 115h-28m28 0v-28" fill="none" stroke="#b7d5ff" stroke-width="2"/>
-          </g>
-          <path d="M-98-115v-28M98-115v-28M-131-101v-23M131-101v-23" stroke="#8fe5ed" stroke-opacity=".55" stroke-dasharray="4 5"/>
-          <g transform="translate(-7 -158) matrix(1 .15 -.19 .9 0 0)" filter="url(#shadow)"><g class="lid">
-            <rect x="-130" y="-68" width="260" height="136" rx="20" fill="#09111d" stroke="#a4c8e5" stroke-opacity=".8" stroke-width="3"/>
-            <rect x="-121" y="-60" width="242" height="118" rx="15" fill="url(#metal)" stroke="#f0f8ff" stroke-opacity=".8" stroke-width="2"/>
-            <rect x="-104" y="-44" width="208" height="86" rx="10" fill="#24374d" stroke="#8bb9de" stroke-width="2"/>
-            ${Array.from({length:8},(_,i)=>{const y=-31+i*9;return `<path d="M-91${y}h182" stroke="#b3c8da" stroke-opacity=".6" stroke-width="2"/>`;}).join("")}
-            <rect x="-37" y="-19" width="74" height="38" rx="9" fill="#121f31" stroke="#a9dff2" stroke-width="2"/><rect class="pulse" x="-27" y="-11" width="54" height="22" rx="6" fill="url(#silicon)" filter="url(#glow)"/>
-            <circle cx="-101" cy="-48" r="7" fill="url(#copper)"/><circle cx="101" cy="-48" r="7" fill="url(#copper)"/><circle cx="-101" cy="48" r="7" fill="url(#copper)"/><circle cx="101" cy="48" r="7" fill="url(#copper)"/>
-          </g></g>
-          <path class="scan" d="M-190-122h380" stroke="#8af4ff" stroke-width="2" stroke-opacity=".85" filter="url(#glow)"/>
-          <g class="spark" filter="url(#glow)"><circle cx="-213" cy="-44" r="3.5" fill="#73efff"/><circle cx="218" cy="52" r="3" fill="#a88aff"/><circle cx="-184" cy="149" r="2.6" fill="#62e4d9"/></g>
+          ${[[-52,-42,31],[43,-48,24],[57,38,35],[-37,55,25],[-2,-2,40]].map(([x,y,r],n)=>`<g transform="translate(${x} ${y})"><circle r="${r-6}" fill="#122339" stroke="#70d9df" stroke-width="2"/>${Array.from({length:12},(_,i)=>{const a=i*Math.PI/6;return `<path d="M${Math.cos(a)*(r-8)} ${Math.sin(a)*(r-8)}L${Math.cos(a)*(r+2)} ${Math.sin(a)*(r+2)}" stroke="#d8a65b" stroke-width="4"/>`;}).join("")}<circle r="${n===4?7:5}" fill="#8de7ec"/><circle r="2" fill="#f4d588"/></g>`).join("")}
+          <path d="M0 5 5-54 10-58 13 4M-4 6-42 34-46 32-8 2" fill="#e6f1f8" stroke="#9ee8f0" stroke-width="2"/>
+          <circle r="12" fill="url(#brass)" stroke="#fff0c2" stroke-width="2"/><circle r="4" fill="#14263a"/>
+          <circle cx="166" r="24" fill="url(#steel)" stroke="#f0d18e" stroke-width="5"/>
+          <circle cx="166" r="13" fill="#14263a" stroke="#8ce3e8" stroke-width="2"/>
         </g>
+        <g transform="translate(340 76)" filter="url(#shadow)">
+          <circle r="53" fill="url(#steel)" stroke="#d9eaff" stroke-width="3"/>
+          <circle r="43" fill="#15283d" stroke="#65dbe6" stroke-width="2"/>
+          <circle r="34" fill="none" stroke="url(#brass)" stroke-width="8"/>
+          <circle r="20" fill="#182c43" stroke="#86b7d8" stroke-width="3"/>
+          <circle r="8" fill="#68dae2"/><path d="M-33 0h66M0-33v66" stroke="#bcecf1" stroke-opacity=".62"/>
+        </g>
+        <g fill="#79e5eb"><circle cx="93" cy="260" r="3"/><circle cx="587" cy="248" r="3"/><circle cx="201" cy="425" r="2.5"/></g>
       </svg>`
     );
   }
@@ -558,7 +543,7 @@ function createPrecisionScene() {
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(35, 1, .1, 60);
-  camera.position.set(0, 0, 6.7);
+  camera.position.set(0, 0, 7.3);
   scene.add(new THREE.HemisphereLight(0xe8f2ff, 0x111522, 1.55));
   const key = new THREE.DirectionalLight(0xffedcc, 3.1); key.position.set(-3.5, 5, 7); scene.add(key);
   const cyan = new THREE.PointLight(0x4bcbff, 30, 13, 2); cyan.position.set(3.7, 1.8, 3.8); scene.add(cyan);
@@ -609,143 +594,188 @@ function createPrecisionScene() {
     parts.push(part); return part;
   };
 
-  // 01: layered package substrate with plated routing and via fields.
-  addPart("Organic package substrate", [0, 0, -.21], 0, (g) => {
-    box(g, [3.18, 3.18, .2], mat.substrate, [0, 0, 0]);
-    box(g, [3.07, 3.07, .035], mat.graphite, [0, 0, .115]);
-    box(g, [2.91, 2.91, .02], mat.substrate, [0, 0, .14]);
-    for (let side = -1; side <= 1; side += 2) {
-      box(g, [.035, 2.88, .014], mat.copper, [side * 1.49, 0, .156]);
-      box(g, [2.88, .035, .014], mat.copper, [0, side * 1.49, .156]);
-      for (let lane = 0; lane < 6; lane++) {
-        const inset = 1.23 - lane * .075;
-        box(g, [.012, 2.3, .009], mat.trace, [side * inset, 0, .154]);
-        box(g, [2.3, .012, .009], mat.copper, [0, side * inset, .153]);
-      }
+  // The preview is an illustrative watch movement built from inspectable components.
+  addPart("Watch case and lugs", [0, 0, -.2], 0, (g) => {
+    disc(g, 1.48, .26, mat.graphite, 0, 0, 0, 96);
+    disc(g, 1.4, .08, mat.darkSteel, .16, 0, 0, 96);
+    torus(g, 1.49, .085, mat.steel, .12);
+    for (const side of [-1, 1]) for (const y of [-.9, .9]) {
+      box(g, [.38, .22, .2], mat.steel, [side * 1.55, y, -.02], side * -.2);
+      disc(g, .055, .08, mat.gold, .12, side * 1.62, y, 20);
     }
+    box(g, [.18, .48, .2], mat.darkSteel, [1.48, 0, .04]);
     for (let i = 0; i < 18; i++) {
-      const offset = -.98 + i * .115;
-      box(g, [.012, .31 + (i % 3) * .12, .01], i % 2 ? mat.copper : mat.trace, [offset, (i % 2 ? 1 : -1) * .99, .159]);
-      box(g, [.31 + (i % 3) * .12, .012, .01], i % 2 ? mat.trace : mat.copper, [(i % 2 ? 1 : -1) * .99, offset, .158]);
+      const angle = i * Math.PI / 9;
+      box(g, [.025, .09, .018], i % 3 ? mat.paleSteel : mat.gold, [Math.cos(angle) * 1.49, Math.sin(angle) * 1.49, .18], angle);
     }
-    for (let i = 0; i < 16; i++) {
-      const x = -.7 + (i % 4) * .47, y = -.7 + Math.floor(i / 4) * .47;
-      disc(g, .032, .018, mat.solder, .17, x, y, 12);
-      disc(g, .014, .02, mat.black, .181, x, y, 10);
+  }, { radial: .04, axial: -.48, radius: 1.8 });
+
+  addPart("Layered exhibition caseback", [0, 0, -.46], 1, (g) => {
+    disc(g, 1.31, .1, mat.steel, 0, 0, 0, 96);
+    disc(g, 1.18, .04, mat.graphite, -.07, 0, 0, 96);
+    torus(g, 1.08, .018, mat.sapphire, -.1);
+    for (let i = 0; i < 12; i++) {
+      const angle = i * Math.PI / 6;
+      disc(g, .045, .04, mat.brass, -.1, Math.cos(angle) * 1.18, Math.sin(angle) * 1.18, 18);
+      box(g, [.05, .008, .006], mat.paleSteel, [Math.cos(angle) * 1.18, Math.sin(angle) * 1.18, -.075], angle);
     }
-  }, { radial: .08, axial: -.55, radius: 2.25 });
+  }, { axial: -.9, radius: 1.25 });
 
-  // 02: lifted nickel heat spreader reveals the silicon complex underneath.
-  const lid = addPart("Nickel heat spreader", [1.63, .59, .46], 5, (g) => {
-    box(g, [1.16, 1.42, .17], mat.steel, [0, 0, 0]);
-    box(g, [1.04, 1.3, .035], mat.paleSteel, [0, 0, .105]);
-    box(g, [.83, 1.05, .018], mat.darkSteel, [0, 0, .133]);
-    box(g, [.72, .93, .014], mat.steel, [0, 0, .147]);
-    for (let i = 0; i < 9; i++) box(g, [.68, .009, .008], i % 2 ? mat.paleSteel : mat.blue, [0, -.39 + i * .098, .158]);
-    for (const x of [-.49, .49]) for (const y of [-.61, .61]) {
-      disc(g, .045, .024, mat.graphite, .11, x, y, 18);
-      disc(g, .022, .018, mat.gold, .13, x, y, 16);
+  addPart("Polished sapphire bezel", [0, 0, .14], 5, (g) => {
+    torus(g, 1.42, .07, mat.gold, 0);
+    torus(g, 1.34, .025, mat.paleSteel, .01);
+    disc(g, 1.34, .035, mat.blue, -.05, 0, 0, 96);
+    torus(g, 1.25, .025, mat.sapphire, -.025);
+    for (let i = 0; i < 12; i++) {
+      const angle = i * Math.PI / 6, x = Math.cos(angle) * 1.42, y = Math.sin(angle) * 1.42;
+      disc(g, .028, .018, mat.black, .055, x, y, 16);
+      disc(g, .012, .02, mat.paleSteel, .066, x, y, 12);
     }
-    box(g, [.3, .085, .012], mat.blue, [0, -.59, .164]);
-  }, { angle: .34, axial: 1.6, radial: .48, radius: .95 });
-  calloutParts.push(lid);
+  }, { axial: 1.3, radial: .35, radius: 1.5 });
 
-  // 03-10: eight compute tiles with etched die grids.
-  const computeY = [-.57, -.19, .19, .57];
-  for (let row = 0; row < 4; row++) for (const side of [-1, 1]) {
-    const i = row * 2 + (side > 0 ? 1 : 0), x = side * .34, y = computeY[row];
-    const part = addPart("Compute tile " + String(i + 1).padStart(2, "0"), [x, y, .22], 3, (g) => {
-      box(g, [.53, .33, .09], mat.copper, [0, 0, 0]);
-      box(g, [.49, .29, .075], mat.die, [0, 0, .066]);
-      box(g, [.39, .205, .019], mat.dieCore, [0, 0, .112]);
-      box(g, [.022, .205, .012], mat.sapphire, [-.13, 0, .126]);
-      box(g, [.022, .205, .012], mat.sapphire, [.13, 0, .126]);
-      for (let n = 0; n < 7; n++) box(g, [.012, .17, .009], n % 2 ? mat.trace : mat.blue, [-.09 + n * .03, 0, .132]);
-      for (let n = 0; n < 5; n++) box(g, [.38, .008, .008], mat.copper, [0, -.07 + n * .035, .137]);
-      for (const px of [-.22, .22]) for (const py of [-.12, .12]) disc(g, .018, .016, mat.solder, .133, px, py, 12);
-    }, { angle: Math.atan2(y, x), axial: i % 2 ? 1.05 : .88, radius: .38 });
-    if (i === 2) calloutParts.push(part);
-  }
+  addPart("Open-work chapter dial", [0, 0, .2], 2, (g) => {
+    disc(g, 1.22, .035, mat.black, 0, 0, 0, 96);
+    disc(g, 1.16, .018, mat.substrate, .025, 0, 0, 96);
+    torus(g, 1.08, .012, mat.brass, .04);
+    torus(g, .82, .008, mat.sapphire, .045);
+    for (let i = 0; i < 12; i++) {
+      const angle = i * Math.PI / 6;
+      box(g, [.055, .19, .025], mat.gold, [Math.sin(angle) * .94, -Math.cos(angle) * .94, .06], -angle);
+    }
+    for (let i = 0; i < 4; i++) {
+      const y = -.56 + i * .37;
+      box(g, [.36, .018, .012], mat.trace, [0, y, .052]);
+    }
+    disc(g, .17, .025, mat.graphite, .06, 0, 0, 48);
+  }, { radial: .05, axial: .44, radius: 1.22 });
 
-  // 11-18: cache tiles run down either side of the compute array.
-  for (let i = 0; i < 8; i++) {
-    const side = i < 4 ? -1 : 1, row = i % 4, x = side * .94, y = computeY[row];
-    addPart("Cache tile " + String(i + 1).padStart(2, "0"), [x, y, .17], 2, (g) => {
-      box(g, [.29, .265, .085], mat.darkSteel, [0, 0, 0]);
-      box(g, [.23, .205, .045], mat.die, [0, 0, .057]);
-      for (let n = 0; n < 4; n++) {
-        box(g, [.18, .012, .009], n % 2 ? mat.blue : mat.trace, [0, -.064 + n * .043, .086]);
-        box(g, [.012, .19, .009], mat.copper, [-.068 + n * .045, 0, .087]);
+  const wheelLayout = [
+    [-.48, .62, .2], [0, .72, .24], [.49, .6, .18], [-.77, .16, .22],
+    [-.27, .18, .24], [.27, .18, .2], [.76, .16, .22], [-.58, -.42, .18],
+    [-.12, -.5, .28], [.42, -.5, .2], [.74, -.48, .15], [.02, -.02, .16]
+  ];
+  wheelLayout.forEach(([x, y, radius], index) => {
+    const part = addPart(`${["Barrel", "Center wheel", "Third wheel", "Fourth wheel"][index % 4]} gear ${String(index + 1).padStart(2, "0")}`, [x, y, .3], 3, (g) => {
+      disc(g, radius * .9, .05, mat.graphite, 0, 0, 0, 48);
+      torus(g, radius * .86, .025, index % 3 ? mat.brass : mat.gold, .03);
+      for (let tooth = 0; tooth < 14; tooth++) {
+        const angle = tooth * Math.PI / 7, r = radius * .88;
+        box(g, [.055, .09, .045], mat.gold, [Math.cos(angle) * r, Math.sin(angle) * r, .015], angle);
       }
-    }, { axial: i % 2 ? 1.15 : -.75, radius: .24 });
-  }
-
-  // 19-20: top and bottom I/O chiplets bridge the package edge.
-  for (const side of [-1, 1]) {
-    const part = addPart(side < 0 ? "Memory I/O die" : "Fabric I/O die", [0, side * .99, .2], 3, (g) => {
-      box(g, [.54, .27, .1], mat.brass, [0, 0, 0]);
-      box(g, [.49, .23, .08], mat.die, [0, 0, .07]);
-      for (let i = 0; i < 6; i++) {
-        box(g, [.012, .17, .012], mat.sapphire, [-.18 + i * .072, 0, .12]);
-        box(g, [.42, .009, .01], mat.copper, [0, -.075 + i * .03, .128]);
+      for (let spoke = 0; spoke < 6; spoke++) {
+        const angle = spoke * Math.PI / 3;
+        box(g, [radius * .78, .025, .025], mat.steel, [Math.cos(angle) * radius * .4, Math.sin(angle) * radius * .4, .05], angle);
       }
-      for (let i = 0; i < 8; i++) disc(g, .014, .015, mat.solder, .14, -.2 + i * .057, .17, 12);
-    }, { angle: side < 0 ? Math.PI : 0, axial: 1.1, radius: .32 });
-    if (side > 0) calloutParts.push(part);
-  }
+      disc(g, radius * .28, .07, mat.darkSteel, .04, 0, 0, 32);
+      disc(g, radius * .12, .075, mat.sapphire, .08, 0, 0, 24);
+      disc(g, radius * .055, .08, mat.gold, .1, 0, 0, 16);
+    }, { layer: 3, angle: Math.atan2(y, x), axial: .8, radius, speed: (index % 2 ? -1 : 1) * (.08 + index * .009) });
+    if (index < 3) calloutParts.push(part);
+  });
 
-  // 21-40: decoupling capacitors flank the silicon array.
-  for (let i = 0; i < 20; i++) {
-    const side = i < 10 ? -1 : 1, row = i % 10, x = side * 1.37, y = -.98 + row * .218;
-    const part = addPart("Decoupling capacitor " + String(i + 1).padStart(2, "0"), [x, y, .16], 3, (g) => {
-      box(g, [.105, .125, .105], mat.black, [0, 0, 0]);
-      box(g, [.025, .132, .111], mat.ceramic, [-.043, 0, .004]);
-      box(g, [.025, .132, .111], mat.gold, [.043, 0, .004]);
-      box(g, [.035, .075, .012], mat.blue, [0, 0, .06]);
-      for (const end of [-1, 1]) box(g, [.024, .02, .084], mat.solder, [end * .044, 0, -.008]);
-    }, { axial: i % 2 ? .9 : -.82, radius: .14 });
-    if (i === 5) calloutParts.push(part);
-  }
+  const bridgePositions = [[-.46, .42, .48], [.42, .42, .49], [-.56, -.27, .47], [.36, -.34, .5], [0, .02, .53], [.02, -.72, .49]];
+  bridgePositions.forEach(([x, y, z], index) => {
+    const part = addPart(`${["Barrel", "Train", "Pallet", "Escape", "Balance", "Lower"][index]} bridge plate`, [x, y, z], 4, (g) => {
+      const width = index === 4 ? .72 : .62, angle = index % 2 ? -.42 : .42;
+      box(g, [width, .11, .035], mat.steel, [0, 0, 0], angle);
+      box(g, [width * .88, .025, .018], mat.darkSteel, [0, .025, .028], angle);
+      for (const side of [-1, 1]) {
+        disc(g, .055, .035, mat.gold, .035, side * width * .38, 0, 20);
+        disc(g, .026, .04, mat.black, .056, side * width * .38, 0, 16);
+      }
+    }, { axial: .95, radius: .42 });
+    if (index === 4) calloutParts.push(part);
+  });
 
-  // 41-48: shielded power chokes with layered winding caps.
-  for (let i = 0; i < 8; i++) {
-    const row = i % 4, side = i < 4 ? -1 : 1, x = [-.78, -.26, .26, .78][row], y = side * 1.21;
-    addPart("Power choke " + String(i + 1).padStart(2, "0"), [x, y, .2], 4, (g) => {
-      box(g, [.2, .22, .17], mat.graphite, [0, 0, 0]);
-      box(g, [.16, .17, .1], mat.copper, [0, 0, .11]);
-      box(g, [.12, .12, .035], mat.darkSteel, [0, 0, .178]);
-      for (let n = 0; n < 4; n++) box(g, [.012, .16, .012], mat.gold, [-.045 + n * .03, 0, .2]);
-      for (const end of [-1, 1]) box(g, [.24, .027, .05], mat.solder, [end * .1, 0, -.035]);
-    }, { angle: Math.atan2(y, x), axial: 1.15, radius: .23 });
-  }
+  addPart("Oscillating balance wheel", [-.48, .66, .54], 4, (g) => {
+    torus(g, .31, .026, mat.gold, 0);
+    torus(g, .25, .014, mat.steel, .015);
+    for (let i = 0; i < 8; i++) {
+      const angle = i * Math.PI / 4;
+      box(g, [.3, .022, .025], mat.brass, [Math.cos(angle) * .14, Math.sin(angle) * .14, .02], angle);
+      disc(g, .025, .035, mat.sapphire, .035, Math.cos(angle) * .29, Math.sin(angle) * .29, 16);
+    }
+    disc(g, .075, .065, mat.darkSteel, .035, 0, 0, 32);
+    disc(g, .034, .07, mat.ruby, .07, 0, 0, 24);
+  }, { axial: 1.1, radius: .34, speed: .18 });
 
-  // 49-52: package retention clips, lock screws, and alignment rails.
-  for (let i = 0; i < 4; i++) {
-    const sideX = i % 2 ? 1 : -1, sideY = i < 2 ? -1 : 1, x = sideX * 1.43, y = sideY * 1.43;
-    addPart("Package retention clip " + String(i + 1).padStart(2, "0"), [x, y, .04], 4, (g) => {
-      box(g, [.29, .065, .09], mat.steel, [0, 0, 0]);
-      box(g, [.065, .29, .09], mat.steel, [0, 0, 0]);
-      box(g, [.19, .026, .04], mat.blue, [-sideX * .035, -sideY * .035, .064]);
-      disc(g, .045, .035, mat.darkSteel, .06, -sideX * .082, -sideY * .082, 20);
-      box(g, [.048, .009, .008], mat.paleSteel, [-sideX * .082, -sideY * .082, .084]);
-      box(g, [.009, .048, .008], mat.paleSteel, [-sideX * .082, -sideY * .082, .085]);
-    }, { axial: 1.25, radius: .22 });
-  }
+  addPart("Escape wheel", [.52, -.7, .52], 4, (g) => {
+    disc(g, .19, .035, mat.graphite, 0, 0, 0, 48);
+    torus(g, .17, .018, mat.gold, .03);
+    for (let tooth = 0; tooth < 15; tooth++) {
+      const angle = tooth * Math.PI * 2 / 15;
+      box(g, [.075, .024, .027], mat.paleSteel, [Math.cos(angle) * .18, Math.sin(angle) * .18, .02], angle);
+    }
+    disc(g, .055, .07, mat.sapphire, .04, 0, 0, 24);
+  }, { axial: 1.05, radius: .23, speed: -.23 });
 
-  // 53-100: dense 8 x 6 underside BGA field; each contact can be inspected.
-  let contactIndex = 0;
-  for (let row = 0; row < 6; row++) for (let col = 0; col < 8; col++) {
-    const x = -.99 + col * .283, y = -.9 + row * .36, index = ++contactIndex;
-    const part = addPart("BGA solder ball " + String(index).padStart(2, "0"), [x, y, -.34], 1, (g) => {
-      disc(g, .064, .024, mat.copper, 0, 0, 0, 14);
-      const ball = addMesh(g, new THREE.SphereGeometry(.043, 14, 10), mat.solder, [0, 0, -.035]);
-      ball.scale.set(1, 1, .72);
-      disc(g, .024, .014, mat.steel, .014, 0, 0, 12);
-    }, { angle: Math.atan2(y, x), axial: -1.65, radial: .38, radius: .1 });
-    if (index === 24) calloutParts.push(part);
-  }
+  addPart("Pallet fork", [.05, .77, .54], 4, (g) => {
+    box(g, [.45, .045, .04], mat.steel, [0, 0, 0], -.34);
+    box(g, [.16, .04, .035], mat.gold, [-.16, .075, .018], .42);
+    box(g, [.16, .04, .035], mat.gold, [.16, -.075, .018], .42);
+    disc(g, .055, .045, mat.ruby, .03, 0, 0, 24);
+  }, { axial: 1.1, radius: .28, speed: -.05 });
 
-  if (parts.length !== 100) console.warn("CPU package should contain 100 components; built", parts.length);
+  const jewelPositions = [[-.2,.54],[.24,.58],[.63,.32],[-.68,.36],[-.4,.1],[.42,.07],[-.7,-.1],[.6,-.18],[-.44,-.55],[.1,-.68],[.55,-.55],[.02,.02]];
+  jewelPositions.forEach(([x, y], index) => addPart(`Ruby bearing ${String(index + 1).padStart(2, "0")}`, [x, y, .59], 4, (g) => {
+    disc(g, .075, .035, mat.gold, 0, 0, 0, 28);
+    disc(g, .051, .04, mat.black, .025, 0, 0, 24);
+    disc(g, .033, .046, index % 3 ? mat.sapphire : mat.ruby, .05, 0, 0, 24);
+    disc(g, .012, .052, mat.paleSteel, .075, 0, 0, 16);
+  }, { axial: 1.15, radius: .11 }));
+
+  addPart("Hour hand", [0, 0, .66], 5, (g) => {
+    box(g, [.065, .57, .024], mat.paleSteel, [0, .25, 0], -.24);
+    box(g, [.025, .35, .018], mat.sapphire, [0, .26, .018], -.24);
+    disc(g, .075, .035, mat.gold, .025, 0, 0, 32);
+  }, { axial: 1.2, radius: .6 });
+  addPart("Minute hand", [0, 0, .7], 5, (g) => {
+    box(g, [.045, .83, .02], mat.gold, [0, .38, 0], .12);
+    box(g, [.014, .59, .015], mat.sapphire, [0, .4, .015], .12);
+    disc(g, .055, .03, mat.paleSteel, .025, 0, 0, 32);
+  }, { axial: 1.3, radius: .85 });
+  addPart("Seconds hand", [0, 0, .74], 5, (g) => {
+    box(g, [.018, 1.03, .014], mat.ruby, [0, .49, 0], -.06);
+    disc(g, .042, .028, mat.gold, .02, 0, 0, 28);
+    torus(g, .055, .012, mat.ruby, .04);
+  }, { axial: 1.35, radius: .95, speed: -.035 });
+
+  for (let index = 0; index < 12; index++) {
+    const angle = index * Math.PI / 6, x = Math.sin(angle) * .98, y = -Math.cos(angle) * .98;
+    addPart(`Applied hour marker ${String(index + 1).padStart(2, "0")}`, [x, y, .56], 3, (g) => {
+      box(g, [.075, .16, .035], mat.gold, [0, 0, 0]);
+      box(g, [.034, .11, .02], mat.paleSteel, [0, 0, .025]);
+      disc(g, .02, .024, mat.sapphire, .035, 0, -.065, 16);
+    }, { angle, axial: .72, radial: .18, radius: .13 });
+  }
+  for (let index = 0; index < 39; index++) {
+    const angle = index * Math.PI * 2 / 39, x = Math.sin(angle) * 1.12, y = -Math.cos(angle) * 1.12;
+    addPart(`Minute track index ${String(index + 1).padStart(2, "0")}`, [x, y, .57], 2, (g) => {
+      box(g, [.024, .075, .022], index % 3 ? mat.sapphire : mat.paleSteel, [0, 0, 0], -angle);
+      disc(g, .014, .018, mat.gold, .015, 0, 0, 12);
+    }, { angle, axial: .55, radial: .14, radius: .09 });
+  }
+  for (let index = 0; index < 8; index++) {
+    const angle = index * Math.PI / 4, x = Math.cos(angle) * 1.4, y = Math.sin(angle) * 1.4;
+    addPart(`Bezel lock screw ${String(index + 1).padStart(2, "0")}`, [x, y, .31], 4, (g) => {
+      disc(g, .052, .045, mat.graphite, 0, 0, 0, 24);
+      disc(g, .037, .05, mat.steel, .025, 0, 0, 24);
+      box(g, [.046, .008, .008], mat.black, [0, 0, .053], angle);
+      disc(g, .009, .012, mat.gold, .06, 0, 0, 12);
+    }, { angle, axial: .9, radius: .09 });
+  }
+  addPart("Winding crown", [1.62, 0, .08], 5, (g) => {
+    const crown = disc(g, .12, .2, mat.steel, 0, 0, 0, 32);
+    crown.rotation.set(0, Math.PI / 2, 0);
+    const cap = disc(g, .09, .03, mat.gold, .1, 0, 0, 32);
+    cap.rotation.set(0, Math.PI / 2, 0);
+    for (let i = 0; i < 12; i++) {
+      const angle = i * Math.PI / 6;
+      box(g, [.018, .17, .025], mat.darkSteel, [Math.cos(angle) * .11, Math.sin(angle) * .11, 0], angle);
+    }
+  }, { angle: 0, axial: .8, radius: .2 });
+
+  if (parts.length !== 100) console.warn("Watch movement should contain 100 components; built", parts.length);
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   const status = document.querySelector("#physicalInteractionStatus");
@@ -756,7 +786,7 @@ function createPrecisionScene() {
   const updateStatus = () => {
     if (!status) return;
     const part = hovered || selected;
-    status.textContent = part ? (part === selected ? "PINNED" : "INSPECTING") + " · " + part.name.toUpperCase() : "100 CPU PARTS · HOVER TO INSPECT";
+    status.textContent = part ? (part === selected ? "PINNED" : "INSPECTING") + " · " + part.name.toUpperCase() : "100 WATCH PARTS · HOVER TO INSPECT";
   };
   const pick = (event) => {
     const bounds = canvas.getBoundingClientRect();
@@ -790,7 +820,7 @@ function createPrecisionScene() {
   const resize = () => {
     const bounds = stage.getBoundingClientRect(); if (!bounds.width || !bounds.height) return;
     renderer.setSize(bounds.width, bounds.height, false); camera.aspect = bounds.width / bounds.height;
-    camera.position.z = camera.aspect < .82 ? 8.1 : camera.aspect < 1.15 ? 7.4 : 6.7; camera.updateProjectionMatrix();
+    camera.position.z = camera.aspect < .82 ? 8.1 : camera.aspect < 1.15 ? 7.8 : 7.3; camera.updateProjectionMatrix();
   };
   resize(); new ResizeObserver(resize).observe(stage);
   const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
@@ -853,7 +883,7 @@ function start() {
   try {
     createPrecisionScene();
   } catch (error) {
-    console.info("Illustrative movement preview will use its SVG fallback.", error);
+    console.info("Illustrative watch preview will use its SVG fallback.", error);
   }
 }
 
