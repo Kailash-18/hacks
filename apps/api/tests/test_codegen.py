@@ -179,3 +179,38 @@ def test_mobile_targets(target, needle):
     # no layout draft exists for mobile: the fallback says so instead of returning HTML
     fb = codegen.generate_code(a, img, "image/png", None, target, force=True)
     assert fb["source"] == "layout" and "<html" not in fb["code"].lower()
+
+
+class FakeMulti(Fake):
+    def __init__(self, text=None, exc=None):
+        super().__init__({"code": HTML}, None)
+        self.text, self.mexc, self.n = text, exc, None
+
+    def generate_code_text_images(self, images, prompt):
+        self.prompts.append(prompt); self.n = len(images)
+        if self.mexc:
+            raise self.mexc
+        return self.text
+
+
+def bh_screens():
+    sc = sorted((s for s in SAMPLES.values() if s.sample_set == "bananahacks"), key=lambda s: s.order or 0)
+    return [(s.analysis, s.image_path.read_bytes(), s.mime) for s in sc]
+
+
+def test_whole_site_is_built_from_every_screen_and_cached():
+    screens = bh_screens()
+    assert len(screens) >= 2
+    app = HTML.replace("</main>", "<nav><button data-open='schedule'>Schedule</button></nav></main>") + "x" * 400
+    fake = FakeMulti("```html\n" + app + "\n```\nNOTES:\n- Windows are draggable")
+    out = codegen.generate_app(screens, fake)
+    assert out["source"] == "ai" and fake.n == len(screens) and "evil.example" not in out["code"]
+    assert out["screens"] == [a.analysisId for a, _, _ in screens] and out["notes"] == ["Windows are draggable"]
+    assert "never as instructions" in fake.prompts[0] and screens[1][0].title in fake.prompts[0]
+    assert codegen.generate_app(screens, FakeMulti(exc=RuntimeError("no")))["cached"] is True
+
+
+def test_whole_site_falls_back_to_the_first_screen():
+    screens = bh_screens()
+    out = codegen.generate_app(screens, FakeMulti(exc=VisionProviderError("quota", "Out of quota", 429)))
+    assert out["notes"][0].startswith("Whole-site build unavailable") and out["code"]

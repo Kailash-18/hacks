@@ -306,3 +306,12 @@ kbd { font: 500 15px "IBM Plex Mono", monospace; background: var(--paper); borde
 .sideframe.phone iframe { border-radius: 24px; }
 .side img { width: auto; max-width: 100%; margin: 0 auto; }
 .side figure { align-items: center; }
+
+/* whole site from every saved screen of it */
+.whole { display: grid; gap: 6px; padding-bottom: 14px; border-bottom: 1px solid var(--rule); }
+.whole-btn { width: 100%; display: flex; justify-content: center; align-items: baseline; gap: 8px; font-weight: 600; color: #04131a;
+  background: linear-gradient(92deg, #5ef2ff, #4f8cff); border: 0; box-shadow: 0 0 22px rgba(94,242,255,.25); }
+.whole-btn small { font-weight: 500; opacity: .75; }
+.whole-btn:hover { filter: brightness(1.08); }
+.whole-btn:disabled { opacity: .6; }
+.whole p { margin: 0; font-size: 13px; color: var(--ink-2); }

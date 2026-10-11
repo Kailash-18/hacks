@@ -61,11 +61,12 @@ async function loadExamples() {
     const all = await api("/api/digital/samples");
     const set = all.filter((s) => s.set).sort((a, b) => (a.order ?? 99) - (b.order ?? 99)).filter((s) => !s.compareWith);
     const list = (set.length ? set : all).slice(0, 4);
+    S.sets = {}; for (const s of set) S.sets[s.set] = (S.sets[s.set] || 0) + 1;  // screens per saved site
     $("#examples").innerHTML = list.map((s) => `<button class="ex" data-id="${esc(s.id)}"><img src="${esc(s.imageUrl)}" alt="" loading="lazy" /><span>${esc(s.title.replace(/^.*·\s*/, ""))}</span></button>`).join("");
     $$(".ex").forEach((b) => (b.onclick = async () => {
       const s = list.find((x) => x.id === b.dataset.id);
       const blob = await (await fetch(s.imageUrl)).blob();
-      start(blob, `${s.id}.png`, s.title.replace(/^.*·\s*/, ""));
+      start(blob, `${s.id}.png`, s.title.replace(/^.*·\s*/, ""), s.set);
     }));
     if (!list.length) $(".examples").hidden = true;
   } catch { $(".examples").hidden = true; }
@@ -78,12 +79,15 @@ function showStart() {
 }
 
 // ---------- main flow ----------
-async function start(blob, name, title = "") {
+async function start(blob, name, title = "", set = null) {
   const run = ++S.run;
   if (S.shot?.url) URL.revokeObjectURL(S.shot.url);
   const url = URL.createObjectURL(blob);
   const [w, h] = await imgSize(url);
-  Object.assign(S, { shot: { blob, url, w, h, name }, analysis: null, guide: null, tree: null, sel: null,
+  const n = set ? S.sets?.[set] || 0 : 0;
+  $("#whole").hidden = n < 2;
+  if (n >= 2) $("#wholeBtn").innerHTML = `Build the whole site <small>${n} screens</small>`;
+  Object.assign(S, { set: n >= 2 ? set : null, shot: { blob, url, w, h, name }, analysis: null, guide: null, tree: null, sel: null,
     versions: { html: [], react: [], "react-native": [], flutter: [] }, cur: { html: -1, react: -1, "react-native": -1, flutter: -1 }, target: "html", backend: null, a11y: null, acc: {} });
   $("#acc").hidden = true; $("#heat").hidden = true; $("#accHeat").checked = false;
   for (const id of ["#beImg", "#axImg"]) $(id).src = url;
@@ -328,6 +332,28 @@ $("#changeForm").onsubmit = (e) => {
   if (!change) return toast("Describe the change first, for example: make it mobile friendly.");
   if (!v) return toast("Wait for the first version.");
   makeCode({ target: S.target, change, baseCode: v.code }, change.length > 40 ? change.slice(0, 40) + "…" : change).then(() => ($("#change").value = ""));
+};
+// every saved screen of this site in one working app: its navigation wired, its windows opening and closing
+$("#wholeBtn").onclick = async () => {
+  if (!S.set || !S.analysis) return;
+  const run = S.run, n = S.sets[S.set];
+  wait(`Building the whole site from ${n} screens…`); busy(true); $("#wholeBtn").disabled = true;
+  status(`Reading all ${n} screenshots together and wiring the navigation between them. This takes about a minute.`);
+  try {
+    const fd = new FormData(); fd.append("set", S.set);
+    const out = await api("/api/digital/app", { method: "POST", body: fd });
+    if (run !== S.run) return;
+    S.versions.html.push({ code: out.code, notes: out.notes || [], source: out.source, change: out.change, label: `Whole site · ${n} screens`,
+      model: out.provider?.model, cached: out.cached, app: true });
+    S.cur.html = S.versions.html.length - 1;
+    S.target = "html"; renderTarget(); renderVersions(); renderNotes(); renderCode(); setView("wipe");
+    status(out.source === "ai" ? "Whole site built: click the navigation in the rebuilt page." : (out.notes?.[0] || ""), out.source !== "ai");
+    toast("Use the rebuilt page: its navigation opens the other screens");
+  } catch (e) {
+    if (run === S.run) status(`Could not build the whole site: ${e.message}`, true);
+  } finally {
+    if (run === S.run) { wait(null); busy(false); $("#wholeBtn").disabled = false; }
+  }
 };
 $("#regen").onclick = () => { if (S.analysis) makeCode({ target: S.target, force: "1" }, "Written again"); };
 

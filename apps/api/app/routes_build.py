@@ -44,6 +44,25 @@ async def _run_code(form, analysis, img) -> dict:
         _flag(form, "force", False))
 
 
+@router.post("/app")
+async def app_build(request: Request) -> dict:
+    """multipart: set (id of a saved screen set); force. All screens of the set -> one working HTML app."""
+    form = await request.form()
+    set_id = str(form.get("set") or "")
+    screens = sorted((x for x in rd.SAMPLES.values() if x.sample_set == set_id and not x.compare_with),
+                     key=lambda x: (x.order if x.order is not None else 99, x.id))
+    if len(screens) < 2:
+        raise ApiError(404, "set_not_found", "No saved screen set with that id (it needs at least two screens).")
+    data = [(x.analysis, x.image_path.read_bytes(), x.mime) for x in screens[:6]]
+    try:
+        out = await rd._call_model(codegen.generate_app, data, _client_or_none(), _flag(form, "force", False))
+    except ApiError:
+        raise
+    except Exception as exc:
+        raise ApiError(500, "build_failed", f"Whole-site build failed: {type(exc).__name__}: {exc}"[:300]) from exc
+    return {"analysisId": data[0][0].analysisId, **out}
+
+
 @router.post("/guide")
 async def guide(request: Request) -> dict:
     """multipart: image | analysisId; force."""
