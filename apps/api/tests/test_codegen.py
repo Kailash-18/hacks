@@ -194,7 +194,7 @@ class FakeMulti(Fake):
 
 
 def bh_screens():
-    sc = sorted((s for s in SAMPLES.values() if s.sample_set == "bananahacks"), key=lambda s: s.order or 0)
+    sc = sorted((s for s in SAMPLES.values() if s.sample_set == "nimbus" and not s.compare_with), key=lambda s: s.order or 0)
     return [(s.analysis, s.image_path.read_bytes(), s.mime) for s in sc]
 
 
