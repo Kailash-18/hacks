@@ -363,6 +363,7 @@ function setTab(t) {
   for (const x of ["code", "guide", "structure", "backend", "a11y"]) $(`#tab-${x}`).hidden = x !== t;
   if (t === "code") requestAnimationFrame(fit);
   if (t === "structure") requestAnimationFrame(placeBoxes);
+  if (t === "guide" && S.guide) replayGuide();
   if (t === "backend") loadBackend();
   if (t === "a11y") loadA11y();
 }
@@ -372,19 +373,71 @@ $$(".tabs button").forEach((b) => (b.onclick = () => setTab(b.dataset.tab)));
 function renderGuide() {
   const g = S.guide; if (!g) return;
   const c = g.tokens?.colors || {}, ts = g.tokens?.typeScale || {};
+  const lvl = { easy: 1, medium: 2, hard: 3 }[g.effort?.level] || 2;
+  const mono = (n) => (String(n).match(/[A-Za-z0-9]+/g) || ["?"]).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
+  const icon = { lock: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+    db: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>' };
   $("#guide").innerHTML = `
     ${g.source !== "ai" ? `<p class="fallback">${esc(g.notes?.[0] || "AI unavailable.")} This is a basic outline from the detected structure.</p>` : ""}
-    <h2>How to build ${esc(S.analysis?.title || "this screen")}</h2>
-    <p>${esc(g.summary)}</p>
-    ${g.effort?.estimate ? `<p class="effort">Difficulty <b>${esc(g.effort.level)}</b> · ${esc(g.effort.estimate)}</p>` : ""}
-    ${g.stack?.length ? `<h3>Recommended stack</h3><div class="stack">${g.stack.map((s) => `<div><b>${esc(s.name)}</b><span>${esc(s.why)}</span></div>`).join("")}</div>` : ""}
-    ${g.steps?.length ? `<h3>Steps</h3><ol class="steps">${g.steps.map((s) => `<li><b>${esc(s.title)}</b><p>${esc(s.detail)}</p></li>`).join("")}</ol>` : ""}
-    ${g.components?.length ? `<h3>Components to build</h3><table class="comps">${g.components.map((x) => `<tr><td>${esc(x.name)}</td><td>${esc(x.purpose)}${x.props?.length ? `<br>${x.props.map((p) => `<code>${esc(p)}</code>`).join("")}` : ""}</td></tr>`).join("")}</table>` : ""}
-    ${g.behaviour?.length ? `<h3>What the screenshot can't show</h3><p class="muted">You still need to build these. They are informed guesses from what is visible.</p><ul class="plain">${g.behaviour.map((b) => `<li>${esc(b)}</li>`).join("")}</ul>` : ""}
-    ${g.data?.length ? `<h3>Data it needs</h3><ul class="plain">${g.data.map((b) => `<li>${esc(b)}</li>`).join("")}</ul>` : ""}
-    ${Object.keys(c).length ? `<h3>Design tokens</h3><p class="muted">Measured from the screenshot's pixels.</p><div class="swatches">${Object.entries(c).map(([k, v]) => `<span class="sw"><i style="background:${esc(v)}"></i>${esc(k)} <code>${esc(v)}</code></span>`).join("")}</div>
-      <p class="muted" style="margin-top:12px">Text sizes: ${Object.entries(ts).map(([k, v]) => `${esc(k)} ${esc(v)}px`).join(", ")}</p>` : ""}`;
+    <header class="g-hero">
+      <div class="g-shot"><div class="g-shot-in"><img src="${esc(S.shot?.url || "")}" alt="" /></div></div>
+      <div class="g-intro">
+        <h2>How to build ${esc(S.analysis?.title || "this screen")}</h2>
+        <p>${esc(g.summary)}</p>
+        <div class="g-stats">
+          <div class="g-stat"><span>Difficulty</span><b>${esc(g.effort?.level || "medium")}</b><i class="g-meter">${[1, 2, 3].map((n) => `<em class="${n <= lvl ? "on" : ""}"></em>`).join("")}</i></div>
+          ${g.effort?.estimate ? `<div class="g-stat"><span>Time</span><b>${esc(g.effort.estimate.replace(/ for one developer/i, ""))}</b><small>one developer</small></div>` : ""}
+          <div class="g-stat"><span>Plan</span><b>${g.steps?.length || 0} steps</b><small>${g.components?.length || 0} components</small></div>
+        </div>
+      </div>
+    </header>
+    ${g.stack?.length ? `<section class="g-sec"><h3>Recommended stack</h3><div class="g-stack">${g.stack.map((s, i) => `<div class="g-card" style="--i:${i}"><span class="g-mono">${esc(mono(s.name))}</span><div><b>${esc(s.name)}</b><p>${esc(s.why)}</p></div></div>`).join("")}</div></section>` : ""}
+    ${g.steps?.length ? `<section class="g-sec"><h3>Build plan</h3><ol class="g-steps">${g.steps.map((s, i) => `<li style="--i:${i}"><span class="g-num">${i + 1}</span><div class="g-step"><b>${esc(s.title)}</b><p>${esc(s.detail)}</p></div></li>`).join("")}</ol></section>` : ""}
+    ${g.components?.length ? `<section class="g-sec"><h3>Components to build <small>hover one to find it on the screen</small></h3><div class="g-comp-wrap"><div class="g-mini"><img src="${esc(S.shot?.url || "")}" alt="" /></div><div class="g-comps">${g.components.map((x, i) => `<div class="g-card g-comp" style="--i:${i}" data-name="${esc(x.name)}"><code class="g-tag">&lt;${esc(x.name)} /&gt;</code><p>${esc(x.purpose)}</p>${x.props?.length ? `<div class="g-props">${x.props.map((p) => `<span>${esc(p)}</span>`).join("")}</div>` : ""}</div>`).join("")}</div></div></section>` : ""}
+    ${g.behaviour?.length || g.data?.length ? `<section class="g-sec g-two">
+      ${g.behaviour?.length ? `<div><h3>What the screenshot can't show</h3><p class="muted g-note">You still need to build these. They are informed guesses from what is visible.</p><ul class="g-list">${g.behaviour.map((b) => `<li><i>${icon.lock}</i>${esc(b)}</li>`).join("")}</ul></div>` : ""}
+      ${g.data?.length ? `<div><h3>Data it needs</h3><p class="muted g-note">What the back end has to provide.</p><ul class="g-list">${g.data.map((b) => `<li><i>${icon.db}</i>${esc(b)}</li>`).join("")}</ul></div>` : ""}
+    </section>` : ""}
+    ${Object.keys(c).length ? `<section class="g-sec"><h3>Design tokens <small>measured from the screenshot's pixels</small></h3>
+      <div class="g-swatches">${Object.entries(c).map(([k, v]) => `<div class="g-sw"><i style="background:${esc(v)}"></i><b>${esc(k)}</b><code>${esc(v)}</code></div>`).join("")}</div>
+      ${Object.keys(ts).length ? `<div class="g-type">${Object.entries(ts).map(([k, v]) => `<div><span style="font-size:${Math.min(56, +v || 14)}px">Aa</span><b>${esc(k)}</b><code>${esc(v)}px</code></div>`).join("")}</div>` : ""}
+    </section>` : ""}`;
+  // hover a component card: its parts light up on the screenshot. Matched by visible text first, then by type
+  // ("StatCard" -> every card, "ProjectTable" -> the table), since component names rarely appear on screen.
+  const TYPE_WORDS = { card: ["card", "tile", "stat", "metric"], table: ["table", "grid", "list"], sidebar: ["sidebar", "drawer"],
+    navbar: ["nav", "navbar", "topbar", "header"], header: ["header"], form: ["form", "login", "signup"], button: ["button", "cta"],
+    input: ["input", "field", "search"], image: ["image", "chart", "illustration", "hero"], footer: ["footer"], tabs: ["tabs", "tab"] };
+  function partsFor(name) {
+    const words = name.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+    const byText = window.fx?.matchPart?.(words);
+    if (byText) return [byText];
+    const comps = (S.analysis?.components || []).filter((c) => c.bbox);
+    for (const [type, keys] of Object.entries(TYPE_WORDS)) {
+      if (!keys.some((k) => words.split(" ").includes(k))) continue;
+      const hits = comps.filter((c) => c.type === type || keys.some((k) => c.label.toLowerCase().includes(k)));
+      if (hits.length) return hits.slice(0, 8);
+    }
+    return [];
+  }
+  $$("#guide .g-comp").forEach((card) => {
+    card.onmouseenter = () => {
+      const mini = $("#guide .g-mini");
+      if (!mini) return;
+      mini.querySelectorAll(".g-hl").forEach((e) => e.remove());
+      for (const part of partsFor(card.dataset.name)) {
+        const b = part.bbox, hl = document.createElement("div");
+        hl.className = "g-hl";
+        Object.assign(hl.style, { left: `${b.x * 100}%`, top: `${b.y * 100}%`, width: `${b.width * 100}%`, height: `${b.height * 100}%` });
+        mini.appendChild(hl);
+        requestAnimationFrame(() => hl.classList.add("on"));
+      }
+    };
+    card.onmouseleave = () => $$("#guide .g-mini .g-hl").forEach((e) => e.classList.remove("on"));
+  });
+  replayGuide();
 }
+// one orchestrated entrance each time the plan is shown
+function replayGuide() { const el = $("#guide"); el.classList.remove("reveal"); void el.offsetWidth; el.classList.add("reveal"); }
 
 // ---------- structure ----------
 async function renderStructure() {

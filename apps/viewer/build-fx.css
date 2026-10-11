@@ -108,3 +108,93 @@
   opacity: 0; transition: opacity .45s ease, transform .45s ease; pointer-events: none; }
 .demo-cap.in { opacity: 1; transform: translate(-50%, 0); }
 .demo-cap span { font: 600 13px "IBM Plex Mono", monospace; color: var(--scan); margin-right: 14px; vertical-align: 3px; }
+
+/* ---------- How to build it: a centered blueprint plan ---------- */
+#tab-guide .guide { max-width: 1080px; margin: 8px auto 40px; background: none; border: 0; padding: 0; }
+.guide .g-hero { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 40px; align-items: center; padding: 28px 32px;
+  border: 1px solid var(--rule); border-radius: 16px; position: relative; overflow: hidden;
+  background: radial-gradient(ellipse at 15% 50%, rgba(94,242,255,.10), transparent 60%), linear-gradient(180deg, #141922, #10141a); }
+.guide .g-hero::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .35;
+  background-image: linear-gradient(rgba(94,242,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(94,242,255,.06) 1px, transparent 1px); background-size: 28px 28px; }
+.g-shot { perspective: 1200px; position: relative; }
+.g-shot-in { position: relative; transform: rotateY(14deg) rotateX(6deg); transform-style: preserve-3d; border-radius: 10px;
+  box-shadow: 0 30px 60px rgba(0,0,0,.55), 0 0 0 1px rgba(94,242,255,.3), 0 0 40px rgba(94,242,255,.15); transition: transform .6s ease; }
+.g-shot:hover .g-shot-in { transform: rotateY(4deg) rotateX(2deg); }
+.g-shot img { display: block; width: 100%; border-radius: 10px; }
+.g-hl { position: absolute; border: 2px solid var(--scan); border-radius: 4px; background: rgba(94,242,255,.12); opacity: 0;
+  box-shadow: 0 0 0 4px rgba(94,242,255,.2), 0 0 24px rgba(94,242,255,.6); transition: all .25s ease; pointer-events: none; }
+.g-hl.on { opacity: 1; }
+.g-intro { position: relative; }
+.guide .g-intro h2 { font-size: clamp(26px, 2.6vw, 36px); line-height: 1.1; letter-spacing: -.025em; margin: 0 0 12px; }
+.guide .g-intro p { color: var(--ink-2); font-size: 16px; margin: 0 0 22px; max-width: 60ch; }
+.g-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.g-stat { background: rgba(255,255,255,.03); border: 1px solid var(--rule); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.g-stat span { font: 600 11px "IBM Plex Mono", monospace; color: var(--scan); letter-spacing: .06em; text-transform: uppercase; }
+.g-stat b { font-size: 18px; text-transform: capitalize; }
+.g-stat small { color: var(--ink-2); font-size: 12px; }
+.g-meter { display: flex; gap: 4px; margin-top: 6px; }
+.g-meter em { flex: 1; height: 5px; border-radius: 3px; background: var(--rule); }
+.g-meter em.on { background: linear-gradient(90deg, var(--scan), var(--blue)); box-shadow: 0 0 10px rgba(94,242,255,.5); }
+
+.g-sec { margin-top: 40px; }
+.guide .g-sec h3 { font-size: 20px; letter-spacing: -.01em; margin: 0 0 16px; display: flex; align-items: baseline; gap: 12px; }
+.guide .g-sec h3 small { font: 12px "IBM Plex Mono", monospace; color: var(--ink-2); font-weight: 400; }
+.g-card { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 16px; transition: border-color .2s, transform .2s, box-shadow .2s; }
+.g-card:hover { border-color: rgba(94,242,255,.5); transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,.35), 0 0 20px rgba(94,242,255,.12); }
+.g-stack { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.g-stack .g-card { display: flex; gap: 14px; align-items: flex-start; }
+.g-mono { flex: none; width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; font: 700 15px "IBM Plex Mono", monospace; color: #04131a;
+  background: linear-gradient(135deg, var(--scan), var(--blue)); box-shadow: 0 0 18px rgba(94,242,255,.35); }
+.g-stack b { display: block; margin-bottom: 2px; }
+.g-stack p, .g-comp p { margin: 0; font-size: 14px; color: var(--ink-2); line-height: 1.45; }
+
+.g-steps { list-style: none; margin: 0; padding: 0; position: relative; }
+.g-steps::before { content: ""; position: absolute; left: 21px; top: 10px; bottom: 10px; width: 2px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--scan), var(--blue) 60%, rgba(79,140,255,.15)); box-shadow: 0 0 12px rgba(94,242,255,.45);
+  transform-origin: top; }
+.g-steps li { display: flex; gap: 18px; align-items: flex-start; padding-bottom: 14px; position: relative; }
+.g-num { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font: 700 16px "IBM Plex Mono", monospace;
+  background: #0b0f15; color: var(--scan); border: 2px solid var(--scan); box-shadow: 0 0 0 5px var(--paper), 0 0 18px rgba(94,242,255,.45); z-index: 1; }
+.g-step { flex: 1; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 14px 18px; transition: border-color .2s; }
+.g-steps li:hover .g-step { border-color: rgba(94,242,255,.45); }
+.g-step b { display: block; font-size: 16px; margin-bottom: 4px; }
+.g-step p { margin: 0; color: var(--ink-2); font-size: 14.5px; line-height: 1.55; }
+
+.g-comps { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.g-comp { cursor: default; }
+.g-tag { display: inline-block; font: 600 14px "IBM Plex Mono", monospace; color: var(--scan); margin-bottom: 8px; }
+.g-props { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.g-props span { font: 12px "IBM Plex Mono", monospace; padding: 2px 8px; border-radius: 99px; background: rgba(79,140,255,.12); color: var(--blue-ink); border: 1px solid rgba(79,140,255,.3); }
+
+.g-two { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.g-note { margin: -8px 0 14px; font-size: 14px; }
+.g-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.g-list li { display: flex; gap: 12px; align-items: flex-start; background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 11px 14px; font-size: 14px; line-height: 1.5; }
+.g-list i { flex: none; color: var(--amber); margin-top: 1px; }
+.g-two > div:last-child .g-list i { color: var(--scan); }
+
+.g-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.g-sw { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+.g-sw i { height: 64px; border-bottom: 1px solid var(--rule); }
+.g-sw b { font-size: 13px; padding: 8px 12px 0; }
+.g-sw code { font: 12px "IBM Plex Mono", monospace; color: var(--ink-2); padding: 0 12px 10px; }
+.g-type { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.g-type > div { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 12px 16px; display: flex; align-items: baseline; gap: 10px; min-width: 150px; }
+.g-type span { font-weight: 700; line-height: 1; color: var(--ink); }
+.g-type b { font-size: 13px; text-transform: capitalize; }
+.g-type code { font: 12px "IBM Plex Mono", monospace; color: var(--ink-2); }
+
+/* entrance: the timeline draws itself, cards rise in sequence */
+.guide.reveal .g-hero { animation: g-up .6s cubic-bezier(.2,.8,.2,1) backwards; }
+.guide.reveal .g-steps::before { animation: g-draw 1.3s cubic-bezier(.4,0,.2,1) .25s both; }
+.guide.reveal .g-steps li, .guide.reveal .g-card { animation: g-up .55s cubic-bezier(.2,.8,.2,1) backwards; animation-delay: calc(.2s + var(--i, 0) * .07s); }
+@keyframes g-up { from { opacity: 0; transform: translateY(14px); } }
+@keyframes g-draw { from { transform: scaleY(0); } }
+@media (max-width: 900px) { .guide .g-hero, .g-two { grid-template-columns: 1fr; } .g-stats { grid-template-columns: 1fr 1fr 1fr; } }
+@media (prefers-reduced-motion: reduce) { .guide.reveal * { animation: none !important; } }
+.guide .g-step p, .guide .g-list li, .guide .g-comp p { max-width: none; }
+.g-comps { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); align-content: start; }
+.g-comp-wrap { display: grid; grid-template-columns: minmax(220px, 340px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.g-mini { position: sticky; top: 16px; border-radius: 10px; overflow: hidden; border: 1px solid rgba(94,242,255,.3); box-shadow: 0 0 30px rgba(94,242,255,.1); }
+.g-mini img { display: block; width: 100%; filter: brightness(.8); }
+@media (max-width: 900px) { .g-comp-wrap { grid-template-columns: 1fr; } .g-mini { position: static; } }
