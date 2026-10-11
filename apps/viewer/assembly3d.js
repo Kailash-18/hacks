@@ -310,6 +310,12 @@ export class AssemblyView {
     for (const p of this.parts) { p.group.scale.setScalar(1); }
   }
 
+  // Inside the body = not a housing part and not something you can see or touch from outside.
+  isInside(p) {
+    if (!this.housing?.size || this.housing.has(p) || p.sheet) return false;
+    return p.inferred || ["controller", "power_source", "storage", "cable", "connector", "mechanism", "sensor"].includes(p.type);
+  }
+
   // Parts must leave the assembly in the order they are stacked: the screen in front of the housing it sits
   // in, the board behind it. The AI's distances often break that order (the screen ends up hidden behind the
   // housing). Internal parts that fly off sideways are put back on the main axis so they stay in the stack.
@@ -1023,7 +1029,10 @@ export class AssemblyView {
     this.intro = { t0: now, ms, onDone, total: ms + step * n, items: this.parts.map((p, i) => ({
       p, delay: i * step, axis: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(),
       ang: (Math.random() - 0.5) * 4, from: p.dir.clone().multiplyScalar(TARGET_SIZE * (0.9 + Math.random() * 0.6))
-        .add(new THREE.Vector3((Math.random() - 0.5) * 3, Math.random() * 2.5, (Math.random() - 0.5) * 3)) })) };
+        .add(new THREE.Vector3((Math.random() - 0.5) * 3, Math.random() * 2.5, (Math.random() - 0.5) * 3)),
+      // parts that live inside the body stay hidden until the shell is solid: no board or battery showing
+      // through a half-built hologram or flying in from outside the object
+      inside: this.isInside(p) })) };
     for (const p of this.parts) {
       p.mat.transparent = true; p.mat.opacity = 0; p.mat.depthWrite = false; p.mat.needsUpdate = true;
       for (const m of p.extras) { m.transparent = true; m.opacity = 0; m.needsUpdate = true; }
@@ -1045,7 +1054,9 @@ export class AssemblyView {
     const I = this.intro; if (!I) return;
     for (const it of I.items) {
       const local = (now - I.t0 - it.delay) / (I.ms * 0.6), k = clamp01(local), e = easeOut(k);
-      const p = it.p; p.group.visible = local > 0;
+      const p = it.p;
+      if (it.inside) { p.group.visible = false; p.fx.offset.set(0, 0, 0); p.fx.quat.identity(); continue; }
+      p.group.visible = local > 0;
       p.fx.offset.copy(it.from).multiplyScalar(1 - e); p.fx.quat.setFromAxisAngle(it.axis, it.ang * (1 - e));
       const solid = clamp01((k - 0.45) / 0.55);
       p.mat.opacity = solid * (p.mat.userData.baseOpacity ?? 1); for (const m of p.extras) m.opacity = solid;
@@ -1056,7 +1067,7 @@ export class AssemblyView {
     this.applyPose();
     if (now - I.t0 >= I.total + 150) {
       this.intro = null; this.scanPlane.visible = false;
-      for (const p of this.parts) { p.edges.material.toneMapped = true; p.edges.material.color.copy(p.edgeColor); p.mat.depthWrite = true; p.fx.offset.set(0, 0, 0); p.fx.quat.identity(); }
+      for (const p of this.parts) { p.edges.material.toneMapped = true; p.edges.material.color.copy(p.edgeColor); p.mat.depthWrite = true; p.fx.offset.set(0, 0, 0); p.fx.quat.identity(); p.group.visible = true; }
       this.ring.visible = true; this.ring.position.y = this.floor.position.y + 0.01; this.ringT0 = now; this.bloomT0 = now;
       if (this.lastPaint) this.paint(this.lastPaint); else this.applyPose();
       I.onDone?.();
