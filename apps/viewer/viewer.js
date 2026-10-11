@@ -345,6 +345,15 @@ $("explode").addEventListener("input", applyExplode);
 // the slider track fills up to the grip
 const paintSlider = () => { const e = $("explode"); e.style.setProperty("--fill", e.value * 100 + "%"); };
 $("explode").addEventListener("input", paintSlider);
+// layout: parts fly apart along their natural stack, top-to-bottom, or left-to-right
+$("layoutSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-l]"); if (!b || mode !== "3d" || b.classList.contains("on")) return;
+  document.querySelectorAll("#layoutSeg button").forEach((x) => x.classList.toggle("on", x === b));
+  controls.autoRotate = false; $("spin").checked = false;
+  asm.setLayout(b.dataset.l);
+});
+asm.onExplode = (t) => { $("explode").value = t; paintSlider(); };
+$("axes").addEventListener("change", (e) => { if (mode === "3d") asm.showAxes(e.target.checked); });
 // callouts and the 3D model share the hover: the matching row in the parts list lights up too
 asm.onPick = (id) => select(id);
 canvas.addEventListener("pointerleave", () => { $("hover").hidden = true; if (mode === "3d") asm.setHover(null, "canvas"); });

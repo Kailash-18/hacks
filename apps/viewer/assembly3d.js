@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { installAxes } from "./axes3d.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
@@ -101,7 +102,7 @@ export class AssemblyView {
   }
 
   setActive(on) {
-    this.root.visible = on; this.labels.domElement.hidden = !on;
+    this.root.visible = on; this.labels.domElement.hidden = !on; if (this.gizmo) this.gizmo.box.hidden = !on;
     this.stage.classList.toggle("studio", on);
     this.scene.background = on ? this.background : null;
     this.scene.fog = on ? this.fog : null;
@@ -261,6 +262,9 @@ export class AssemblyView {
     this.addDecals(views);
     this.buildWires(relationships);
     this.buildEffects();
+    if (this.layout && this.layout !== "auto") { const q = this.layoutTarget(this.layout); for (const p of this.parts) p._edir = p._edirTo = p.dir.clone().applyQuaternion(q); }
+    this.buildAxes();
+    this.buildGizmo();
     this.setExplode(this.explode);
   }
 
@@ -326,7 +330,8 @@ export class AssemblyView {
   orderExplode() {
     const sum = [0, 0, 0];
     for (const p of this.parts) { sum[0] += Math.abs(p.dir.x) * p.dist; sum[1] += Math.abs(p.dir.y) * p.dist; sum[2] += Math.abs(p.dir.z) * p.dist; }
-    const e = new THREE.Vector3(); e.setComponent(sum.indexOf(Math.max(...sum)), 1);
+    this.mainAxis = sum.indexOf(Math.max(...sum));
+    const e = new THREE.Vector3(); e.setComponent(this.mainAxis, 1);
     const span = this.size.getComponent(sum.indexOf(Math.max(...sum))) || 1;
     for (const p of this.parts) {
       const along = p.dir.dot(e);
@@ -731,13 +736,14 @@ export class AssemblyView {
     for (const p of this.parts) {
       if (p.moved && p.dragT < 0.02 && t > p.dragT) p.dragT = t; // moved while assembled: tie it to this explode
       const s = this.pullScale(p);
-      p.group.position.copy(p.base).addScaledVector(p.dir, t * p.dist * reach).addScaledVector(p.offset, s).add(p.fx.offset);
+      p.group.position.copy(p.base).addScaledVector(this.edir(p), t * p.dist * reach).addScaledVector(p.offset, s).add(p.fx.offset);
       if (p.lift) p.group.position.add(p.lift);
       p.group.quaternion.copy(p.fx.quat).multiply(I.clone().slerp(p.userQuat, s)).multiply(p.baseQuat);
       p.group.scale.setScalar(p.fx.scale * (p.fit || 1));
     }
     this.poseVersion = (this.poseVersion || 0) + 1;
     this.updateGuides?.();
+    this.updateAxisMarkers?.();
   }
 
   setExplode(t) {
@@ -757,7 +763,7 @@ export class AssemblyView {
     for (const p of this.parts) {
       if (!p.mesh.geometry.boundingSphere) p.mesh.geometry.computeBoundingSphere();
       const r = p.mesh.geometry.boundingSphere.radius;
-      v.copy(p.base).addScaledVector(p.dir, t * p.dist * reach);
+      v.copy(p.base).addScaledVector(p._edirTo || this.edir(p), t * p.dist * reach);
       box.expandByPoint(v.clone().addScalar(r)); box.expandByPoint(v.clone().addScalar(-r));
     }
     if (box.isEmpty()) box.set(new THREE.Vector3(-3, -3, -3), new THREE.Vector3(3, 3, 3));
@@ -769,7 +775,7 @@ export class AssemblyView {
     const d = (fit / 2) / Math.tan(Math.min(vfov, hfov) / 2) * 1.25 + fit * 0.15; // fits short and narrow windows
     // look across the main explode axis so the gaps between parts are visible
     const axis = [0, 0, 0];
-    for (const p of this.parts) { axis[0] += Math.abs(p.dir.x) * p.dist; axis[1] += Math.abs(p.dir.y) * p.dist; axis[2] += Math.abs(p.dir.z) * p.dist; }
+    for (const p of this.parts) { const d = p._edirTo || this.edir(p); axis[0] += Math.abs(d.x) * p.dist; axis[1] += Math.abs(d.y) * p.dist; axis[2] += Math.abs(d.z) * p.dist; }
     const main = axis.indexOf(Math.max(...axis));
     const [az, el] = main === 2 ? [0.68, 0.3] : main === 0 ? [0.3, 0.35] : [0.75, 0.3];
     this.camera.position.set(ctr.x + d * Math.sin(az) * Math.cos(el), ctr.y + d * Math.sin(el), ctr.z + d * Math.cos(az) * Math.cos(el));
@@ -902,6 +908,7 @@ export class AssemblyView {
     const c = this.renderer.domElement, w = c.clientWidth, h = c.clientHeight, key = w + "x" + h;
     if (key !== this._size && w && h) { this._size = key; this.composer.setPixelRatio(this.renderer.getPixelRatio()); this.composer.setSize(w, h); }
     if (this.lowQuality) this.renderer.render(this.scene, this.camera); else this.composer.render();
+    this.updateGizmo();
     this.watchSpeed(now);
     return true;
   }
@@ -1251,3 +1258,5 @@ export class AssemblyView {
     this.bloom.strength = 0.18 + (this.bloomT0 ? 0.85 * Math.exp(-(now - this.bloomT0) / 380) : 0);
   }
 }
+
+installAxes(AssemblyView);

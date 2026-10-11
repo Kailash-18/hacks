@@ -659,3 +659,49 @@ details summary { cursor: pointer; font-weight: 600; color: var(--muted); }
 /* no dotted lines in the 3D view: inferred parts keep solid, quieter leaders and solid label borders */
 .leaders3d .leader.inf path { stroke-dasharray: none; opacity: .55; }
 .labels3d .lbl.inferred, .lbl.inferred { border-style: solid; }
+
+/* ---------- XYZ graph labels (CSS2D) */
+.labels3d .ax-end, .labels3d .ax-dim, .labels3d .ax-origin, .labels3d .ax-mark { pointer-events: none; transition: opacity .5s var(--ease), filter .5s; }
+.labels3d .pre { opacity: 0 !important; filter: blur(3px); }
+.ax-end b { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; font: 700 12px "JetBrains Mono", monospace; color: #0b0e13;
+  background: var(--ac); box-shadow: 0 0 16px color-mix(in srgb, var(--ac) 70%, transparent), 0 0 0 1px rgba(255, 255, 255, .25) inset; }
+.ax-end.x, .ax-dim.x, .ax-mark.x { --ac: #ff5470; } .ax-end.y, .ax-dim.y, .ax-mark.y { --ac: #3ccf8e; } .ax-end.z, .ax-dim.z, .ax-mark.z { --ac: #4f8cff; }
+.ax-dim { display: flex; align-items: baseline; gap: 4px; padding: 3px 8px; border-radius: 8px; white-space: nowrap;
+  background: rgba(9, 12, 18, .78); border: 1px solid color-mix(in srgb, var(--ac) 45%, transparent); backdrop-filter: blur(6px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .35); }
+.ax-dim span { font: 500 9.5px Inter, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #8b93a1; }
+.ax-dim b { font: 600 13px "JetBrains Mono", monospace; color: #fff; }
+.ax-dim i { font: 10px "JetBrains Mono", monospace; font-style: normal; color: var(--ac); }
+.ax-origin { font: 600 10px "JetBrains Mono", monospace; color: #c9d6ea; width: 16px; height: 16px; display: grid; place-items: center;
+  border-radius: 50%; background: #0d1118; border: 1px solid rgba(143, 208, 255, .6); box-shadow: 0 0 12px rgba(143, 208, 255, .5); }
+.ax-mark .mk { display: flex; align-items: center; gap: 4px; font: 600 10.5px "JetBrains Mono", monospace; color: #fff; padding: 2px 7px 2px 4px; border-radius: 999px;
+  background: color-mix(in srgb, var(--ac) 22%, rgba(9, 12, 18, .85)); border: 1px solid var(--ac); box-shadow: 0 0 14px color-mix(in srgb, var(--ac) 50%, transparent);
+  animation: markIn .35s var(--ease) both; }
+.ax-mark i { width: 6px; height: 6px; border-radius: 50%; background: var(--ac); box-shadow: 0 0 8px var(--ac); animation: markPulse 1.6s ease-in-out infinite; }
+.ax-mark b { color: var(--ac); font-weight: 700; } .ax-mark em { font-style: normal; }
+@keyframes markIn { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: none; } }
+@keyframes markPulse { 50% { transform: scale(1.6); opacity: .5; } }
+
+/* ---------- view gizmo (top-left of the stage) */
+.gizmo { position: absolute; left: 18px; top: 16px; z-index: 5; display: grid; justify-items: center; gap: 8px; user-select: none; animation: focusIn .6s .3s var(--ease) both; }
+.gizmo svg { width: 104px; height: 104px; overflow: visible; filter: drop-shadow(0 6px 18px rgba(0, 0, 0, .45)); }
+.gz-ring { fill: rgba(10, 14, 20, .55); stroke: rgba(143, 208, 255, .18); stroke-width: 1; transition: stroke .25s, fill .25s; }
+.gizmo:hover .gz-ring { stroke: rgba(143, 208, 255, .45); fill: rgba(10, 14, 20, .75); }
+.gz-a line { stroke-width: 2.2; stroke-linecap: round; }
+.gz-a.neg line { stroke-width: 1.2; opacity: .5; }
+.gz-a circle { stroke-width: 1.5; transition: r .2s var(--ease); }
+.gz-a.pos circle { filter: drop-shadow(0 0 5px currentColor); }
+.gz-a text { font: 700 9px "JetBrains Mono", monospace; fill: #0b0e13; text-anchor: middle; pointer-events: none; }
+.gz-a:hover circle { r: 10; } .gz-a.neg:hover circle { r: 7; }
+.gz-views { display: flex; gap: 2px; padding: 2px; border-radius: 9px; background: rgba(10, 14, 20, .7); border: 1px solid rgba(255, 255, 255, .07); backdrop-filter: blur(6px); }
+.gz-views button { appearance: none; border: 0; background: none; color: #8b93a1; font: 500 11px Inter, sans-serif; padding: 4px 8px; border-radius: 7px; cursor: pointer;
+  transition: color .15s, background .15s; }
+.gz-views button:hover { color: #fff; background: rgba(79, 140, 255, .18); }
+
+/* ---------- layout switch in the control bar */
+.layout-seg button { display: inline-flex; align-items: center; gap: 6px; }
+.layout-seg i { position: relative; width: 10px; height: 10px; }
+.layout-seg i::before, .layout-seg i::after { content: ""; position: absolute; background: currentColor; border-radius: 1px; }
+.ic-v::before { left: 1px; right: 1px; top: 0; height: 3px; } .ic-v::after { left: 1px; right: 1px; bottom: 0; height: 3px; opacity: .6; }
+.ic-h::before { top: 1px; bottom: 1px; left: 0; width: 3px; } .ic-h::after { top: 1px; bottom: 1px; right: 0; width: 3px; opacity: .6; }
+.axes-check input { accent-color: #ff5470; }
