@@ -19,11 +19,27 @@ export function installAxes(View) {
     if (mode !== "horizontal" && mode !== "vertical") return new THREE.Quaternion();
     const st = this.mainAxis ?? 1, sz = [this.size.x, this.size.y, this.size.z];
     const others = [0, 1, 2].filter((i) => i !== st), lg = sz[others[0]] >= sz[others[1]] ? others[0] : others[1];
-    const e = new THREE.Vector3(), l = new THREE.Vector3(); e.setComponent(st, 1); l.setComponent(lg, 1);
+    const e = new THREE.Vector3(), l = new THREE.Vector3(); e.setComponent(st, 1); l.setComponent(lg, this.upSign(mode, lg));
     const S = mode === "horizontal" ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);   // where the layers stack
     const L = mode === "horizontal" ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);   // where the long side points
     const from = new THREE.Matrix4().makeBasis(e, l, e.clone().cross(l)), to = new THREE.Matrix4().makeBasis(S, L, S.clone().cross(L));
     return new THREE.Quaternion().setFromRotationMatrix(to.multiply(from.transpose()));
+  };
+  // Which end of the long side goes up (vertical) or right (horizontal). An object that already stands
+  // (long side vertical) keeps its own up. A lying object is stood up the way a person would hold it:
+  // the end with its buttons, wheel, screen or lights on top (a mouse stands on its tail, buttons up).
+  P.upSign = function (mode, lg) {
+    if (lg === 1) return 1;
+    const FRONT = new Set(["interface", "actuator", "display", "wheel", "light"]);
+    const DECOR = /logo|label|badge|sticker|brand|decal|print|text|screw|foot|feet/i;
+    const front = this.parts.filter((p) => FRONT.has(p.type) && !p.inferred && !DECOR.test(p.label.element.firstChild?.textContent || p.id));
+    // controls on the top side (buttons, wheel, screen) decide; switches and LEDs on the underside do not
+    const topSide = front.filter((p) => p.base.y > -this.size.y * 0.1);
+    let sum = 0, n = 0;
+    for (const p of (topSide.length ? topSide : front)) { sum += p.base.getComponent(lg); n++; }
+    const span = this.size.getComponent(lg) || 1;
+    if (n && Math.abs(sum / n) > span * 0.04) return Math.sign(sum / n);
+    return -1; // no clear front: the end farther from the camera rises, like tilting the object up toward you
   };
   P.orientedSize = function () {
     const v = this.size.clone().applyQuaternion(this.orientQ || new THREE.Quaternion());
@@ -90,6 +106,16 @@ export function installAxes(View) {
   P.viewFrom = function (v, ms = 900) {
     const tgt = this.controls.target.clone(), d = this.camera.position.distanceTo(tgt);
     const dirs = { front: [0, 0.001, 1], back: [0, 0.001, -1], top: [0, 1, 0.001], bottom: [0, -1, 0.001], side: [1, 0.001, 0], left: [-1, 0.001, 0], iso: [0.62, 0.42, 0.66] };
+    if (v === "iso") { // the 3D button: the usual three-quarter view, fitted to the current explode level
+      const cp = this.camera.position.clone(), ct = this.controls.target.clone();
+      this.frame(Math.max(0.3, this.explode)); const np = this.camera.position.clone(), nt = this.controls.target.clone();
+      this.camera.position.copy(cp); this.controls.target.copy(ct);
+      const t0 = performance.now();
+      const tick = (now) => { const k = Math.min(1, (now - t0) / ms), e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+        this.camera.position.lerpVectors(cp, np, e); this.controls.target.lerpVectors(ct, nt, e); this.controls.update(); this.poke();
+        if (k < 1) requestAnimationFrame(tick); };
+      this.controls.autoRotate = false; this.onViewChange?.(v); requestAnimationFrame(tick); return;
+    }
     const dir = new THREE.Vector3(...(dirs[v] || dirs.iso)).normalize();
     const from = this.camera.position.clone().sub(tgt), t0 = performance.now();
     const r0 = from.length(), u0 = from.clone().normalize();
