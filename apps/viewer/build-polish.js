@@ -55,10 +55,11 @@
   }
   function sizePrev() { const f = q("#prevFrame"), m = q("#frame"); if (f && m) { f.style.width = m.style.width; f.style.height = m.style.height; f.style.transform = m.style.transform; } }
   wrap("fit", sizePrev);
-  function sweep() {
+  function sweep(keys = [[0, 100], [.45, 6], [1, 50]], dur = 2100) {
     if (reduce || typeof setWipe !== "function" || q("#wipe").hidden) return;
     const w = q("#wipe"); w.classList.add("reveal");
-    const keys = [[0, 100], [.45, 6], [1, 50]], dur = 2100, t0 = performance.now();
+    const t0 = performance.now();
+    if (keys.length === 2) keys = [keys[0], [(keys[0][0] + keys[1][0]) / 2, (keys[0][1] + keys[1][1]) / 2], keys[1]];
     const ease = (t) => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
     const step = (now) => {
       const t = Math.min(1, (now - t0) / dur);

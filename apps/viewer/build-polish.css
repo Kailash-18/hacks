@@ -91,3 +91,7 @@
 
 @media (prefers-reduced-motion: reduce) { .ax-ring .bar { transition: none; } }
 .ex.hot .ex-tag { background: #5ef2ff; color: #04131a; border-color: transparent; }
+
+/* genesis: the canvas that plays the arrival of the rebuilt page */
+.wipe canvas.genesis { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 8; pointer-events: none; transition: opacity .35s ease; }
+.wipe canvas.genesis.out { opacity: 0; }

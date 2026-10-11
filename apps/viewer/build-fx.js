@@ -176,7 +176,8 @@
     await sleep(skip ? 200 : 550);
     if (my !== run) return;
     clear();
-    sweep();
+    if (window.genesis) window.genesis().then((ok) => ok ? window.polishSweep?.([[0, 0], [1, 50]], 1300) : sweep());
+    else sweep();
   }
   function done(code) { if (!reduce && ov) finish(run, false, code); }
   function abort() { run++; clear(); }
