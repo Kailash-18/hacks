@@ -61,12 +61,12 @@ async function loadExamples() {
     const all = await api("/api/digital/samples");
     const set = all.filter((s) => s.set).sort((a, b) => (a.order ?? 99) - (b.order ?? 99)).filter((s) => !s.compareWith);
     const list = (set.length ? set : all).slice(0, 4);
-    S.sets = {}; for (const s of set) S.sets[s.set] = (S.sets[s.set] || 0) + 1;  // screens per saved site
+    S.sets = {}; for (const s of set) (S.sets[s.set] ||= []).push(s);  // the screens of each saved app, in order
     $("#examples").innerHTML = list.map((s) => `<button class="ex" data-id="${esc(s.id)}"><img src="${esc(s.imageUrl)}" alt="" loading="lazy" /><span>${esc(s.title.replace(/^.*·\s*/, ""))}</span></button>`).join("");
     $$(".ex").forEach((b) => (b.onclick = async () => {
       const s = list.find((x) => x.id === b.dataset.id);
       const blob = await (await fetch(s.imageUrl)).blob();
-      start(blob, `${s.id}.png`, s.title.replace(/^.*·\s*/, ""), s.set);
+      start(blob, `${s.id}.png`, s.title.replace(/^.*·\s*/, ""), s.set, s.id);
     }));
     if (!list.length) $(".examples").hidden = true;
   } catch { $(".examples").hidden = true; }
@@ -79,17 +79,18 @@ function showStart() {
 }
 
 // ---------- main flow ----------
-async function start(blob, name, title = "", set = null) {
+async function start(blob, name, title = "", set = null, sampleId = null) {
   const run = ++S.run;
   if (S.shot?.url) URL.revokeObjectURL(S.shot.url);
   const url = URL.createObjectURL(blob);
   const [w, h] = await imgSize(url);
-  const n = set ? S.sets?.[set] || 0 : 0;
-  $("#whole").hidden = n < 2;
-  if (n >= 2) $("#wholeBtn").innerHTML = `Build the whole site <small>${n} screens</small>`;
-  Object.assign(S, { set: n >= 2 ? set : null, shot: { blob, url, w, h, name }, analysis: null, guide: null, tree: null, sel: null,
+  // the other screens of a saved app come along, so "Build the whole app" works straight away
+  const extra = (set && S.sets?.[set] || []).filter((x) => x.id !== sampleId)
+    .map((x) => ({ name: `${x.id}.png`, url: x.imageUrl, title: x.title.replace(/^.*·\s*/, ""), blob: null }));
+  Object.assign(S, { extra, shot: { blob, url, w, h, name }, analysis: null, guide: null, tree: null, sel: null,
     versions: { html: [], react: [], "react-native": [], flutter: [] }, cur: { html: -1, react: -1, "react-native": -1, flutter: -1 }, target: "html", backend: null, a11y: null, acc: {} });
   $("#acc").hidden = true; $("#heat").hidden = true; $("#accHeat").checked = false;
+  renderScreens();
   for (const id of ["#beImg", "#axImg"]) $(id).src = url;
   $("#beSummary").textContent = "Inferring the data model and API from what the screen shows…"; $("#beEr").innerHTML = "";
   $("#beEndpoints").innerHTML = ""; $("#beBoxes").innerHTML = ""; $("#beNotes").innerHTML = ""; $("#beBadge").textContent = "";
@@ -139,6 +140,7 @@ async function makeCode(params, label, run = S.run) {
   try {
     const out = await api("/api/digital/code", { method: "POST", body: form(params) });
     if (run !== S.run) return;
+    if (out.source !== "ai" && params.baseCode && out.code === params.baseCode) { status(out.notes?.[0] || "The change could not be applied.", true); return; }
     S.versions[t].push({ code: out.code, notes: out.notes || [], source: out.source, change: out.change, label,
       model: out.provider?.model, cached: out.cached });
     S.cur[t] = S.versions[t].length - 1;
@@ -153,7 +155,7 @@ async function makeCode(params, label, run = S.run) {
 }
 
 const current = () => S.versions[S.target][S.cur[S.target]];
-function busy(on) { for (const id of ["#apply", "#regen", "#copy", "#download", "#openTab"]) $(id).disabled = on; $$("#targetSeg button").forEach((b) => (b.disabled = on)); }
+function busy(on) { for (const id of ["#apply", "#regen", "#copy", "#download", "#openTab", "#stackblitz"]) $(id).disabled = on; $$("#targetSeg button").forEach((b) => (b.disabled = on)); }
 // waiting message with a running seconds counter, so a slow model call never looks frozen
 function wait(msg) {
   clearInterval(wait.t);
@@ -225,9 +227,27 @@ ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(
 </script></body></html>`;
 }
 
+// the same rebuilt page at three real widths, to show it is responsive (phone, tablet, laptop)
+function renderDevices() {
+  const v = current();
+  if (!v || S.view !== "devices") return;
+  const doc = previewDoc(v), box = $("#devices"), H = Math.max(320, Math.min(560, innerHeight - box.getBoundingClientRect().top - 60));
+  const figs = $$("#devices .dev"), totalW = box.clientWidth - 24 * (figs.length - 1) - 24 - figs.length * 24;  // gaps, padding, frames
+  const ks = figs.map((f) => H / +f.dataset.h), sumW = figs.reduce((a, f, i) => a + +f.dataset.w * ks[i], 0), fit = Math.min(1, totalW / sumW);
+  figs.forEach((f, i) => {
+    const w = +f.dataset.w, h = +f.dataset.h, k = ks[i] * fit, wrap = f.querySelector(".devwrap"), fr = f.querySelector("iframe");
+    wrap.style.width = `${Math.round(w * k)}px`; wrap.style.height = `${Math.round(h * k)}px`;
+    Object.assign(fr.style, { width: `${w}px`, height: `${h}px`, transform: `scale(${k})` });
+    const key = doc.length + ":" + S.target + S.cur[S.target];
+    if (fr.dataset.doc !== key) { fr.srcdoc = doc; fr.dataset.doc = key; }
+  });
+}
+addEventListener("resize", () => S.view === "devices" && renderDevices());
+
 function renderCode() {
   const v = current();
   if (!v) return;
+  renderDevices();
   const doc = previewDoc(v);
   for (const id of ["#frame", "#sideFrame"]) if ($(id).dataset.doc !== doc.length + ":" + S.target + S.cur[S.target]) {
     $(id).srcdoc = doc; $(id).dataset.doc = doc.length + ":" + S.target + S.cur[S.target];
@@ -288,7 +308,8 @@ function setView(v) {
   if (v === "wipe" && S.shot && isMobile()) { toast("A phone app is compared side by side with the screenshot"); v = "side"; }
   S.view = v;
   $$("#viewSeg button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
-  $("#wipe").hidden = v !== "wipe"; $("#side").hidden = v !== "side"; $("#codeView").hidden = v !== "code";
+  $("#wipe").hidden = v !== "wipe"; $("#side").hidden = v !== "side"; $("#codeView").hidden = v !== "code"; $("#devices").hidden = v !== "devices";
+  if (v === "devices") requestAnimationFrame(renderDevices);
   // a React Native app measures the screen once at start: one loaded while hidden saw a 0 x 0 screen, so reload it
   const shown = { wipe: "#frame", side: "#sideFrame" }[v];
   if (shown && $(shown).dataset.hiddenLoad === "true" && current()) { delete $(shown).dataset.doc; requestAnimationFrame(renderCode); }
@@ -299,9 +320,10 @@ $$("#viewSeg button").forEach((b) => (b.onclick = () => setView(b.dataset.v)));
 function setTarget(t, generate = true) {
   S.target = t; renderTarget();
   // a mobile app is compared side by side with the screenshot (a wipe needs the same size and layout)
-  if (isMobile() && S.view === "wipe") { S.prevView = "wipe"; setView("side"); }
+  if (isMobile() && (S.view === "wipe" || S.view === "devices")) { S.prevView = S.view; setView("side"); }
   if (!isMobile() && S.prevView === "wipe") { S.prevView = null; if (S.view === "side") setView("wipe"); }
   $("#openTab").textContent = t === "flutter" ? "Run in DartPad" : "Open";
+  $("#stackblitz").hidden = !["html", "react"].includes(t);
   if (generate && t !== "html" && !S.versions[t].length) {
     const base = S.versions.html[S.cur.html];
     makeCode({ target: t, baseCode: base?.code, change: base ? CONVERT[t] : "" }, `First ${TARGET_NAME[t]} version`);
@@ -333,26 +355,46 @@ $("#changeForm").onsubmit = (e) => {
   if (!v) return toast("Wait for the first version.");
   makeCode({ target: S.target, change, baseCode: v.code }, change.length > 40 ? change.slice(0, 40) + "…" : change).then(() => ($("#change").value = ""));
 };
-// every saved screen of this site in one working app: its navigation wired, its windows opening and closing
+// ---------- whole app: every screen of the app in one working page, its navigation wired ----------
+function renderScreens() {
+  const all = [{ url: S.shot?.url, title: "This screen" }, ...(S.extra || [])];
+  $("#screens").innerHTML = all.map((x, i) => `<figure class="scr"><img src="${esc(x.url || "")}" alt="" /><figcaption>${i + 1}. ${esc(x.title || "Screen")}</figcaption>
+    ${i ? `<button type="button" class="scr-x" data-i="${i - 1}" aria-label="Remove screen ${i + 1}">×</button>` : ""}</figure>`).join("");
+  $$("#screens .scr-x").forEach((b) => (b.onclick = () => { const [r] = S.extra.splice(+b.dataset.i, 1); if (r?.own) URL.revokeObjectURL(r.url); renderScreens(); }));
+  const n = all.length;
+  $("#wholeBtn").disabled = n < 2;
+  $("#wholeBtn").innerHTML = n < 2 ? "Build the whole app" : `Build the whole app <small>${n} screens</small>`;
+  $("#addScreen").hidden = n >= 6;
+}
+function addScreens(files) {
+  for (const f of [...files].filter((f) => f.type.startsWith("image/")).slice(0, 6 - 1 - S.extra.length))
+    S.extra.push({ blob: f, name: f.name || "screen.png", url: URL.createObjectURL(f), title: (f.name || "Screen").replace(/\.\w+$/, "").slice(0, 24), own: true });
+  renderScreens();
+}
+$("#addScreen").onclick = () => $("#addFile").click();
+$("#addFile").addEventListener("change", (e) => { addScreens(e.target.files); e.target.value = ""; });
+$("#screens").addEventListener("dragover", (e) => { e.preventDefault(); e.stopPropagation(); $("#screens").classList.add("over"); });
+$("#screens").addEventListener("dragleave", () => $("#screens").classList.remove("over"));
+$("#screens").addEventListener("drop", (e) => { e.preventDefault(); e.stopPropagation(); $("#screens").classList.remove("over"); addScreens(e.dataTransfer.files); });
 $("#wholeBtn").onclick = async () => {
-  if (!S.set || !S.analysis) return;
-  const run = S.run, n = S.sets[S.set];
-  wait(`Building the whole site from ${n} screens…`); busy(true); $("#wholeBtn").disabled = true;
+  if (!S.analysis || !S.extra.length) return;
+  const run = S.run, n = S.extra.length + 1;
+  wait(`Building the whole app from ${n} screens…`); busy(true); $("#wholeBtn").disabled = true;
   status(`Reading all ${n} screenshots together and wiring the navigation between them. This takes about a minute.`);
   try {
-    const fd = new FormData(); fd.append("set", S.set);
+    const fd = new FormData(); fd.append("image", S.shot.blob, S.shot.name);
+    for (const x of S.extra) fd.append("image", x.blob || (x.blob = await (await fetch(x.url)).blob()), x.name);
     const out = await api("/api/digital/app", { method: "POST", body: fd });
     if (run !== S.run) return;
-    S.versions.html.push({ code: out.code, notes: out.notes || [], source: out.source, change: out.change, label: `Whole site · ${n} screens`,
+    S.versions.html.push({ code: out.code, notes: out.notes || [], source: out.source, change: out.change, label: `Whole app · ${n} screens`,
       model: out.provider?.model, cached: out.cached, app: true });
     S.cur.html = S.versions.html.length - 1;
-    S.target = "html"; renderTarget(); renderVersions(); renderNotes(); renderCode(); setView("wipe");
-    status(out.source === "ai" ? "Whole site built: click the navigation in the rebuilt page." : (out.notes?.[0] || ""), out.source !== "ai");
-    toast("Use the rebuilt page: its navigation opens the other screens");
+    S.target = "html"; renderTarget(); renderVersions(); renderNotes(); renderCode(); setView("side");
+    status(out.source === "ai" ? "Whole app built: click its navigation in the rebuilt page to open the other screens." : (out.notes?.[0] || ""), out.source !== "ai");
   } catch (e) {
-    if (run === S.run) status(`Could not build the whole site: ${e.message}`, true);
+    if (run === S.run) status(`Could not build the whole app: ${e.message}`, true);
   } finally {
-    if (run === S.run) { wait(null); busy(false); $("#wholeBtn").disabled = false; }
+    if (run === S.run) { wait(null); busy(false); renderScreens(); }
   }
 };
 $("#regen").onclick = () => { if (S.analysis) makeCode({ target: S.target, force: "1" }, "Written again"); };
@@ -370,6 +412,34 @@ $("#download").onclick = () => {
   a.href = URL.createObjectURL(new Blob([v.code], { type })); a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   toast(`Downloaded ${name}`);
+};
+// a real, editable project in StackBlitz (free, runs in the browser): plain HTML, or a Vite + React app
+function stackblitzFiles(v) {
+  const title = S.analysis?.title || "Rebuilt screen";
+  if (S.target === "html") return { template: "html", files: { "index.html": v.code } };
+  let app = v.code.replace(/^\s*import\s[^;\n]*from\s*["']react["'];?\s*$/gm, "");
+  app = `import React, { useState, useEffect, useRef, useMemo, useCallback, Fragment } from "react";\n${app}`;
+  if (!/export\s+default/.test(app)) { const m = app.match(/function\s+([A-Z]\w*)/); if (m) app += `\nexport default ${m[1]};\n`; }
+  return { template: "node", files: {
+    "package.json": JSON.stringify({ name: "rebuilt-screen", private: true, type: "module", scripts: { dev: "vite", build: "vite build" },
+      dependencies: { react: "^18.3.1", "react-dom": "^18.3.1" }, devDependencies: { vite: "^5.4.10", "@vitejs/plugin-react": "^4.3.3" } }, null, 2),
+    "vite.config.js": 'import { defineConfig } from "vite";\nimport react from "@vitejs/plugin-react";\nexport default defineConfig({ plugins: [react()] });\n',
+    "index.html": `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8" />\n<meta name="viewport" content="width=device-width, initial-scale=1" />\n<title>${esc(title)}</title>\n<script src="https://cdn.tailwindcss.com"></script>\n</head>\n<body>\n<div id="root"></div>\n<script type="module" src="/src/main.jsx"></script>\n</body>\n</html>\n`,
+    "src/main.jsx": 'import React from "react";\nimport { createRoot } from "react-dom/client";\nimport App from "./App.jsx";\ncreateRoot(document.getElementById("root")).render(<App />);\n',
+    "src/App.jsx": app } };
+}
+$("#stackblitz").onclick = () => {
+  const v = current(); if (!v || !["html", "react"].includes(S.target)) return;
+  const { template, files } = stackblitzFiles(v);
+  const f = document.createElement("form");
+  f.method = "POST"; f.action = `https://stackblitz.com/run?file=${encodeURIComponent(S.target === "html" ? "index.html" : "src/App.jsx")}`; f.target = "_blank";
+  const add = (k, val) => { const i = document.createElement("input"); i.type = "hidden"; i.name = k; i.value = val; f.append(i); };
+  add("project[title]", `${S.analysis?.title || "Rebuilt screen"} (rebuilt from a screenshot)`);
+  add("project[description]", "Rebuilt from a screenshot by Visual Reverse Engineering");
+  add("project[template]", template);
+  for (const [k, val] of Object.entries(files)) add(`project[files][${k}]`, val);
+  document.body.append(f); f.submit(); f.remove();
+  toast("Opening a live project in StackBlitz");
 };
 $("#openTab").onclick = async () => {
   const v = current(); if (!v) return;

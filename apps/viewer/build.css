@@ -26,8 +26,8 @@ button, input, textarea { font: inherit; color: inherit; }
 [hidden] { display: none !important; }
 /* the two preview views are moved off screen instead of display:none: Chrome leaves a sandboxed preview that loaded
    while not displayed white when it is shown, and a React Native app would measure a 0 x 0 screen */
-#side[hidden] { display: grid !important; } #wipe[hidden] { display: block !important; }
-#side[hidden], #wipe[hidden] { position: absolute !important; left: -12000px !important; top: 0; width: 1000px; pointer-events: none; }
+#side[hidden] { display: grid !important; } #wipe[hidden] { display: block !important; } #devices[hidden] { display: flex !important; }
+#side[hidden], #wipe[hidden], #devices[hidden] { position: absolute !important; left: -12000px !important; top: 0; width: 1000px; pointer-events: none; }
 
 /* bar */
 .bar { display: flex; align-items: center; gap: 20px; height: 56px; padding: 0 24px; background: var(--sheet); border-bottom: 1px solid var(--rule); }
@@ -307,14 +307,40 @@ kbd { font: 500 15px "IBM Plex Mono", monospace; background: var(--paper); borde
 .side img { width: auto; max-width: 100%; margin: 0 auto; }
 .side figure { align-items: center; }
 
-/* whole site from every saved screen of it */
-.whole { display: grid; gap: 6px; padding-bottom: 14px; border-bottom: 1px solid var(--rule); }
-.whole-btn { width: 100%; display: flex; justify-content: center; align-items: baseline; gap: 8px; font-weight: 600; color: #04131a;
+/* whole app from several screens */
+.whole { display: grid; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--rule); }
+.whole h3 { font-size: 15px; margin: 0; }
+.screens { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; border: 1px dashed transparent; border-radius: 8px; transition: border-color .2s; }
+.screens.over { border-color: var(--blue); }
+.scr { position: relative; margin: 0; }
+.scr img { display: block; width: 100%; aspect-ratio: 16/10; object-fit: cover; object-position: top; border: 1px solid var(--rule); border-radius: 6px; }
+.scr figcaption { font-size: 11px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.scr-x { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border-radius: 50%; border: 0; background: rgba(0,0,0,.7); color: #fff; cursor: pointer; line-height: 20px; padding: 0; }
+.whole-row { display: flex; gap: 6px; }
+.whole-row .btn { flex: 1; }
+.whole-btn { display: flex; justify-content: center; align-items: baseline; gap: 8px; font-weight: 600; color: #04131a;
   background: linear-gradient(92deg, #5ef2ff, #4f8cff); border: 0; box-shadow: 0 0 22px rgba(94,242,255,.25); }
 .whole-btn small { font-weight: 500; opacity: .75; }
-.whole-btn:hover { filter: brightness(1.08); }
-.whole-btn:disabled { opacity: .6; }
-.whole p { margin: 0; font-size: 13px; color: var(--ink-2); }
-.refine-btn { border: 0; border-radius: 999px; padding: 5px 12px; font: 600 12px Inter, system-ui, sans-serif; cursor: pointer; color: #04131a;
-  background: linear-gradient(92deg, #5ef2ff, #4f8cff); }
-.refine-btn:disabled { opacity: .55; cursor: progress; }
+.whole-btn:disabled { opacity: .45; box-shadow: none; cursor: default; }
+.whole p { margin: 0; font-size: 12px; color: var(--ink-2); }
+
+/* devices: phone, tablet, laptop side by side */
+.devices { display: flex; gap: 24px; align-items: flex-end; justify-content: center; padding: 18px 12px 6px; }
+.dev { margin: 0; display: grid; justify-items: center; gap: 8px; }
+.dev figcaption { font-size: 12px; color: var(--ink-2); }
+.devwrap { position: relative; overflow: hidden; background: #fff; box-sizing: content-box; }
+.devwrap iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; }
+.devwrap.phone { border: 8px solid #1f2937; border-radius: 26px; }
+.devwrap.tablet { border: 10px solid #1f2937; border-radius: 18px; }
+.devwrap.laptop { border: 8px solid #1f2937; border-bottom-width: 14px; border-radius: 10px 10px 4px 4px; }
+.actions .sb-btn { flex-basis: 100%; }
+/* the tool row holds many controls: wrap to a second line instead of squeezing labels */
+.tools { flex-wrap: wrap; justify-content: flex-start; align-items: center; row-gap: 8px; }
+.tools .seg button, .tools .xray-btn, .refine-btn, .acc-heat { white-space: nowrap; }
+.tools .acc { margin-left: auto; }
+.screens { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.panel { min-width: 0; }
+.whole { grid-template-columns: minmax(0, 1fr); }
+.whole-row { flex-wrap: wrap; }
+.whole-row .btn { min-width: 0; }
+.whole-row .whole-btn { flex-basis: 100%; order: -1; }

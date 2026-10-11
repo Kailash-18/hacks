@@ -242,3 +242,31 @@ def test_font_stretch_loads_the_width_axis():
             '</head><body><h1 style="font-stretch:75%">Fast</h1></body></html>')
     assert "family=Archivo:wdth,wght@62..125,100..900&" in codegen.clean_html(html)
     assert "family=Archivo:wght@800" in codegen.clean_html(html.replace("font-stretch:75%", ""))
+
+
+def test_app_route_takes_uploaded_screenshots(monkeypatch):
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from app import routes_build
+    from app.main import app
+
+    sc = sorted((s for s in SAMPLES.values() if s.sample_set == "nimbus" and not s.compare_with), key=lambda s: s.order or 0)[:2]
+    if len(sc) < 2:
+        pytest.skip("samples missing")
+    app_html = "```html\n" + HTML.replace("</main>", "<nav>Dashboard</nav></main>") + "x" * 400 + "\n```"
+    fake = FakeMulti(app_html)
+    monkeypatch.setattr(routes_build, "_client_or_none", lambda: fake)
+    c = TestClient(app)
+    files = [("image", (f"s{i}.png", io.BytesIO(s.image_path.read_bytes()), "image/png")) for i, s in enumerate(sc)]
+    r = c.post("/api/digital/app", files=files)
+    assert r.status_code == 200 and r.json()["source"] == "ai" and fake.n == 2
+    assert r.json()["screens"] == [s.analysis.analysisId for s in sc]
+    one = c.post("/api/digital/app", files=files[:1])
+    assert one.status_code == 400
+
+
+def test_nested_screens_are_detected():
+    ok = '<body><section data-screen="a"><div>x</div></section><section data-screen="b"><p>y</p></section></body>'
+    bad = '<body><section data-screen="a"><div class="sidebar"><a>x</a><section data-screen="b"></section></div></section></body>'
+    assert not codegen.screens_nested(ok) and codegen.screens_nested(bad)

@@ -46,14 +46,25 @@ async def _run_code(form, analysis, img) -> dict:
 
 @router.post("/app")
 async def app_build(request: Request) -> dict:
-    """multipart: set (id of a saved screen set); force. All screens of the set -> one working HTML app."""
+    """multipart: set (id of a saved screen set) OR several `image` files (2-6 screenshots of one app, in order); force.
+    All screens -> one working HTML app with the navigation between them wired up."""
+    from .routes_explorer import store, image_hash, validate_image
     form = await request.form()
     set_id = str(form.get("set") or "")
-    screens = sorted((x for x in rd.SAMPLES.values() if x.sample_set == set_id and not x.compare_with),
-                     key=lambda x: (x.order if x.order is not None else 99, x.id))
-    if len(screens) < 2:
-        raise ApiError(404, "set_not_found", "No saved screen set with that id (it needs at least two screens).")
-    data = [(x.analysis, x.image_path.read_bytes(), x.mime) for x in screens[:6]]
+    ups = [u for u in form.getlist("image") if hasattr(u, "read")]
+    if ups:
+        data = []
+        for up in ups[:6]:
+            img = validate_image(await up.read(rd.MAX_UPLOAD_BYTES + 1), getattr(up, "filename", None))
+            sha = image_hash(img.data)
+            a = store.get_by_image("digital", sha) or await rd._analyze_once(sha, img)
+            data.append((a, img.data, img.mime))
+    else:
+        screens = sorted((x for x in rd.SAMPLES.values() if x.sample_set == set_id and not x.compare_with),
+                         key=lambda x: (x.order if x.order is not None else 99, x.id))
+        data = [(x.analysis, x.image_path.read_bytes(), x.mime) for x in screens[:6]]
+    if len(data) < 2:
+        raise ApiError(400, "need_screens", "Send at least two screenshots of the same app (or the id of a saved screen set).")
     try:
         out = await rd._call_model(codegen.generate_app, data, _client_or_none(), _flag(form, "force", False))
     except ApiError:

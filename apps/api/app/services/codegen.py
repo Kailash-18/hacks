@@ -279,7 +279,12 @@ def generate_code(analysis: SystemAnalysis, image: bytes | None, mime: str | Non
                                     tail=TEXT_TAIL if use_text else JSON_TAIL, fonts=FONT_HINT)
         try:
             if use_text:
-                code, notes, complete = parse_code_text(client.generate_code_text(image, mime or "image/png", prompt))
+                long_base = len(base_code) > 18000 and hasattr(client, "generate_code_text_images")
+                text = (client.generate_code_text_images([(image, mime or "image/png")], prompt, max_tokens=32000, timeout_s=300)
+                        if long_base else client.generate_code_text(image, mime or "image/png", prompt))  # a whole app needs room
+                code, notes, complete = parse_code_text(text)
+                if not complete and base_code:
+                    raise ValueError("the answer was cut off at the length limit")
                 if not complete:
                     notes = ["The answer was cut off at the length limit; the end of the file may be missing."] + notes[:3]
             else:
@@ -296,6 +301,11 @@ def generate_code(analysis: SystemAnalysis, image: bytes | None, mime: str | Non
         except Exception as exc:  # any model/provider failure -> layout draft, never a 500
             reason = getattr(exc, "message", None) or f"{type(exc).__name__}: {exc}"
             log.warning("codegen fell back to layout draft: %s", reason, exc_info=not isinstance(exc, VisionProviderError))
+            if base_code and target in ("html", "react") and base_code.lstrip().startswith(("<", "import", "export", "function", "const")) \
+                    and change and not change.startswith("Convert"):  # a failed change keeps the code it was asked to change
+                return {"target": target, "code": base_code, "notes": [f"The change could not be applied ({reason[:120]}); the code is unchanged. Try again."],
+                        "source": "layout", "provider": {"name": "deterministic", "model": "none"}, "change": None,
+                        "size": {"width": w, "height": h}, "cached": False}
             fallback_reason = f"AI code generation unavailable ({reason[:120]}). Showing the layout-only draft."
     else:
         fallback_reason = "No AI model available. Showing the layout-only draft built from the boxes."
@@ -398,6 +408,8 @@ Rebuild the whole site as ONE working single-file HTML app.
   wire it with vanilla JavaScript, without page reloads. A screen that is a window or panel over the page opens as
   one: title bar, working close and minimise buttons, brought to the front on click, draggable by its title bar.
   Otherwise switch views. Every screen must look like its screenshot.
+- Structure: each screen is one top-level <section data-screen="name"> directly inside <body> (never nested in another
+  screen); close every tag you open. Repeated chrome (a sidebar on several screens) is repeated inside each screen.
 - Make the visible controls work: accordions open and close, tabs switch, selects change, hover and focus states,
   a live clock if one is shown. Content that is cut off in a screenshot may continue in the same style (mark it
   with an HTML comment "continued").
@@ -409,6 +421,38 @@ Rebuild the whole site as ONE working single-file HTML app.
 Components found per screen (label = visible text, box = measured position and size in px in that screenshot):
 {components}
 {tail}"""
+
+
+def screens_nested(code: str) -> bool:
+    """True when one screen section ends up inside another (an unclosed tag swallowed the next screen)."""
+    from html.parser import HTMLParser
+
+    class P(HTMLParser):
+        VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+
+        def __init__(self):
+            super().__init__(); self.stack, self.bad = [], False
+
+        def handle_starttag(self, tag, attrs):
+            if tag in self.VOID:
+                return
+            screen = any(k == "data-screen" for k, _ in attrs)
+            if screen and any(s for _, s in self.stack):
+                self.bad = True
+            self.stack.append((tag, screen))
+
+        def handle_endtag(self, tag):
+            for i in range(len(self.stack) - 1, -1, -1):
+                if self.stack[i][0] == tag:
+                    del self.stack[i:]
+                    break
+
+    p = P()
+    try:
+        p.feed(code)
+    except Exception:
+        return False
+    return p.bad
 
 
 def app_key(analysis_ids: list[str]) -> str:
@@ -431,11 +475,16 @@ def generate_app(screens: list[tuple[SystemAnalysis, bytes, str]], client: Any |
                       for i, (a, b, _) in enumerate(screens, 1))
     prompt = APP_PROMPT.format(n=len(screens), screens=listing, w=w, h=h, components=comps, tail=TEXT_TAIL)
     try:
-        code, notes, complete = parse_code_text(client.generate_code_text_images([(b, m) for _, b, m in screens], prompt))
+        for attempt in range(2):  # a second try when the first answer is cut off or nests one screen inside another
+            code, notes, complete = parse_code_text(client.generate_code_text_images([(b, m) for _, b, m in screens], prompt))
+            if len(code) < 400 or "<" not in code:
+                raise ValueError("model returned no usable code")
+            if complete and not screens_nested(code):
+                break
         if not complete:
             notes = ["The answer was cut off at the length limit; the end of the file may be missing."] + notes[:3]
-        if len(code) < 400 or "<" not in code:
-            raise ValueError("model returned no usable code")
+        elif screens_nested(code):
+            notes = ["One screen may be nested inside another; if a screen looks squeezed, ask for a fix."] + notes[:3]
         code = clean_html(code)
     except Exception as exc:  # fall back to the first screen on its own
         reason = getattr(exc, "message", None) or f"{type(exc).__name__}: {exc}"

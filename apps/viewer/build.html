@@ -62,7 +62,7 @@
     <div class="code-grid">
       <div class="stage-col">
         <div class="tools">
-          <div class="seg" id="viewSeg"><button data-v="wipe" class="on">Compare</button><button data-v="side">Side by side</button><button data-v="code">Code</button></div>
+          <div class="seg" id="viewSeg"><button data-v="wipe" class="on">Compare</button><button data-v="side">Side by side</button><button data-v="devices" title="The rebuilt page on a phone, a tablet and a laptop">Devices</button><button data-v="code">Code</button></div>
           <div class="seg" id="targetSeg"><button data-t="html" class="on">HTML</button><button data-t="react">React</button><button data-t="react-native" title="Mobile app (Expo), live preview in a phone frame">React Native</button><button data-t="flutter" title="Mobile app (Dart); runs in DartPad">Flutter</button></div>
           <div class="acc" id="acc" hidden title="How closely the rebuilt page matches the screenshot, measured pixel by pixel">
             <span class="acc-ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" class="trk"/><circle cx="18" cy="18" r="15" class="bar" id="accBar"/></svg></span>
@@ -84,6 +84,11 @@
             <figure><img id="sideImg" alt="Original screenshot" /><figcaption>Original</figcaption></figure>
             <figure><div class="sideframe" id="sideFrameWrap"><iframe id="sideFrame" title="Rebuilt page" sandbox="allow-scripts"></iframe></div><figcaption>Rebuilt</figcaption></figure>
           </div>
+          <div class="devices" id="devices" hidden>
+            <figure class="dev" data-w="390" data-h="844"><div class="devwrap phone"><iframe title="Rebuilt page on a phone" sandbox="allow-scripts"></iframe></div><figcaption>Phone · 390 px</figcaption></figure>
+            <figure class="dev" data-w="820" data-h="1180"><div class="devwrap tablet"><iframe title="Rebuilt page on a tablet" sandbox="allow-scripts"></iframe></div><figcaption>Tablet · 820 px</figcaption></figure>
+            <figure class="dev" data-w="1440" data-h="900"><div class="devwrap laptop"><iframe title="Rebuilt page on a laptop" sandbox="allow-scripts"></iframe></div><figcaption>Laptop · 1440 px</figcaption></figure>
+          </div>
           <pre id="codeView" class="codeview" hidden><code id="codeText"></code></pre>
           <div id="stageWait" class="stage-wait" hidden><div class="spinner"></div><span id="stageWaitText">Writing the code…</span></div>
         </div>
@@ -94,10 +99,17 @@
           <button class="btn primary" id="copy">Copy code</button>
           <button class="btn" id="download">Download</button>
           <button class="btn" id="openTab" title="Open the rebuilt page in a new tab">Open</button>
+          <button class="btn sb-btn" id="stackblitz" title="Open it as a real, editable project in StackBlitz (free, runs in the browser)">Open in StackBlitz</button>
         </div>
-        <div class="whole" id="whole" hidden>
-          <button class="btn whole-btn" id="wholeBtn" type="button">Build the whole site</button>
-          <p>All saved screens of this site in one working app: its menus, dock and windows open the other screens.</p>
+        <div class="whole" id="whole">
+          <h3>Whole app</h3>
+          <div class="screens" id="screens" title="Drop screenshots of the app's other pages here"></div>
+          <div class="whole-row">
+            <button class="btn" id="addScreen" type="button">Add a screen</button>
+            <button class="btn whole-btn" id="wholeBtn" type="button" disabled>Build the whole app</button>
+          </div>
+          <input type="file" id="addFile" accept="image/png,image/jpeg,image/webp" multiple hidden />
+          <p>Add screenshots of the app's other pages (up to 6). The build is one working page whose menus and buttons open them.</p>
         </div>
         <form id="changeForm" class="change">
           <label for="change">Change it</label>
@@ -185,5 +197,6 @@
 <script src="/viewer/tour.js"></script>
 <script src="/viewer/build.js"></script>
 <script src="/viewer/build-fx.js"></script>
+<script src="/viewer/build-edit.js"></script>
 </body>
 </html>

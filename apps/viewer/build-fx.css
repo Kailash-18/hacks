@@ -198,3 +198,15 @@
 .g-mini { position: sticky; top: 16px; border-radius: 10px; overflow: hidden; border: 1px solid rgba(94,242,255,.3); box-shadow: 0 0 30px rgba(94,242,255,.1); }
 .g-mini img { display: block; width: 100%; filter: brightness(.8); }
 @media (max-width: 900px) { .g-comp-wrap { grid-template-columns: 1fr; } .g-mini { position: static; } }
+
+/* edit the rebuild directly */
+.edit-btn.on { color: #fff; background: var(--blue); border-color: var(--blue); box-shadow: 0 0 18px rgba(79,140,255,.5); }
+.edit-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 8px 12px; margin-bottom: 10px; border: 1px solid rgba(79,140,255,.45);
+  border-radius: 10px; background: rgba(79,140,255,.08); font-size: 13px; }
+.edit-bar label { display: inline-flex; gap: 6px; align-items: center; color: var(--ink-2); }
+.edit-bar input[type=color] { width: 28px; height: 24px; padding: 0; border: 1px solid var(--rule); border-radius: 6px; background: none; cursor: pointer; }
+.eb-what { font: 600 12px "IBM Plex Mono", monospace; color: var(--ink); }
+.eb-hint { color: var(--ink-2); }
+.eb-size { display: inline-flex; gap: 6px; align-items: center; }
+.eb-size button { border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+.eb-save { margin-left: auto; }
