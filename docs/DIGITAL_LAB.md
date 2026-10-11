@@ -22,6 +22,20 @@ Code: `apps/api/app/services/codegen.py`, `apps/api/app/routes_build.py`, `apps/
 API: `POST /api/digital/code` (multipart `image`, `target=html|react|react-native|flutter`, optional `change`, `baseCode`, `force`),
 `POST /api/digital/guide` (multipart `image`, optional `force`).
 
+### Teardown, X-ray and demo mode (`apps/viewer/build-fx.{js,css}`)
+
+- **Teardown:** while a screenshot is processed it is scanned, its parts light up, the screen explodes into 3D
+  layers by nesting depth (from the analysis' `contains` relationships), the real generated code types out beside
+  it with each part lighting up as its text is written, then it reassembles and the compare slider sweeps.
+  Skip button; off for `prefers-reduced-motion`.
+- **X-ray** (button next to the view switch): hover the rebuilt page and the matching part of the original and the
+  element's code light up; hover the original and the rebuilt element lights up. A small script inside the
+  sandboxed preview reports the hovered element; it is matched to the analysis by visible text.
+- **Demo mode:** open `/digital?demo` to play the whole story with captions (paste, teardown, compare, X-ray,
+  a change request, React Native, build guide, accessibility). Every step uses results saved with the Log in
+  example (`python scripts/save_build_samples.py`), so it needs no live AI call. Keep the Chrome window in front
+  while recording: Chrome does not paint sandboxed previews in a window hidden behind others.
+
 ## Multi-screen explorer: `/digital/explorer`
 
 

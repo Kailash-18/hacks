@@ -120,7 +120,7 @@ async function start(blob, name, title = "") {
   wait("Writing the code…");
   status("Writing the code and the build plan. This takes about 20–40 seconds.");
   const code = makeCode({ target: "html" }, "First version", run);
-  code.then(() => { if (run === S.run) window.fx?.done(); });
+  code.then(() => { if (run === S.run) window.fx?.done(S.versions.html.at(-1)?.code); });
   const guide = api("/api/digital/guide", { method: "POST", body: form() })
     .then((g) => { if (run === S.run) { S.guide = g; renderGuide(); } })
     .catch((e) => { if (run === S.run) $("#guide").innerHTML = `<p class="fallback">Could not write the guide: ${esc(e.message)}</p>`; });
