@@ -6,8 +6,8 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const S = {
   shot: null,          // {blob, url, w, h, name}
   analysis: null,
-  versions: { html: [], react: [] },  // [{code, notes, source, change, label}]
-  cur: { html: -1, react: -1 },
+  versions: { html: [], react: [], "react-native": [], flutter: [] },  // [{code, notes, source, change, label}]
+  cur: { html: -1, react: -1, "react-native": -1, flutter: -1 },
   target: "html", view: "wipe", tab: "code",
   guide: null, tree: null, sel: null, wipe: 50, run: 0,
 };
@@ -83,7 +83,7 @@ async function start(blob, name, title = "") {
   const url = URL.createObjectURL(blob);
   const [w, h] = await imgSize(url);
   Object.assign(S, { shot: { blob, url, w, h, name }, analysis: null, guide: null, tree: null, sel: null,
-    versions: { html: [], react: [] }, cur: { html: -1, react: -1 }, target: "html", backend: null, a11y: null, acc: {} });
+    versions: { html: [], react: [], "react-native": [], flutter: [] }, cur: { html: -1, react: -1, "react-native": -1, flutter: -1 }, target: "html", backend: null, a11y: null, acc: {} });
   $("#acc").hidden = true; $("#heat").hidden = true; $("#accHeat").checked = false;
   for (const id of ["#beImg", "#axImg"]) $(id).src = url;
   $("#beSummary").textContent = "Inferring the data model and API from what the screen shows…"; $("#beEr").innerHTML = "";
@@ -125,7 +125,7 @@ async function start(blob, name, title = "") {
 
 async function makeCode(params, label, run = S.run) {
   const t = params.target;
-  wait(params.change ? "Applying the change…" : t === "react" ? "Converting to React…" : "Writing the code…");
+  wait(params.change && !CONVERT[t]?.startsWith(params.change.slice(0, 20)) ? "Applying the change…" : t === "html" ? "Writing the code…" : `Converting to ${TARGET_NAME[t]}…`);
   busy(true);
   try {
     const out = await api("/api/digital/code", { method: "POST", body: form(params) });
@@ -161,7 +161,43 @@ function wait(msg) {
 // ---------- code view ----------
 // preview only: no scrollbar strip over the comparison (the downloaded code is untouched)
 const NO_BAR = "<style>html{scrollbar-width:none}::-webkit-scrollbar{display:none}</style>";
+// mobile targets: the code is a phone app, so it is previewed in a phone-sized frame next to the screenshot
+const MOBILE = new Set(["react-native", "flutter"]);
+const TARGET_NAME = { html: "HTML", react: "React", "react-native": "React Native", flutter: "Flutter" };
+const CONVERT = {  // the React text is part of the saved example results' cache keys: keep it unchanged
+  react: "Convert this page to a React component; keep the look identical.",
+  "react-native": "Convert this screen to a React Native (Expo) app screen; keep the look and all text identical.",
+  flutter: "Convert this screen to a Flutter app screen; keep the look and all text identical.",
+};
+const isMobile = () => MOBILE.has(S.target);
+const frameSize = () => (isMobile() && S.shot.w > S.shot.h ? { w: 390, h: 844 } : { w: S.shot.w, h: S.shot.h });
+
+function nativeDoc(code) {
+  // React Native runs in the browser through react-native-web, loaded as ES modules from esm.sh
+  const RN = "https://esm.sh/react-native-web@0.19.12?deps=react@18.3.1,react-dom@18.3.1";
+  const R = "https://esm.sh/react@18.3.1";
+  let src = code.replace(/^\s*import[^;\n]*from\s*['\"](?!react['\"]|react-native['\"])[^'\"]+['\"];?\s*$/gm, "")  // other libraries are not available
+    .replace(/from\s*['\"]react-native['\"]/g, `from "${RN}"`).replace(/from\s*['\"]react['\"]/g, `from "${R}"`);
+  if (!/import\s+React\b/.test(src)) src = `import React from "${R}";\n` + src;
+  const m = src.match(/export\s+default\s+function\s+([A-Z]\w*)/) || src.match(/export\s+default\s+([A-Z]\w*)\s*;?/);
+  const name = m ? m[1] : "App";
+  src = src.replace(/export\s+default\s+function/, "function").replace(/^\s*export\s+default\s+[A-Z]\w*\s*;?\s*$/m, "").replace(/<\/script/gi, "<\\/script");
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>html,body,#root{height:100%;margin:0}#root{display:flex;flex-direction:column}</style>${NO_BAR}
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script></head>
+<body><div id="root"></div><script type="text/babel" data-type="module" data-presets="react">
+import { createRoot } from "https://esm.sh/react-dom@18.3.1/client?deps=react@18.3.1";
+${src}
+createRoot(document.getElementById("root")).render(React.createElement(${name}));
+</script></body></html>`;
+}
+const FLUTTER_DOC = `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;
+font:16px system-ui,sans-serif;background:#0b1220;color:#cbd5e1;text-align:center;padding:32px;box-sizing:border-box}b{color:#fff;font-size:20px}</style></head>
+<body><div><b>Flutter runs outside the browser preview</b><p>Press <b>Run in DartPad</b>: the code is copied, DartPad opens, paste it and press Run.<br>Or put it in <code>lib/main.dart</code> of a Flutter project.</p></div></body></html>`;
+
 function previewDoc(v) {
+  if (S.target === "react-native") return nativeDoc(v.code);
+  if (S.target === "flutter") return FLUTTER_DOC;
   if (S.target === "html") return /<\/head>/i.test(v.code) ? v.code.replace(/<\/head>/i, NO_BAR + "</head>") : NO_BAR + v.code;
   // React preview: same Tailwind, React + Babel in the sandboxed frame
   let src = v.code.replace(/^\s*import[^;\n]*;?\s*$/gm, "");
@@ -184,9 +220,13 @@ function renderCode() {
   const v = current();
   if (!v) return;
   const doc = previewDoc(v);
-  for (const id of ["#frame", "#sideFrame"]) if ($(id).dataset.doc !== doc.length + ":" + S.target + S.cur[S.target]) { $(id).srcdoc = doc; $(id).dataset.doc = doc.length + ":" + S.target + S.cur[S.target]; }
+  for (const id of ["#frame", "#sideFrame"]) if ($(id).dataset.doc !== doc.length + ":" + S.target + S.cur[S.target]) {
+    $(id).srcdoc = doc; $(id).dataset.doc = doc.length + ":" + S.target + S.cur[S.target];
+    $(id).dataset.hiddenLoad = String(!$(id).offsetParent);  // loaded while its panel was hidden
+  }
   $("#codeText").textContent = v.code;
   fit();
+  if (isMobile()) { $("#acc").hidden = true; return; }  // pixel match only makes sense for the same-size web page
   measureAccuracy(v, doc);
 }
 
@@ -199,12 +239,19 @@ function fit() {
   const k = Math.min(1, width / w, tall / h);
   wipe.style.width = `${Math.round(w * k)}px`; wipe.style.height = `${Math.round(h * k)}px`;
   sizeFrame($("#frame"), k);
-  const sw = $("#sideFrameWrap"), ks = sw.clientWidth / w;
-  sw.style.height = `${Math.round(h * ks)}px`;
-  sizeFrame($("#sideFrame"), ks);
+  const sw = $("#sideFrameWrap"), f = frameSize();
+  sw.classList.toggle("phone", isMobile());
+  // side by side: original and rebuilt get the same height (a portrait screenshot no longer fills the column)
+  const sideH = Math.max(tall, 600) - 30;
+  $("#sideImg").style.maxHeight = S.shot.h > S.shot.w || isMobile() ? `${sideH}px` : "";
+  // phone frame: as wide as fits, but never taller than that height
+  sw.style.width = isMobile() ? `${Math.round(Math.min(330, sw.parentElement.clientWidth, sideH * f.w / f.h))}px` : "";
+  const ks = sw.clientWidth / f.w;
+  sw.style.height = `${Math.round(f.h * ks)}px`;
+  sizeFrame($("#sideFrame"), ks, f);
   setWipe(S.wipe);
 }
-function sizeFrame(f, k) { f.style.width = `${S.shot.w}px`; f.style.height = `${S.shot.h}px`; f.style.transform = `scale(${k})`; }
+function sizeFrame(f, k, size = S.shot) { f.style.width = `${size.w}px`; f.style.height = `${size.h}px`; f.style.transform = `scale(${k})`; }
 addEventListener("resize", () => { if (!$("#work").hidden) { fit(); placeBoxes(); } });
 
 // wipe slider: original on the left of the line, rebuilt on the right
@@ -229,18 +276,26 @@ function setWipe(p) {
 })();
 
 function setView(v) {
+  if (v === "wipe" && S.shot && isMobile()) { toast("A phone app is compared side by side with the screenshot"); v = "side"; }
   S.view = v;
   $$("#viewSeg button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
   $("#wipe").hidden = v !== "wipe"; $("#side").hidden = v !== "side"; $("#codeView").hidden = v !== "code";
+  // a React Native app measures the screen once at start: one loaded while hidden saw a 0 x 0 screen, so reload it
+  const shown = { wipe: "#frame", side: "#sideFrame" }[v];
+  if (shown && $(shown).dataset.hiddenLoad === "true" && current()) { delete $(shown).dataset.doc; requestAnimationFrame(renderCode); }
   requestAnimationFrame(fit);
 }
 $$("#viewSeg button").forEach((b) => (b.onclick = () => setView(b.dataset.v)));
 
 function setTarget(t, generate = true) {
   S.target = t; renderTarget();
-  if (generate && t === "react" && !S.versions.react.length) {
+  // a mobile app is compared side by side with the screenshot (a wipe needs the same size and layout)
+  if (isMobile() && S.view === "wipe") { S.prevView = "wipe"; setView("side"); }
+  if (!isMobile() && S.prevView === "wipe") { S.prevView = null; if (S.view === "side") setView("wipe"); }
+  $("#openTab").textContent = t === "flutter" ? "Run in DartPad" : "Open";
+  if (generate && t !== "html" && !S.versions[t].length) {
     const base = S.versions.html[S.cur.html];
-    makeCode({ target: "react", baseCode: base?.code, change: base ? "Convert this page to a React component; keep the look identical." : "" }, "First React version");
+    makeCode({ target: t, baseCode: base?.code, change: base ? CONVERT[t] : "" }, `First ${TARGET_NAME[t]} version`);
     return;
   }
   renderVersions(); renderNotes(); renderCode();
@@ -278,14 +333,20 @@ $("#copy").onclick = async () => {
 };
 $("#download").onclick = () => {
   const v = current(); if (!v) return;
-  const [ext, type] = S.target === "html" ? ["html", "text/html"] : ["jsx", "text/javascript"];
+  const [name, type] = { html: [`${fileName()}.html`, "text/html"], react: [`${fileName()}.jsx`, "text/javascript"],
+    "react-native": ["App.js", "text/javascript"], flutter: ["main.dart", "text/plain"] }[S.target];
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([v.code], { type })); a.download = `${fileName()}.${ext}`; a.click();
+  a.href = URL.createObjectURL(new Blob([v.code], { type })); a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  toast(`Downloaded ${fileName()}.${ext}`);
+  toast(`Downloaded ${name}`);
 };
-$("#openTab").onclick = () => {
+$("#openTab").onclick = async () => {
   const v = current(); if (!v) return;
+  if (S.target === "flutter") {  // DartPad runs Flutter: copy the code, open it, the user pastes and presses Run
+    try { await navigator.clipboard.writeText(v.code); toast("Code copied: paste it into DartPad and press Run"); } catch { toast("Copy the code from the Code view, then paste it into DartPad"); }
+    window.open("https://dartpad.dev/?sample=flutter", "_blank", "noopener");
+    return;
+  }
   const u = URL.createObjectURL(new Blob([previewDoc(v)], { type: "text/html" }));
   window.open(u, "_blank", "noopener");
 };

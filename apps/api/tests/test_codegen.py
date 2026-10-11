@@ -165,3 +165,17 @@ def test_everything_works_without_pillow(monkeypatch):
     assert sum(abs(int(tok["colors"]["primary"][i:i + 2], 16) - int(with_pil[i:i + 2], 16)) for i in (1, 3, 5)) < 40
     assert codegen._image_size(img) == (1280, 800)
     assert digital_extras.audit_accessibility(a, img)["score"] >= 0
+
+
+@pytest.mark.parametrize("target,needle", [("react-native", "react-native"), ("flutter", "package:flutter/material.dart")])
+def test_mobile_targets(target, needle):
+    a, img = login()
+    code = ("import 'package:flutter/material.dart';\nvoid main() => runApp(const MyApp());\n" if target == "flutter"
+            else "import { View, Text } from 'react-native';\nexport default function App() { return <View><Text>Log in</Text></View>; }\n") * 3
+    fake = TextFake(f"```\n{code}\n```\nNOTES:\n- Adapted to a phone layout")
+    out = codegen.generate_code(a, img, "image/png", fake, target)
+    assert out["source"] == "ai" and out["target"] == target and needle in out["code"]
+    assert needle.split(":")[-1].split("/")[0] in fake.prompts[0].lower() or target.replace("-", " ") in fake.prompts[0].lower()
+    # no layout draft exists for mobile: the fallback says so instead of returning HTML
+    fb = codegen.generate_code(a, img, "image/png", None, target, force=True)
+    assert fb["source"] == "layout" and "<html" not in fb["code"].lower()

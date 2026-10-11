@@ -296,3 +296,9 @@ kbd { font: 500 15px "IBM Plex Mono", monospace; background: var(--paper); borde
 .shot.mini .boxes { inset: 8px; }
 
 .tree-col .ask { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--radius); padding: 12px 14px; margin-top: 12px; }
+
+/* mobile targets: the rebuilt app sits in a phone frame */
+.sideframe.phone { margin: 0 auto; border: 10px solid #1f2937; border-radius: 34px; box-shadow: 0 12px 30px rgba(0,0,0,.35); }
+.sideframe.phone iframe { border-radius: 24px; }
+.side img { width: auto; max-width: 100%; margin: 0 auto; }
+.side figure { align-items: center; }

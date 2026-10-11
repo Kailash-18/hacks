@@ -6,7 +6,7 @@ Paste (Ctrl+V), drop or choose one screenshot, or click an example. Three tabs:
 
 | Tab | What you get | Model calls |
 |---|---|---|
-| Rebuilt code | Working single-file HTML + Tailwind (or a React component), shown live over the original with a **wipe slider** (drag to compare), side by side, or as code. Copy / download / open. **Change it**: describe a change ("dark theme", "mobile friendly") and get a new version; every version is kept. | 1 per version (cached) |
+| Rebuilt code | Working single-file HTML + Tailwind, a React component, a **React Native (Expo) screen** (live preview in a phone frame via react-native-web) or a **Flutter screen** (runs in DartPad: one click copies the code and opens it), shown live over the original with a **wipe slider** (drag to compare), side by side, or as code. Copy / download / open. **Change it**: describe a change ("dark theme", "mobile friendly") and get a new version; every version is kept. | 1 per version (cached) |
 | How to build it | Stack, step-by-step plan, components with props, behaviour the screenshot cannot show, data needed, effort, measured design tokens | 1 (cached) |
 | Structure | Detected parts as boxes on the screenshot + the component tree; ask questions about the screen | 0 (+1 per question) |
 
@@ -19,7 +19,7 @@ Results are cached by screenshot + request; the examples' results are saved in
 `apps/api/samples/digital/<id>/build/` (`python scripts/save_build_samples.py`), so they open instantly.
 
 Code: `apps/api/app/services/codegen.py`, `apps/api/app/routes_build.py`, `apps/viewer/build.{html,js,css}`.
-API: `POST /api/digital/code` (multipart `image`, `target=html|react`, optional `change`, `baseCode`, `force`),
+API: `POST /api/digital/code` (multipart `image`, `target=html|react|react-native|flutter`, optional `change`, `baseCode`, `force`),
 `POST /api/digital/guide` (multipart `image`, optional `force`).
 
 ## Multi-screen explorer: `/digital/explorer`
