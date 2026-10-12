@@ -89,8 +89,7 @@ async function hero(samples) {
     g.lastChild.setAttribute("r", "3"); svg.append(g);
     return Object.assign(it, { lb, g });
   });
-  const seen = d.components.filter((c) => c.status === "observed").length;
-  caption.replaceChildren(el("b", "", "iPhone 17"), `, a real saved scan: ${d.components.length} parts, ${seen} cut from the photo and ${d.components.length - seen} inside.`);
+  caption.replaceChildren(el("b", "", "iPhone 17"));
 
   let t = 0, anim = 0, phase = "idle", scanT = -1, W = 0, H = 0, live = true;
   const tilt = { x: 0, y: 0, tx: 0, ty: 0 };
@@ -152,7 +151,7 @@ async function hero(samples) {
     while (left.length - right.length > 1) { left.sort((a, b) => b.ax - a.ax); right.push(left.shift()); }
     while (right.length - left.length > 1) { right.sort((a, b) => a.ax - b.ax); left.push(right.shift()); }
     const minAx = Math.min(...pts.map((p) => p.ax)), maxAx = Math.max(...pts.map((p) => p.ax));
-    const TOP = 16, BOTTOM = H - 96, GAP = 7;
+    const TOP = 16, BOTTOM = H - 50, GAP = 7;
     for (const [col, side] of [[left, "L"], [right, "R"]]) {
       const maxLw = Math.max(0, ...col.map((p) => p.it.lw));
       const xR = Math.max(8 + maxLw, minAx - 50), xL = Math.min(W - 8 - maxLw, maxAx + 50);
@@ -174,20 +173,20 @@ async function hero(samples) {
   function animateTo(target, ms) {
     cancelAnimationFrame(anim);
     const from = t, t0 = performance.now();
-    const step = (now) => { const q = Math.min(1, (now - t0) / ms); t = from + (target - from) * q; range.value = Math.round(t * 100); if (q < 1) anim = requestAnimationFrame(step); };
+    const step = (now) => { const q = Math.min(1, (now - t0) / ms); t = from + (target - from) * q; if (range) range.value = Math.round(t * 100); if (q < 1) anim = requestAnimationFrame(step); };
     anim = requestAnimationFrame(step);
   }
 
   resize(); new ResizeObserver(resize).observe(stage);
-  if (reduce) { t = 1; range.value = 100; } else setTimeout(() => (scanT = 0), 450);
+  if (reduce) t = 1; else setTimeout(() => (scanT = 0), 450);
   requestAnimationFrame(frame);
   // pause while the landing is hidden (a result is open) or the tab is in the background
   const wake = () => { const was = live; live = !root.hidden && !document.hidden; if (live && !was) { clock.getDelta(); resize(); requestAnimationFrame(frame); } };
   new MutationObserver(wake).observe(root, { attributes: true, attributeFilter: ["hidden"] });
   document.addEventListener("visibilitychange", wake);
 
-  range.addEventListener("input", () => { cancelAnimationFrame(anim); scanT = -1; scanMat.opacity = 0; t = range.value / 100; });
-  open.addEventListener("click", () => openSample(s.id));
+  range?.addEventListener("input", () => { cancelAnimationFrame(anim); scanT = -1; scanMat.opacity = 0; t = range.value / 100; });
+  open?.addEventListener("click", () => openSample(s.id));
   if (!reduce) {
     stage.addEventListener("pointermove", (e) => { const r = stage.getBoundingClientRect(); tilt.tx = ((e.clientX - r.left) / r.width - 0.5) * 2; tilt.ty = ((e.clientY - r.top) / r.height - 0.5) * 2; });
     stage.addEventListener("pointerleave", () => { tilt.tx = 0; tilt.ty = 0; });

@@ -66,3 +66,17 @@ html.lab-arriving.lt-digital::after { background: #0d0b24; }
 .lab-transit.closed .lt-title { opacity: 1; transform: none; }
 .lab-transit.opening .lt-title { opacity: 0; transform: scale(1.06); transition: opacity .22s ease, transform .4s ease; }
 @media (prefers-reduced-motion: reduce) { .lab-transit { display: none; } html.lab-arriving::after { display: none; } }
+
+/* "Scroll for samples" cue, bottom-centre of both landings */
+.sample-cue { position: fixed; left: 50%; bottom: 22px; z-index: 5; transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 10px; padding: 10px 18px 10px 20px; border-radius: 999px;
+  border: 1px solid rgba(94, 242, 255, .35); background: rgba(10, 14, 28, .72); backdrop-filter: blur(10px);
+  color: #e8eefc; font: 600 14px/1 "Inter", "IBM Plex Sans", system-ui, sans-serif; letter-spacing: .01em; cursor: pointer;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .35), 0 0 0 4px rgba(94, 242, 255, .06);
+  transition: opacity .35s ease, transform .35s ease, border-color .2s, background .2s; }
+.sample-cue:hover { border-color: rgba(94, 242, 255, .8); background: rgba(16, 26, 48, .85); }
+.sample-cue:focus-visible { outline: 2px solid #5ef2ff; outline-offset: 3px; }
+.sample-cue .sc-arrow { display: inline-block; color: #5ef2ff; font-size: 16px; animation: sc-bob 1.6s ease-in-out infinite; }
+.sample-cue.gone { opacity: 0; pointer-events: none; transform: translate(-50%, 12px); }
+@keyframes sc-bob { 0%, 100% { transform: translateY(-2px); } 50% { transform: translateY(3px); } }
+@media (prefers-reduced-motion: reduce) { .sample-cue .sc-arrow { animation: none; } }

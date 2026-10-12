@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="/viewer/nav.css" />
 <script>/* arriving from the other lab: start covered, lab-transit.js opens the cover */try { var lt = sessionStorage.getItem("lab-transit"); if (lt === "physical" || lt === "digital") document.documentElement.classList.add("lab-arriving", "lt-" + lt); } catch (e) {}</script>
 <script src="/viewer/lab-transit.js" defer></script>
+<script src="/viewer/sample-cue.js" defer></script>
 </head>
 <body>
 <header class="bar vre-nav">
@@ -36,6 +37,7 @@
   </label>
   </div>
   <div class="hero-stack" id="heroStack" aria-hidden="true"></div>
+  <button type="button" class="sample-cue" data-target=".examples">Scroll for samples <span class="sc-arrow" aria-hidden="true">&#8595;</span></button>
   <section class="examples" aria-labelledby="exTitle">
     <h2 id="exTitle">Try a finished rebuild</h2>
     <p class="ex-lede">Open one of these to see its code, build plan and structure, no upload needed. Point at one to see its rebuild.</p>

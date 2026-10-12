@@ -20,6 +20,7 @@
 <link rel="stylesheet" href="/viewer/nav.css" />
 <script>/* arriving from the other lab: start covered, lab-transit.js opens the cover */try { var lt = sessionStorage.getItem("lab-transit"); if (lt === "physical" || lt === "digital") document.documentElement.classList.add("lab-arriving", "lt-" + lt); } catch (e) {}</script>
 <script src="/viewer/lab-transit.js" defer></script>
+<script src="/viewer/sample-cue.js" defer></script>
 </head>
 <body>
 <header class="topbar vre-nav">
@@ -51,12 +52,9 @@
           <canvas class="ld-canvas" id="ldCanvas"></canvas>
           <svg class="ld-leaders" id="ldLeaders" aria-hidden="true"></svg>
           <div class="ld-labels" id="ldLabels"></div>
-          <figcaption class="ld-bar">
-            <label class="ld-explode">Pull apart <input type="range" id="ldExplode" min="0" max="100" value="0" /></label>
-            <button class="ld-open" id="ldOpen" type="button">Open this teardown</button>
-          </figcaption>
         </figure>
       </section>
+      <button type="button" class="sample-cue" data-target=".ld-shelf" data-scroller="#empty">Scroll for samples <span class="sc-arrow" aria-hidden="true">&#8595;</span></button>
       <section class="ld-shelf" aria-labelledby="ldShelfTitle">
         <h2 id="ldShelfTitle">Try a finished teardown</h2>
         <p>Open any of these in the full 3D viewer, no upload needed. Each drawing is that teardown's own 3D model; point at one to pull it apart.</p>

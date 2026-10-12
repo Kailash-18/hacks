@@ -23,6 +23,8 @@ RUN pip install -r apps/api/requirements.txt
 COPY apps/api apps/api
 COPY apps/viewer apps/viewer
 COPY contracts contracts
+# the guided tour is left out of the image (.dockerignore); empty stubs keep the pages' <script>/<link> tags from 404ing
+RUN touch apps/viewer/tour.js apps/viewer/tour.css
 
 # run as a non-root user (uid 1000 also matches Hugging Face Spaces)
 RUN useradd -m -u 1000 app && chown -R app:app /app

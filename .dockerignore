@@ -22,3 +22,8 @@ docs
 node_modules
 apps/viewer/devtest.js
 apps/api/check_key.py
+
+# Guided tour + voice-over are for recording the demo locally, not for the live site
+apps/viewer/voice
+apps/viewer/tour.js
+apps/viewer/tour.css

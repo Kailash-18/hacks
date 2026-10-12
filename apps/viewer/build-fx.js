@@ -362,18 +362,18 @@ document.documentElement.addEventListener("mouseleave",()=>{if(on){mark(null);pa
     if (window.tour) await window.tour.bridgeOut();
     document.body.classList.add("demo");
     await waitFor(() => document.querySelectorAll(".ex").length > 1, 15000);
-    say(1, "Paste a screenshot of any website or app");
+    await say(1, "Paste a screenshot of any website or app");
     await sleep(3200);
     const ex = [...document.querySelectorAll(".ex")].find((b) => /log in/i.test(b.textContent)) || document.querySelectorAll(".ex")[0];
     ex.click();
-    say(2, "It reads the screen, finds every part and tears it down into layers");
+    await say(2, "It reads the screen, finds every part and tears it down into layers");
     await waitFor(() => S.versions.html.length && !q(".fx"));
     await sleep(700);
     scrollTo({ top: q(".tabs").getBoundingClientRect().top + scrollY - 70, behavior: "smooth" });
-    say(3, "The rebuilt page runs live next to the original. Drag to compare");
+    await say(3, "The rebuilt page runs live next to the original. Drag to compare");
     await sleep(600); await slide(50, 88, 1400); await slide(88, 12, 2000); await slide(12, 50, 1200);
     await sleep(600);
-    say(4, "X-ray: every part of the rebuild is linked to the original and to its code");
+    await say(4, "X-ray: every part of the rebuild is linked to the original and to its code");
     setXray(true);
     await sleep(900);
     const tour = (S.analysis?.components || []).filter((c) => c.bbox && /button|input|heading|link|text/.test(c.type) && c.label.length > 2)
@@ -385,11 +385,11 @@ document.documentElement.addEventListener("mouseleave",()=>{if(on){mark(null);pa
       await sleep(1700);
     }
     setXray(false); setView("wipe");
-    say(5, "Inspect: the full component tree, every part boxed on the original");
+    await say(5, "Inspect: the full component tree, every part boxed on the original");
     setTab("structure");
     await sleep(4600);
     setTab("code");
-    say(6, "Ask for changes in plain English");
+    await say(6, "Ask for changes in plain English");
     scrollTo({ top: 0, behavior: "smooth" });
     await typeInto(q("#change"), "Switch the whole page to a dark theme");
     await sleep(400);
@@ -397,21 +397,21 @@ document.documentElement.addEventListener("mouseleave",()=>{if(on){mark(null);pa
     q("#changeForm").requestSubmit();
     await waitFor(() => S.versions.html.length > before);
     await sleep(500); await slide(100, 50, 1300); await sleep(2200);
-    say(7, "One click turns it into a mobile app: React Native, or Flutter");
+    await say(7, "One click turns it into a mobile app: React Native, or Flutter");
     S.cur.html = 0;  // convert the first version (its React Native result is saved with the example)
     q('#targetSeg button[data-t="react-native"]').click();
     await waitFor(() => S.versions["react-native"].length);
     await sleep(4200);
-    say(8, "A step-by-step plan to build it for real: stack, steps, effort");
+    await say(8, "A step-by-step plan to build it for real: stack, steps, effort");
     setTab("guide"); scrollTo({ top: 0 });
     await sleep(1200);
     const g = q("#guide"); const end = g.getBoundingClientRect().top + scrollY + g.offsetHeight - innerHeight;
     for (let y = scrollY; y < end; y += 6) { scrollTo(0, y); await sleep(16); }
     await sleep(800);
-    say(9, "It even infers the backend: data models and API endpoints behind the screen");
+    await say(9, "It even infers the backend: data models and API endpoints behind the screen");
     scrollTo({ top: 0 }); setTab("backend");
     await sleep(5200);
-    say(10, "Plus an accessibility audit: contrast, labels, sizes, with one-click fixes");
+    await say(10, "Plus an accessibility audit: contrast, labels, sizes, with one-click fixes");
     scrollTo({ top: 0 }); setTab("a11y");
     await sleep(2600);
     const ax = q("#tab-a11y"); const end2 = ax.getBoundingClientRect().top + scrollY + ax.offsetHeight - innerHeight;

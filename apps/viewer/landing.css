@@ -68,7 +68,7 @@
 .ld-lbl.guess small { margin-left: 6px; font-weight: 500; color: var(--guess); }
 .ld-lbl.lit { border-color: #fff; background: rgba(20, 40, 72, .92); }
 
-.ld-caption { position: absolute; left: 50%; bottom: 66px; transform: translateX(-50%); margin: 0; width: max-content; max-width: 94%; text-align: center;
+.ld-caption { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); margin: 0; width: max-content; max-width: 94%; text-align: center;
   font-size: 13px; color: var(--dim); font-variation-settings: "wdth" 88; }
 #empty.landing .ld-caption { animation: none; } /* the old .empty p entrance animation would override the centring */
 .ld-caption b { color: var(--paper); font-weight: 600; }
@@ -181,3 +181,6 @@
 .ld-lbl.inside { color: #ffdcab; border-color: rgba(255, 178, 62, .45); }
 .ld-leaders .inside path { stroke: rgba(255, 178, 62, .55); }
 .ld-leaders .inside circle { fill: var(--guess); }
+
+/* hero label: just the product name */
+#empty.landing .ld-caption b { font-size: 15px; font-weight: 700; font-variation-settings: "wdth" 108; letter-spacing: .02em; color: var(--paper); }
