@@ -406,7 +406,12 @@ document.documentElement.addEventListener("mouseleave",()=>{if(on){mark(null);pa
     setTab("guide"); scrollTo({ top: 0 });
     await sleep(1200);
     const g = q("#guide"); const end = g.getBoundingClientRect().top + scrollY + g.offsetHeight - innerHeight;
-    for (let y = scrollY; y < end; y += 6) { scrollTo(0, y); await sleep(16); }
+    await new Promise((ok) => {  // time-based glide down the plan (6 s), so its length never stretches the video
+      const y0 = scrollY, t1 = performance.now();
+      const st = (now) => { const t = Math.min(1, (now - t1) / 6000), e = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        scrollTo(0, y0 + (end - y0) * e); t < 1 ? requestAnimationFrame(st) : ok(); };
+      requestAnimationFrame(st);
+    });
     await sleep(800);
     await say(9, "It even infers the backend: data models and API endpoints behind the screen");
     scrollTo({ top: 0 }); setTab("backend");

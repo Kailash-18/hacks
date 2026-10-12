@@ -3,6 +3,7 @@
 // It drives the real controls (samples menu, explode slider, spin, X-ray, parts list, what-if), like a user would.
 (() => {
   if (!new URLSearchParams(location.search).has("tour")) return;
+  document.documentElement.classList.add("touring");  // tour.css hides UI that should not appear in the video
   const TOTAL = 18, PHYS = 8;
   const q = (s) => document.querySelector(s);
   const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
